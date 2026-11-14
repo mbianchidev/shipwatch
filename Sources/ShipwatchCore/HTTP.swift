@@ -50,6 +50,12 @@ public enum GitHubError: Error, Equatable, LocalizedError {
         }
     }
 
+    /// A 5xx from GitHub. For GraphQL this usually means the query took too long.
+    public var isServerError: Bool {
+        if case .http(let status, _) = self { return status >= 500 }
+        return false
+    }
+
     public var errorDescription: String? {
         switch self {
         case .notSignedIn:

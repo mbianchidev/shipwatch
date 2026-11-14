@@ -99,6 +99,63 @@ struct GitHubClientTests {
         #expect(transport.requests.count == 2)
     }
 
+    static let payments = RepoRef(owner: "acme-org", name: "payments")
+    static let infra = RepoRef(owner: "acme-org", name: "infra")
+
+    /// The repos a GraphQL request asks for, in alias order.
+    static func requestedRepos(_ request: URLRequest) -> [String] {
+        struct Body: Decodable { var variables: [String: String] }
+        guard let data = request.httpBody, let body = try? JSONDecoder().decode(Body.self, from: data) else { return [] }
+        return (0..<body.variables.count / 3).map { "\(body.variables["o\($0)"]!)/\(body.variables["n\($0)"]!)" }
+    }
+
+    static func graphQLReply(_ repos: [String]) -> MockTransport.Reply {
+        let fields = repos.enumerated().map { #""r\#($0.offset)":\#(Fixtures.repoNode($0.element)),"d\#($0.offset)":{"issueCount":0}"# }
+        return .json(#"{"data":{\#(fields.joined(separator: ","))}}"#)
+    }
+
+    static let gatewayTimeout = MockTransport.Reply.json(#"{"message":"Server Error"}"#, status: 502)
+
+    @Test func splitsQueriesThatTimeOut() async throws {
+        let transport = MockTransport { request in
+            guard request.url!.path == "/graphql" else { return .json(Self.runs) }
+            let repos = Self.requestedRepos(request)
+            return repos.count > 1 ? Self.gatewayTimeout : Self.graphQLReply(repos)
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let batch = try await client.statuses(for: [Self.api, Self.payments], includePrereleases: false)
+
+        #expect(batch.statuses[Self.api.key]?.problem == nil)
+        #expect(batch.statuses[Self.payments.key]?.ci?.state == .running)
+        let queries = transport.requests.filter { $0.url!.path == "/graphql" }.map(Self.requestedRepos)
+        #expect(queries == [["mbianchidev/api-server", "acme-org/payments"], ["mbianchidev/api-server"], ["acme-org/payments"]])
+    }
+
+    @Test func repoThatTimesOutAloneShowsTheErrorOnItsRow() async throws {
+        let transport = MockTransport { request in
+            guard request.url!.path == "/graphql" else { return .json(Self.runs) }
+            let repos = Self.requestedRepos(request)
+            return repos.contains("mbianchidev/api-server") ? Self.gatewayTimeout : Self.graphQLReply(repos)
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let batch = try await client.statuses(for: [Self.api, Self.payments, Self.infra], includePrereleases: false)
+
+        #expect(batch.statuses[Self.api.key]?.problem == .error("GitHub returned HTTP 502: Server Error"))
+        #expect(batch.statuses[Self.api.key]?.ci == nil)
+        #expect(batch.statuses[Self.payments.key]?.problem == nil)
+        #expect(batch.statuses[Self.infra.key]?.problem == nil)
+        #expect(!transport.requests.contains { $0.url!.path == "/repos/mbianchidev/api-server/actions/runs" })
+    }
+
+    @Test func outageStillFailsTheRefresh() async throws {
+        let transport = MockTransport { _ in Self.gatewayTimeout }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        await #expect(throws: GitHubError.http(status: 502, message: "Server Error")) {
+            try await client.statuses(for: [Self.api, Self.payments, Self.infra, Self.legacy], includePrereleases: false)
+        }
+        #expect(transport.requests.count <= 6)
+    }
+
     @Test func sendsETagAndReusesCachedRunsOn304() async throws {
         let transport = MockTransport { request in
             if request.value(forHTTPHeaderField: "If-None-Match") == "\"abc\"" {

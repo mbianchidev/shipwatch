@@ -35,19 +35,23 @@ AppModel ──refresh──▶ TokenVault ──token──▶ GitHubClient
 
 Per refresh, `GitHubClient.statuses(for:)`:
 
-1. Sends one GraphQL query per 20 repos (`RepoQuery`): latest releases, open
+1. Sends one GraphQL query per 10 repos (`RepoQuery`): latest releases, open
    issue and PR counts, push and update dates, the default branch name and head
    commit, plus a search count of open PRs by
    `author:app/dependabot`. Names go through GraphQL variables, never into the query text.
+   GitHub answers `5xx` (usually `502`) when a query runs too long, so a failed
+   query is split in half and retried until it goes through, and later refreshes
+   use batches of 5. A repo that still fails alone shows the error on its row.
 2. Sends one REST call per repo for the 50 most recent workflow runs, with
    `If-None-Match` so unchanged repos come back as `304` and don't use rate limit.
 3. `CIEvaluator` turns runs into a state. Running beats failing, failing beats
    passing. Only the latest completed run of each workflow on the default branch
    decides failing vs passing, so a red run that was fixed later is ignored.
 
-Errors that would hit every request (offline, unauthorized, rate limited) stop
-the refresh and show a banner. Per-repo problems (no access, renamed, deleted)
-are shown on that row only.
+Errors that would hit every request (offline, unauthorized, rate limited, or
+three repos in a row failing with `5xx` on their own) stop the refresh and show
+a banner; the previous data stays. Per-repo problems (no access, renamed,
+deleted, a query GitHub can't answer) are shown on that row only.
 
 ## Refresh cadence
 

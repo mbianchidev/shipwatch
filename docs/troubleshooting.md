@@ -38,6 +38,14 @@ Install the [GitHub CLI](https://cli.github.com) and run `gh auth login`.
 Shipwatch looks for `gh` in `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`
 and then `PATH`.
 
+## A banner or row says "GitHub returned HTTP 502"
+
+GitHub gives up on queries that run too long. Shipwatch splits the request into
+smaller ones and retries on its own, so usually only the row of a repository
+GitHub can't answer shows the error. A banner means GitHub kept failing: rows
+that never loaded say "Not loaded yet" and the rest keep their last data. Check
+[githubstatus.com](https://www.githubstatus.com) and click **Retry** later.
+
 ## Counts look stale or a banner says "GitHub rate limit reached"
 
 Shipwatch waits for the rate limit reset and retries on its own. Use
