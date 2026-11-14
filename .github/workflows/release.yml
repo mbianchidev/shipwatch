@@ -30,6 +30,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Release notes list every commit since the previous release tag.
+          fetch-depth: 0
 
       - name: Set up Python for dmgbuild
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -49,6 +51,7 @@ jobs:
           # Bump the patch of the latest published release on every push to main. To start a
           # new minor or major line, run this workflow by hand with that version.
           LATEST="$(gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || true)"
+          echo "previous=$LATEST" >> "$GITHUB_OUTPUT"
           LATEST="${LATEST:-v0.0.0}"
           if [[ ! "$LATEST" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
             echo "::error::Latest release tag '$LATEST' is not vMAJOR.MINOR.PATCH."
@@ -92,8 +95,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           VERSION: ${{ steps.version.outputs.version }}
+          PREVIOUS: ${{ steps.version.outputs.previous }}
         run: |
-          git log -1 --pretty=%B > "$RUNNER_TEMP/notes.md"
+          bash scripts/release-notes.sh "$PREVIOUS" "$GITHUB_SHA" "$REPO" "$VERSION" > "$RUNNER_TEMP/notes.md"
           gh release create "$VERSION" --repo "$REPO" --target "$GITHUB_SHA" \
             --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" \
             dist/Shipwatch.dmg dist/Shipwatch.dmg.sha256 dist/Shipwatch.dmg.sig

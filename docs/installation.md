@@ -3,6 +3,24 @@
 Shipwatch needs macOS 14 Sonoma or later, on Apple Silicon or Intel. The download
 is a single universal app.
 
+## Homebrew
+
+With [Homebrew](https://brew.sh), use the
+[`mbianchidev/tap`](https://github.com/mbianchidev/homebrew-tap) cask:
+
+```bash
+brew install --cask mbianchidev/tap/shipwatch
+```
+
+It installs the same checksummed universal app as `/Applications/Shipwatch.app`
+without opening it; continue with [First launch](#first-launch). The tap picks
+up new releases automatically. Upgrade with
+`brew upgrade --cask --greedy mbianchidev/tap/shipwatch` and leave
+**Install automatically** off in Settings > General, so Homebrew's record stays
+in step with the installed version. Remove it with
+`brew uninstall --cask mbianchidev/tap/shipwatch` after steps 1 and 2 of
+[Uninstall](#uninstall).
+
 ## Download
 
 From the [latest release](https://github.com/mbianchidev/shipwatch/releases/latest),

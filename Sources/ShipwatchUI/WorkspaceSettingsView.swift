@@ -5,6 +5,7 @@ import SwiftUI
 struct WorkspaceSettingsView: View {
     let model: AppModel
     @State private var excludedSelection = Set<String>()
+    @State private var isTrackingFound = false
 
     private var workspace: WorkspaceModel { model.workspace }
     private var prefs: Preferences { model.prefs }
@@ -37,8 +38,14 @@ struct WorkspaceSettingsView: View {
                 .padding(.top, 18)
                 .padding(.bottom, 6)
                 clonesTable
+                if !workspace.untracked.isEmpty {
+                    untrackedRow.padding(.top, 8)
+                }
                 actions.padding(.top, 14)
             }
+        }
+        .sheet(isPresented: $isTrackingFound) {
+            TrackFoundRepositoriesSheet(model: model, clones: workspace.untracked) { isTrackingFound = false }
         }
     }
 
@@ -209,9 +216,13 @@ struct WorkspaceSettingsView: View {
                 VStack(spacing: 4) {
                     Text("No clones found")
                         .font(.system(size: 13, weight: .medium))
-                    Text("No folder here has a git remote pointing at a repository you track.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                    Text(
+                        workspace.untracked.isEmpty
+                            ? "No folder here has a git remote pointing at a repository you track."
+                            : "None of the GitHub clones here belong to a repository you track yet."
+                    )
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, minHeight: 80)
             } else {
@@ -246,6 +257,22 @@ struct WorkspaceSettingsView: View {
             parts.append("\(uncloned.counted("tracked repository", "tracked repositories")) not cloned here")
         }
         return parts.joined(separator: " · ")
+    }
+
+    private var untrackedRow: some View {
+        let count = workspace.untracked.count
+        return HStack(spacing: 8) {
+            Image(systemName: "plus.circle")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text("\(count.counted("repository", "repositories")) cloned here \(count == 1 ? "isn't" : "aren't") tracked yet.")
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Track \(count) Found Here…") { isTrackingFound = true }
+                .help("Choose which of these repositories Shipwatch shows and keeps up to date")
+        }
+        .font(.system(size: 12))
+        .padding(.horizontal, 4)
     }
 
     private var actions: some View {
@@ -314,6 +341,85 @@ struct WorkspaceSettingsView: View {
         panel.message = message
         panel.prompt = prompt
         return panel.runModal() == .OK ? panel.urls : []
+    }
+}
+
+/// Picks which untracked github.com repositories found in the workspace to track. All are selected at first.
+package struct TrackFoundRepositoriesSheet: View {
+    let model: AppModel
+    let clones: [LocalClone]
+    let dismiss: () -> Void
+    @State private var selected: Set<String>
+
+    package init(model: AppModel, clones: [LocalClone], dismiss: @escaping () -> Void) {
+        self.model = model
+        self.clones = clones
+        self.dismiss = dismiss
+        _selected = State(initialValue: Set(clones.map(\.ref.key)))
+    }
+
+    private var selectedRefs: [RepoRef] {
+        clones.map(\.ref).filter { selected.contains($0.key) }
+    }
+
+    package var body: some View {
+        let count = selectedRefs.count
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Track Repositories Found Here")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("GitHub repositories cloned in your workspace that Shipwatch doesn't track yet.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(.secondary)
+            }
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(clones) { clone in
+                        let key = clone.ref.key
+                        PickerRow(
+                            name: AttributedString(clone.ref.fullName),
+                            detail: Text(WorkspaceSettingsView.abbreviated(clone.path.path)),
+                            isAdded: false,
+                            isSelected: selected.contains(key)
+                        ) { toggle(key) }
+                    }
+                }
+            }
+            .frame(height: 290)
+            .settingsTable()
+
+            HStack {
+                Button(count == clones.count ? "Select None" : "Select All") {
+                    selected = count == clones.count ? [] : Set(clones.map(\.ref.key))
+                }
+                Spacer()
+                Button("Cancel", action: dismiss)
+                    .keyboardShortcut(.cancelAction)
+                Button(count == 0 ? "Track Repositories" : "Track \(count.counted("Repository", "Repositories"))") {
+                    model.addRepositories(selectedRefs)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .disabled(count == 0)
+            }
+            .controlSize(.large)
+            .font(.system(size: 13))
+        }
+        .padding(20)
+        .frame(width: 520)
+        .background(Theme.settingsContent)
+        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+    }
+
+    private func toggle(_ key: String) {
+        if selected.contains(key) {
+            selected.remove(key)
+        } else {
+            selected.insert(key)
+        }
     }
 }
 

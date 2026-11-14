@@ -45,6 +45,16 @@ Shipwatch waits for the rate limit reset and retries on its own. Use
 with a 1 minute interval uses more of the hourly limit; pick a longer interval
 in Settings > General.
 
+## Updates say "GitHub's rate limit for this network is used up"
+
+Update checks don't use your GitHub token, so they share GitHub's limit of 60
+API requests an hour with every other unauthenticated tool on your network.
+When it's used up, Shipwatch reads the latest release from
+`github.com/mbianchidev/shipwatch/releases/latest` instead until the limit
+resets, so checks keep working. The message only appears if that fails too;
+Shipwatch retries on its own, or click **Check Now** later. See
+[Updates](updates.md#what-shipwatch-verifies).
+
 ## An update failed
 
 Shipwatch keeps the installed version when an update can't be verified or
@@ -53,9 +63,13 @@ installed, and shows why in Settings > General. See
 
 ## A local clone isn't listed in Settings > Workspace
 
-- The repository must be tracked in Shipwatch, and the clone must be inside the
-  workspace folder, at most 3 levels deep, and not in an excluded folder.
-  Hidden folders, `node_modules` and symlinked folders are never scanned.
+- The repository must be tracked in Shipwatch. Clones of github.com
+  repositories you don't track are counted under the table instead: click
+  **Track N Found Here…** to add them.
+- The clone must be inside the workspace folder, at most 3 levels deep, and not
+  in an excluded folder. Hidden folders, `node_modules` and symlinked folders
+  are never scanned. Click **Rescan** after cloning; Shipwatch also rescans
+  every 5 minutes.
 - One of its remotes must point at github.com: `git@github.com:owner/name`,
   `https://github.com/owner/name` or `ssh://git@github.com/owner/name`. SSH host
   aliases such as `git@github-work:owner/name` and `url.*.insteadOf` rewrites

@@ -408,7 +408,7 @@ package struct AddRepositoriesSheet: View {
     }
 }
 
-private struct PickerRow: View {
+struct PickerRow: View {
     let name: AttributedString
     let detail: Text
     let isAdded: Bool

@@ -82,6 +82,7 @@ import Testing
         try root.fakeClone(".hidden/infra", remotes: ["origin": "git@github.com:acme-org/infra.git"])
         try root.fakeClone("node_modules/infra", remotes: ["origin": "git@github.com:acme-org/infra.git"])
         try root.fakeClone("other", remotes: ["origin": "git@github.com:acme-org/untracked.git"])
+        try root.fakeClone("elsewhere", remotes: ["origin": "git@gitlab.example:acme-org/infra.git"])
         try root.write("linked-worktree/.git", "gitdir: /elsewhere/.git/worktrees/x\n")
         try FileManager.default.createSymbolicLink(at: root.url("alias"), withDestinationURL: root.url("api-server"))
 
@@ -93,6 +94,7 @@ import Testing
         #expect(found.map(\.1) == ["acme-org/infra", "mbianchidev/api-server", "mbianchidev/website", "mbianchidev/website"])
         #expect(found.map(\.2) == ["origin", "origin", "upstream", "origin"])
         #expect(scan.clones.first { $0.ref.name == "website" && $0.remote == "origin" }?.headBranch == "feat/nav")
+        #expect(scan.untracked.map(\.ref.key) == ["acme-org/untracked"])
         #expect(scan.unreadable.isEmpty)
     }
 

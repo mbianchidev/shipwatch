@@ -41,12 +41,20 @@ Only the packaged app updates itself. A build run from source shows
    `https://api.github.com/repos/mbianchidev/shipwatch/releases/latest` with its
    own session, without your GitHub token or cookies. Drafts, pre-releases,
    tags that aren't `vMAJOR.MINOR.PATCH`, and versions not newer than the
-   installed one are ignored, so it never downgrades.
+   installed one are ignored, so it never downgrades. Without a token GitHub
+   allows 60 API requests an hour per network. When that's used up (HTTP 403
+   or 429 with the rate limit headers), Shipwatch asks
+   `https://github.com/mbianchidev/shipwatch/releases/latest` where it
+   redirects instead, without following it, until the limit resets. Only a
+   redirect to `releases/tag/vMAJOR.MINOR.PATCH` in this repository is
+   accepted; GitHub never points it at drafts or pre-releases.
 2. **Download locations.** `Shipwatch.dmg` and `Shipwatch.dmg.sig` must come
    from `https://github.com/mbianchidev/shipwatch/releases/download/<tag>/`.
    Redirects may only go to `github.com`, `objects.githubusercontent.com` or
    `release-assets.githubusercontent.com` over HTTPS. The DMG may be at most
-   64 MiB and the signature 4 KiB.
+   64 MiB and the signature 4 KiB, and each must match the size the API lists.
+   Releases found through the redirect have no listed sizes; the signature
+   still pins the DMG's exact size.
 3. **Signature.** `Shipwatch.dmg.sig` is a small JSON document with the bundle
    identifier, version, size and SHA-256 of the DMG, plus an Ed25519 signature
    over those fields. Shipwatch checks the signature against the release public
@@ -124,4 +132,5 @@ log show --last 1h --predicate 'subsystem == "dev.mbianchi.shipwatch" AND catego
   signature.
 - Only the latest release is offered. There are no update channels.
 - Release notes are plain text, shortened to 4000 characters, and shown as the
-  tooltip of **Release notes**.
+  tooltip of **Release notes**. They are missing while the API is rate limited;
+  **Release notes** still opens the release page.

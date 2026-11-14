@@ -44,9 +44,11 @@ requests counted separately. Every item links to the matching GitHub page.
 
 Requires macOS 14 Sonoma or later, on Apple Silicon or Intel.
 
-1. Download `Shipwatch.dmg` from the
+1. Install with [Homebrew](https://brew.sh):
+   `brew install --cask mbianchidev/tap/shipwatch`. Or download
+   `Shipwatch.dmg` from the
    [latest release](https://github.com/mbianchidev/shipwatch/releases/latest).
-2. Open it and drag **Shipwatch** onto **Applications**.
+2. Without Homebrew, open the DMG and drag **Shipwatch** onto **Applications**.
 3. Open Shipwatch from Applications. Releases are ad-hoc signed, not notarized,
    so macOS may block the first launch: click **Done**, then **Open Anyway** in
    **System Settings > Privacy & Security**. See

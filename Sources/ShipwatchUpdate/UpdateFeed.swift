@@ -3,7 +3,10 @@ import Foundation
 package struct UpdateAsset: Equatable, Sendable {
     package let name: String
     package let url: URL
-    package let size: Int64
+    /// The size GitHub's API lists. `nil` when the release was found through the release page instead;
+    /// the signature still pins the disk image's exact size.
+    package let size: Int64?
+    package let maxSize: Int64
 }
 
 /// A published release that is newer than the running app, with its trusted download locations.
@@ -49,6 +52,8 @@ package enum UpdateFeedError: Error, Equatable, LocalizedError {
 /// Reads GitHub's latest-release document and decides whether it is an installable update.
 package enum UpdateFeed {
     package static let latestReleaseURL = URL(string: "https://api.github.com/repos/mbianchidev/shipwatch/releases/latest")!
+    /// Redirects to the latest release's tag page. Not covered by the REST API's rate limit.
+    package static let latestReleasePageURL = URL(string: "\(releasesPrefix)latest")!
     package static let diskImageName = "Shipwatch.dmg"
     package static let signatureName = "Shipwatch.dmg.sig"
     package static let maxDiskImageSize: Int64 = 64 << 20
@@ -81,6 +86,33 @@ package enum UpdateFeed {
         ))
     }
 
+    /// Evaluates where `latestReleasePageURL` redirects: `releases/tag/<tag>`, or `releases` when nothing is published.
+    /// GitHub never redirects there to drafts or pre-releases. Assets get their fixed download URLs and size limits,
+    /// without notes.
+    package static func evaluate(latestReleaseLocation location: URL, current: UpdateVersion) throws -> UpdateFeedResult {
+        let text = location.absoluteString
+        if text == releasesPrefix || text + "/" == releasesPrefix { return .upToDate }
+        let tagPrefix = "\(releasesPrefix)tag/"
+        guard text.hasPrefix(tagPrefix), location.query == nil, location.fragment == nil else {
+            throw UpdateFeedError.invalidResponse
+        }
+        let tag = String(text.dropFirst(tagPrefix.count))
+        guard let version = UpdateVersion(tag: tag) else {
+            throw UpdateFeedError.invalidTag(String(tag.prefix(40)))
+        }
+        guard version > current else { return .upToDate }
+        func asset(_ name: String, maxSize: Int64) -> UpdateAsset {
+            UpdateAsset(name: name, url: URL(string: "\(releasesPrefix)download/\(version.tag)/\(name)")!, size: nil, maxSize: maxSize)
+        }
+        return .available(UpdateRelease(
+            version: version,
+            pageURL: URL(string: "\(tagPrefix)\(version.tag)")!,
+            notes: "",
+            diskImage: asset(diskImageName, maxSize: maxDiskImageSize),
+            signature: asset(signatureName, maxSize: Int64(UpdateSignature.maxDocumentSize))
+        ))
+    }
+
     private static func asset(_ name: String, in release: Release, tag: String, maxSize: Int64) throws -> UpdateAsset {
         guard let asset = release.assets.first(where: { $0.name == name }) else {
             throw UpdateFeedError.missingAsset(name)
@@ -92,7 +124,7 @@ package enum UpdateFeed {
         guard asset.size > 0, asset.size <= maxSize else {
             throw UpdateFeedError.invalidAssetSize(name)
         }
-        return UpdateAsset(name: name, url: url, size: asset.size)
+        return UpdateAsset(name: name, url: url, size: asset.size, maxSize: maxSize)
     }
 
     private struct Release: Decodable {

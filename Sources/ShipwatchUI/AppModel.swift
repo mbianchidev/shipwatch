@@ -517,6 +517,7 @@ public final class AppModel {
     public func addRepositories(_ refs: [RepoRef]) {
         guard prefs.repos.add(refs) > 0 else { return }
         requestRefresh(force: true)
+        Task { await workspace.rescan() }
     }
 
     public func removeRepository(_ id: TrackedRepo.ID) {

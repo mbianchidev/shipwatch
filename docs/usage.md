@@ -77,13 +77,22 @@ stashes, forces, pushes or switches branches.
    `~/Developer`. Shipwatch scans it up to 3 levels deep for folders whose git
    remote points at a repository you track on github.com. Nothing on disk
    changes yet.
-2. Optionally add **Excluded folders** with **+**. Shipwatch doesn't scan them or
+2. When the folder holds clones of github.com repositories you don't track yet,
+   a line under the table says how many. Click **Track N Found Here…**, untick
+   any you don't want (all are ticked at first), and click
+   **Track N Repositories**. They are added to Settings > Repositories like
+   repositories added with **+**.
+3. Optionally add **Excluded folders** with **+**. Shipwatch doesn't scan them or
    anything inside them. Hidden folders, `node_modules`, symlinks and app
    bundles are always skipped.
-3. Turn on **Keep default branches up to date** (default off).
+4. Turn on **Keep default branches up to date** (default off).
 
 <p align="center">
-  <img src="screenshots/settings-workspace.png" alt="Workspace settings with the workspace folder, the sync switch, two excluded folders and a table of local clones showing up to date, updated and skipped statuses" width="560">
+  <img src="screenshots/settings-workspace.png" alt="Workspace settings with the workspace folder, the sync switch, two excluded folders, a table of local clones showing up to date, updated and skipped statuses, and a line saying 3 repositories cloned here aren't tracked yet with a Track 3 Found Here button" width="560">
+</p>
+
+<p align="center">
+  <img src="screenshots/settings-track-found.png" alt="Track Repositories Found Here sheet listing three untracked repositories with their local paths, all ticked, and a Track 3 Repositories button" width="560">
 </p>
 
 After every refresh where GitHub reports a new commit on a default branch,
