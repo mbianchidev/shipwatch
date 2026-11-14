@@ -12,7 +12,9 @@ Shipwatch shows a sailboat in the menu bar.
 
 Turn on **Show failing count in menu bar** to also show how many repositories
 are failing. Left-click the sailboat to open the list. Right-click it for
-**Refresh** (Cmd-R), **Settings…** (Cmd-comma) and **Quit Shipwatch** (Cmd-Q).
+**Refresh** (Cmd-R), **Settings…** (Cmd-comma), **Check for Updates…** and
+**Quit Shipwatch** (Cmd-Q). When a newer Shipwatch is out, a line above
+**Manage Repositories…** offers **Install**; see [Updates](updates.md).
 The same shortcuts work while the list is open.
 
 ## Repository rows
@@ -68,9 +70,13 @@ The repositories shown in the list, in order.
 | Include pre-releases | Off | Show the newest release even if it is a pre-release. |
 | Show failing count in menu bar | Off | Add the number of failing repositories next to the sailboat. |
 | Launch at login | On after the first launch from Applications | Start Shipwatch when you log in. Only available for the app bundle. |
-| Check for updates automatically | On | Check GitHub Releases for a newer Shipwatch. See [Updates](updates.md). |
-| Check every | 6 hours | 1, 6, 12 or 24 hours. |
-| Install updates automatically | Off | Install verified updates without asking. |
+| Check automatically | On, every 6 hours | Check GitHub Releases for a newer Shipwatch every hour, 6 hours, 12 hours or day. |
+| Install automatically | Off | Install a verified update found by a scheduled check, then restart. |
+
+The same tab shows the installed **Version**, the **Updates** status, **Check Now**
+and, when a newer release exists, **Install vX.Y.Z and Restart**. Builds run from
+source show "Development build" and can't update themselves. See
+[Updates](updates.md).
 
 Shipwatch also refreshes when you open the list and the data is older than
 60 seconds, and a few seconds after the Mac wakes. When GitHub rate limits the
