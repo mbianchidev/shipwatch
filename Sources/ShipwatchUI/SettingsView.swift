@@ -168,10 +168,89 @@ struct GeneralSettingsView: View {
             } else if let error = model.launchAtLoginError {
                 caption(error, color: Theme.failing)
             }
+            updateRows
         }
         .font(.system(size: 13))
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private var updateRows: some View {
+        let updater = model.updater
+        @Bindable var prefs = model.prefs
+        Divider().padding(.vertical, 10)
+
+        GridRow {
+            label("Version:")
+            Text(updater.isSupported ? updater.currentVersion.description : "Development build")
+                .foregroundStyle(.secondary)
+        }
+        GridRow {
+            label("Updates:")
+            UpdateStatusLine(updater: updater)
+        }
+        .padding(.top, 4)
+        if updater.isSupported {
+            GridRow {
+                Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                HStack(spacing: 8) {
+                    Button("Check Now") { updater.checkNow() }
+                        .disabled(updater.isBusy)
+                    if let release = updater.availableRelease {
+                        Button("Install \(release.tag) and Restart") { updater.install() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(updater.isBusy)
+                        Button("Release notes") { model.open(release.pageURL) }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Theme.link)
+                            .help(release.notes)
+                            .accessibilityLabel("Release notes for \(release.tag)")
+                    }
+                }
+            }
+            .padding(.top, 2)
+        }
+
+        GridRow {
+            label("Check automatically:")
+            HStack(spacing: 10) {
+                Toggle("Check for updates automatically", isOn: Binding(get: { prefs.checkForUpdates }, set: { updater.setCheckForUpdates($0) }))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                Picker("Check for updates", selection: Binding(get: { prefs.updateCheckHours }, set: { updater.setUpdateCheckHours($0) })) {
+                    ForEach(Preferences.updateCheckChoices, id: \.self) { hours in
+                        Text(Self.checkInterval(hours)).tag(hours)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+                .disabled(!prefs.checkForUpdates)
+            }
+            .disabled(!updater.isSupported)
+        }
+        .padding(.top, 8)
+
+        GridRow {
+            label("Install automatically:")
+            Toggle("Install updates automatically", isOn: $prefs.installUpdatesAutomatically)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .disabled(!updater.isSupported)
+        }
+        .padding(.top, 4)
+        caption("Updates are signed by the Shipwatch release key and checked before installing. Shipwatch restarts to finish.")
+        if let message = updater.pause.message, !updater.hasFailed {
+            caption(message, color: Theme.failing)
+        }
+    }
+
+    private static func checkInterval(_ hours: Int) -> String {
+        switch hours {
+        case 1: "Every hour"
+        case 24: "Every day"
+        default: "Every \(hours) hours"
+        }
     }
 
     private func label(_ text: String) -> some View {
@@ -186,6 +265,54 @@ struct GeneralSettingsView: View {
                 .font(.system(size: 11.5))
                 .foregroundStyle(color)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// One line describing the updater state. Uses a symbol and words, not only color.
+struct UpdateStatusLine: View {
+    let updater: Updater
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                if updater.isBusy {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: symbol)
+                        .font(.system(size: 11, weight: .semibold))
+                        .accessibilityHidden(true)
+                }
+                Text(text(now: context.date))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundStyle(updater.hasFailed ? Theme.failing : .secondary)
+        }
+    }
+
+    private var symbol: String {
+        if !updater.isSupported { return "info.circle" }
+        switch updater.state {
+        case .upToDate: return "checkmark.circle"
+        case .available: return "arrow.down.circle"
+        case .failed: return "exclamationmark.triangle"
+        case .idle, .checking, .downloading, .verifying, .installing: return "clock"
+        }
+    }
+
+    private func text(now: Date) -> String {
+        if !updater.isSupported { return "Updates are available in the packaged app." }
+        let version = updater.availableRelease?.version.description ?? ""
+        switch updater.state {
+        case .idle: return "Not checked yet"
+        case .checking: return "Checking for updates…"
+        case .upToDate(let checkedAt): return "Up to date (checked \(RelativeTime.updated(checkedAt, now: now)))"
+        case .available(let release): return "Version \(release.version.description) available"
+        case .downloading(let fraction?): return "Downloading \(version)… \(Int(fraction * 100))%"
+        case .downloading(nil): return "Downloading \(version)…"
+        case .verifying: return "Verifying the download…"
+        case .installing: return "Installing \(version), Shipwatch will restart…"
+        case .failed(let message): return message
         }
     }
 }

@@ -63,6 +63,7 @@ public struct AppActions {
 @Observable
 public final class AppModel {
     public let prefs: Preferences
+    let updater: Updater
     @ObservationIgnored public var actions = AppActions()
 
     // Data
@@ -111,6 +112,7 @@ public final class AppModel {
         transport: any HTTPTransport = URLSessionTransport()
     ) {
         self.prefs = prefs
+        updater = Updater(prefs: prefs)
         self.bundled = bundled
         self.cli = cli
         self.transport = transport
@@ -539,6 +541,12 @@ public final class AppModel {
 
     public func open(_ url: URL) {
         actions.openURL(url)
+    }
+
+    /// Shows the update status in Settings and checks right away.
+    public func checkForUpdates() {
+        actions.showSettings(.general)
+        updater.checkNow()
     }
 
     public func showAddRepositories() {

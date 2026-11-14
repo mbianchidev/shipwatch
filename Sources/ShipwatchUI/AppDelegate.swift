@@ -1,5 +1,6 @@
 import AppKit
 import ShipwatchCore
+import ShipwatchUpdate
 
 /// Wires the model, the menu bar item and the Settings window together.
 @MainActor
@@ -13,7 +14,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
-        if let bundleID = Bundle.main.bundleIdentifier,
+        // The copy the update helper relaunches must start even if the old process is still listed as running.
+        if !AppBundleStartupRequest.isRequested(in: ProcessInfo.processInfo.environment),
+           let bundleID = Bundle.main.bundleIdentifier,
            NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).count > 1 {
             uiLog.notice("Shipwatch is already running, quitting this copy")
             NSApp.terminate(nil)
@@ -42,8 +45,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         self.statusItem = statusItem
         self.settings = settings
 
+        model.updater.confirmUpdateStartup()
         model.configureLoginItemDefault()
         model.start()
+        model.updater.start()
     }
 
     public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -58,12 +63,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         model?.requestRefresh(force: true)
     }
 
+    @objc func checkForUpdates(_ sender: Any?) {
+        model?.checkForUpdates()
+    }
+
     /// A minimal main menu so standard shortcuts (copy, paste, close) work while Settings is open.
     private func makeMainMenu() -> NSMenu {
         let main = NSMenu()
 
         let appMenu = NSMenu(title: "Shipwatch")
         appMenu.addItem(withTitle: "About Shipwatch", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates(_:)), keyEquivalent: "").target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Settings…", action: #selector(showSettingsWindow(_:)), keyEquivalent: ",").target = self
         appMenu.addItem(withTitle: "Refresh", action: #selector(refreshNow(_:)), keyEquivalent: "r").target = self

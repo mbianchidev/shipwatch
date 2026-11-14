@@ -7,6 +7,7 @@ import ShipwatchCore
 @Observable
 public final class Preferences {
     public static let refreshChoices = [1, 2, 5, 10, 15]
+    public static let updateCheckChoices = [1, 6, 12, 24]
 
     private enum Key {
         static let repos = "repos"
@@ -18,6 +19,9 @@ public final class Preferences {
         static let clientIDOverride = "clientIDOverride"
         static let appSlugOverride = "appSlugOverride"
         static let loginItemConfigured = "loginItemConfigured"
+        static let checkForUpdates = "checkForUpdates"
+        static let updateCheckHours = "updateCheckHours"
+        static let installUpdatesAutomatically = "installUpdatesAutomatically"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -50,6 +54,15 @@ public final class Preferences {
     public var loginItemConfigured: Bool {
         didSet { defaults.set(loginItemConfigured, forKey: Key.loginItemConfigured) }
     }
+    public var checkForUpdates: Bool {
+        didSet { defaults.set(checkForUpdates, forKey: Key.checkForUpdates) }
+    }
+    public var updateCheckHours: Int {
+        didSet { defaults.set(updateCheckHours, forKey: Key.updateCheckHours) }
+    }
+    public var installUpdatesAutomatically: Bool {
+        didSet { defaults.set(installUpdatesAutomatically, forKey: Key.installUpdatesAutomatically) }
+    }
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -63,6 +76,10 @@ public final class Preferences {
         clientIDOverride = defaults.string(forKey: Key.clientIDOverride) ?? ""
         appSlugOverride = defaults.string(forKey: Key.appSlugOverride) ?? ""
         loginItemConfigured = defaults.bool(forKey: Key.loginItemConfigured)
+        checkForUpdates = defaults.object(forKey: Key.checkForUpdates) as? Bool ?? true
+        let hours = defaults.integer(forKey: Key.updateCheckHours)
+        updateCheckHours = Self.updateCheckChoices.contains(hours) ? hours : 6
+        installUpdatesAutomatically = defaults.bool(forKey: Key.installUpdatesAutomatically)
     }
 
     private static func loadRepos(_ defaults: UserDefaults) -> RepoList {

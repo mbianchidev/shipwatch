@@ -58,6 +58,7 @@ struct DashboardView: View {
                 .frame(height: min(max(listHeight, 60), maxListHeight))
                 hiddenFooter
             }
+            UpdateFooter(model: model)
             Divider()
             VStack(spacing: 0) {
                 MenuRow(title: "Manage Repositories…", symbol: "list.bullet", shortcut: "⌘,") {
@@ -250,6 +251,52 @@ struct BannerView: View {
         case .error(let text):
             return text
         }
+    }
+}
+
+/// One-line notice above the menu rows while an update is available, installing, or failed.
+struct UpdateFooter: View {
+    let model: AppModel
+
+    var body: some View {
+        let updater = model.updater
+        if updater.isInstalling, let release = updater.availableRelease {
+            row(symbol: nil) {
+                Text("Installing Shipwatch \(release.version.description)…")
+            }
+        } else if updater.hasFailed || (updater.pause.message != nil && updater.availableRelease != nil) {
+            row(symbol: "exclamationmark.triangle") {
+                Text("Shipwatch update failed ·")
+                Button("Details") { model.actions.showSettings(.general) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.link)
+                    .accessibilityLabel("Show update details in Settings")
+            }
+        } else if let release = updater.availableRelease, !updater.isBusy {
+            row(symbol: "arrow.down.circle") {
+                Text("Shipwatch \(release.version.description) is available ·")
+                Button("Install") { updater.install() }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.link)
+                    .accessibilityLabel("Install Shipwatch \(release.version.description) and restart")
+            }
+        }
+    }
+
+    private func row(symbol: String?, @ViewBuilder content: () -> some View) -> some View {
+        HStack(spacing: 5) {
+            if let symbol {
+                Image(systemName: symbol).accessibilityHidden(true)
+            } else {
+                ProgressView().controlSize(.mini)
+            }
+            content()
+            Spacer()
+        }
+        .font(.system(size: 11.5))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 }
 

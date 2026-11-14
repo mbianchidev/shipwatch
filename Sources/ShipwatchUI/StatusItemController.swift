@@ -134,6 +134,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Refresh", action: #selector(refresh), keyEquivalent: "r").target = self
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
+        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Shipwatch", action: #selector(quit), keyEquivalent: "q").target = self
         // Attach the menu only for this click so a left click keeps opening the popover.
@@ -144,6 +145,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     @objc private func refresh() { model.requestRefresh(force: true) }
     @objc private func openSettings() { model.actions.showSettings(.general) }
+    @objc private func checkForUpdates() { model.checkForUpdates() }
     @objc private func quit() { model.actions.quit() }
 
     // MARK: NSPopoverDelegate
