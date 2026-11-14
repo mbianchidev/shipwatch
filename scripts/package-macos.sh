@@ -1,5 +1,6 @@
 #!/bin/bash
-# Builds dist/Shipwatch.dmg: a universal (Apple Silicon + Intel), ad-hoc signed menu bar app.
+# Builds dist/Shipwatch.dmg: a universal (Apple Silicon + Intel), ad-hoc signed menu bar app
+# in a drag-to-Applications installer window laid out by dmgbuild (needs Python 3.10+).
 # With SHIPWATCH_UPDATE_SIGNING_KEY set, also signs it for the self-updater as dist/Shipwatch.dmg.sig.
 set -euo pipefail
 
@@ -10,6 +11,8 @@ CLIENT_ID="${SHIPWATCH_CLIENT_ID:-}"
 APP_SLUG="${SHIPWATCH_APP_SLUG:-}"
 
 die() { echo "Packaging failed: $1" >&2; exit 1; }
+# shellcheck source=scripts/dmgbuild-env.sh
+. "$ROOT/scripts/dmgbuild-env.sh"
 
 UNIVERSAL_BUILD=0
 if [ "$#" -gt 0 ]; then
@@ -90,10 +93,12 @@ codesign --force --sign - --identifier dev.mbianchi.shipwatch.update-helper "$AP
 codesign --force --sign - --identifier dev.mbianchi.shipwatch "$APP"
 codesign --verify --deep --strict "$APP"
 
-ln -s /Applications "$STAGE/image/Applications"
+echo "Building the installer disk image..."
 cp "$ROOT/packaging/macos/Install.txt" "$STAGE/image/Install.txt"
-hdiutil create -quiet -volname Shipwatch -srcfolder "$STAGE/image" \
-  -fs HFS+ -format UDZO "$STAGE/Shipwatch.dmg"
+swift run --package-path "$ROOT" ShipwatchSnapshots --dmg-background "$STAGE/image/background"
+DMG_PYTHON="$(dmgbuild_python "$ROOT")" || die "dmgbuild is unavailable."
+"$DMG_PYTHON" "$ROOT/scripts/dmg-layout.py" build "$STAGE/image" "$STAGE/Shipwatch.dmg" \
+  || die "dmgbuild could not create the disk image."
 shasum -a 256 "$STAGE/Shipwatch.dmg" | awk '{print $1}' > "$STAGE/Shipwatch.dmg.sha256"
 
 for ASSET in Shipwatch.dmg Shipwatch.dmg.sha256; do

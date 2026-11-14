@@ -1,4 +1,4 @@
-// Renders the README screenshots from mocked data, fully offline, and the app iconset for packaging.
+// Renders the README screenshots from mocked data, fully offline, plus the app icon and installer background for packaging.
 import AppKit
 import ShipwatchCore
 import ShipwatchUI
@@ -247,16 +247,22 @@ func fail(_ message: String) -> Never {
 let usage = """
 Usage: ShipwatchSnapshots [output-dir]          Render README screenshots (default docs/screenshots).
        ShipwatchSnapshots --iconset <dir>       Write the AppIcon.iconset used by packaging.
+       ShipwatchSnapshots --dmg-background <dir> Write the installer background (@1x and @2x PNG).
 """
 
 MainActor.assumeIsolated {
     let arguments = Array(CommandLine.arguments.dropFirst())
-    if arguments.first == "--iconset" {
+    if arguments.first == "--iconset" || arguments.first == "--dmg-background" {
         guard arguments.count == 2 else { fail(usage) }
+        let directory = URL(fileURLWithPath: arguments[1], isDirectory: true)
         do {
-            try AppIcon.writeIconset(to: URL(fileURLWithPath: arguments[1], isDirectory: true))
+            if arguments[0] == "--iconset" {
+                try AppIcon.writeIconset(to: directory)
+            } else {
+                try DMGBackground.write(to: directory)
+            }
         } catch {
-            fail("App icon generation failed: \(error)")
+            fail("Packaging artwork failed: \(error)")
         }
         return
     }

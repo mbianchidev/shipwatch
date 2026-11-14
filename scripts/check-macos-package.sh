@@ -1,10 +1,14 @@
 #!/bin/bash
-# Verifies dist/Shipwatch.dmg without launching the app: checksum, bundle metadata, icon, signatures, update helper and architectures.
+# Verifies dist/Shipwatch.dmg without launching the app or Finder: checksum, installer layout,
+# bundle metadata, icon, signatures, update helper and architectures.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 die() { echo "Package check failed: $1" >&2; exit 1; }
+# shellcheck source=scripts/dmgbuild-env.sh
+. "$ROOT/scripts/dmgbuild-env.sh"
+DMG_PYTHON="$(dmgbuild_python "$ROOT")" || die "dmgbuild is unavailable."
 
 mkdir -p "$ROOT/.build"
 STAGE="$(mktemp -d "$ROOT/.build/macos-package-checks.XXXXXX")"
@@ -45,8 +49,9 @@ plist ShipwatchAppSlug > /dev/null || die "Missing ShipwatchAppSlug key."
 
 [ -L "$MOUNT/Applications" ] && [ "$(readlink "$MOUNT/Applications")" = "/Applications" ] \
   || die "Missing drag-to-Applications shortcut."
-grep -Fq 'xattr -dr com.apple.quarantine /Applications/Shipwatch.app' "$MOUNT/Install.txt" \
-  || die "Missing quarantine removal instructions."
+grep -Fq 'Open Anyway for Shipwatch' "$MOUNT/Install.txt" || die "Missing Open Anyway instructions in Install.txt."
+! grep -Fq 'xattr' "$MOUNT/Install.txt" || die "Install.txt must not suggest removing quarantine."
+"$DMG_PYTHON" "$ROOT/scripts/dmg-layout.py" verify "$MOUNT" || die "Installer window layout is incorrect."
 
 iconutil --convert iconset --output "$STAGE/AppIcon.iconset" "$APP/Contents/Resources/AppIcon.icns"
 for POINTS in 16 32 128 256 512; do
