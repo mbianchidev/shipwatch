@@ -4,7 +4,7 @@ import Foundation
 /// The key that release DMGs are signed with. Only its holder can publish an update installed apps accept.
 package enum UpdateTrust {
     /// Base64 of the raw 32-byte Ed25519 public key. Generate the pair with `ShipwatchReleaseTool keygen`.
-    package static let publicKeyBase64 = "PLACEHOLDER_REPLACE_WITH_BASE64_ED25519_PUBLIC_KEY"
+    package static let publicKeyBase64 = "rC6w2axaHERB9ET4MFgIpp7IuXyCzga5+Fnjrqg0wz4="
 
     /// The embedded key. Fails closed when the constant is missing or malformed.
     package static func publicKey() throws -> Curve25519.Signing.PublicKey {
