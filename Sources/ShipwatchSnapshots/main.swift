@@ -1,5 +1,4 @@
-// Renders the README screenshots from mocked data, fully offline.
-// Usage: swift run ShipwatchSnapshots [output-directory]  (default: docs/screenshots)
+// Renders the README screenshots from mocked data, fully offline, and the app iconset for packaging.
 import AppKit
 import ShipwatchCore
 import ShipwatchUI
@@ -240,15 +239,34 @@ func addSheet(_ model: AppModel) -> some View {
     }
 }
 
+func fail(_ message: String) -> Never {
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+    exit(1)
+}
+
+let usage = """
+Usage: ShipwatchSnapshots [output-dir]          Render README screenshots (default docs/screenshots).
+       ShipwatchSnapshots --iconset <dir>       Write the AppIcon.iconset used by packaging.
+"""
+
 MainActor.assumeIsolated {
+    let arguments = Array(CommandLine.arguments.dropFirst())
+    if arguments.first == "--iconset" {
+        guard arguments.count == 2 else { fail(usage) }
+        do {
+            try AppIcon.writeIconset(to: URL(fileURLWithPath: arguments[1], isDirectory: true))
+        } catch {
+            fail("App icon generation failed: \(error)")
+        }
+        return
+    }
+    guard arguments.count <= 1, !(arguments.first?.hasPrefix("-") ?? false) else { fail(usage) }
+
     let app = NSApplication.shared
     app.setActivationPolicy(.prohibited)
-    let output = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "docs/screenshots")
+    let output = URL(fileURLWithPath: arguments.first ?? "docs/screenshots")
     let suite = "dev.mbianchi.shipwatch.snapshots.\(ProcessInfo.processInfo.processIdentifier)"
-    guard let defaults = UserDefaults(suiteName: suite) else {
-        FileHandle.standardError.write(Data("Could not open defaults suite \(suite)\n".utf8))
-        exit(1)
-    }
+    guard let defaults = UserDefaults(suiteName: suite) else { fail("Could not open defaults suite \(suite)") }
     defer { defaults.removePersistentDomain(forName: suite) }
 
     do {
@@ -264,8 +282,7 @@ MainActor.assumeIsolated {
         let signedOut = makeModel(defaults: defaults, signedIn: false)
         try render(popover(signedOut, dark: true), dark: true, name: "onboarding", into: output)
     } catch {
-        FileHandle.standardError.write(Data("Snapshot failed: \(error)\n".utf8))
         defaults.removePersistentDomain(forName: suite)
-        exit(1)
+        fail("Snapshot failed: \(error)")
     }
 }

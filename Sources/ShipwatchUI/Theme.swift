@@ -129,7 +129,7 @@ struct RunningIndicator: View {
 }
 
 /// The Shipwatch sailboat drawn from scratch (SF Symbols can't be used in app icons),
-/// in a unit square with y pointing down. Shared by the app glyph, the menu bar icon and the icon script.
+/// in a unit square with y pointing down. Shared by the app glyph, the menu bar icon and `AppIcon`.
 enum Sailboat {
     static func path(in rect: CGRect) -> CGPath {
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
