@@ -327,6 +327,37 @@ svg.ci { display: inline-block; flex: none; }
 .state .bar.l { background: linear-gradient(90deg, #f3e2cf, #d9e4f7); color: #111; }
 .state .desc b { color: #fff; font-size: 13px; }
 .state .desc div { color: #9a9aa6; font-size: 12.5px; margin-top: 2px; line-height: 1.45; }
+
+/* ---------- settings · workspace ---------- */
+.win-pair { gap: 36px; align-items: flex-start; }
+.ws-form { grid-template-columns: 226px 1fr; }
+.inline { display: inline-flex; align-items: center; gap: 8px; }
+.field { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 6px; min-width: 200px; font-size: 12.5px; background: #fff; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.22); }
+.field .ph { color: #8a8a8e; }
+.field svg.i { color: #1e7cf2; }
+.dis { opacity: .42; }
+.sect-h .aside { float: right; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.tr.ex { grid-template-columns: 24px 1fr; height: 28px; font: 12px ui-monospace, "SF Mono", Menlo, monospace; }
+.tr.ex svg.i { color: #8a8a8e; }
+.tr.ws { grid-template-columns: 34px 1fr 200px; height: 42px; }
+.tr.ws.th { height: 26px; }
+.tr.ws .two { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tr.ws .path { font: 11px ui-monospace, "SF Mono", Menlo, monospace; color: #8a8a8e; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tr.ws .bchip { font: 10px ui-monospace, "SF Mono", Menlo, monospace; padding: 0 5px; border-radius: 4px; background: rgba(10,132,255,.16); color: #0a84ff; }
+.tr.ws .st { align-items: flex-start; }
+.tr.ws .st .ci { margin-top: 1px; }
+.tr.ws .st .sub { font-size: 11px; color: #8a8a8e; }
+.tr.ws.off { color: #9a9aa0; }
+.ws-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 11.5px; color: #8a8a8e; }
+.empty { text-align: center; padding: 26px 34px 24px; margin-top: 18px; }
+.empty .big { color: #0a84ff; margin-bottom: 8px; }
+.empty h4 { margin: 0 0 6px; font-size: 14px; }
+.empty p { margin: 0 auto; max-width: 420px; font-size: 12px; line-height: 1.5; color: #6e6e73; }
+.ws-note svg.i { color: var(--orange); }
+.dark .field { background: #1c1c1e; color: #f2f2f7; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.18); }
+.dark .field .ph, .dark .tr.ws .path, .dark .tr.ws .st .sub, .dark .ws-actions, .dark .tr.ex svg.i { color: #8e8e93; }
+.dark .tr.ws.off { color: #6e6e73; }
+.dark .empty p { color: #98989d; }
 </style>
 </head>
 <body>
@@ -369,6 +400,8 @@ svg.ci { display: inline-block; flex: none; }
     <symbol id="i-gh" viewBox="0 0 16 16"><path fill="currentColor" stroke="none" d="M8 .6a7.5 7.5 0 0 0-2.4 14.6c.4.1.5-.2.5-.4v-1.4c-2.1.5-2.5-.9-2.5-.9-.3-.9-.8-1.1-.8-1.1-.7-.5 0-.5 0-.5.8.1 1.2.8 1.2.8.7 1.2 1.8.8 2.2.6.1-.5.3-.8.5-1-1.7-.2-3.4-.8-3.4-3.7 0-.8.3-1.5.8-2-.1-.2-.3-1 .1-2 0 0 .6-.2 2.1.8a7 7 0 0 1 3.8 0C11.5 2.5 12.1 2.7 12.1 2.7c.4 1 .2 1.8.1 2 .5.5.8 1.2.8 2 0 2.9-1.8 3.5-3.4 3.7.3.2.5.7.5 1.4v2.1c0 .2.1.5.6.4A7.5 7.5 0 0 0 8 .6z"/></symbol>
     <symbol id="i-wifi" viewBox="0 0 16 16"><path d="M1.6 6.2a9.2 9.2 0 0 1 12.8 0M3.8 8.6a6 6 0 0 1 8.4 0M6 11a2.8 2.8 0 0 1 4 0"/><circle cx="8" cy="13.2" r=".7" fill="currentColor"/></symbol>
     <symbol id="i-batt" viewBox="0 0 24 16"><rect x="1" y="3.5" width="19" height="9" rx="2.6"/><rect x="3" y="5.5" width="12" height="5" rx="1.2" fill="currentColor" stroke="none"/><path d="M22 6.8v2.4"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 16 16"><path d="M1.8 4.2c0-.7.5-1.2 1.2-1.2h3.2l1.5 1.6H13c.7 0 1.2.5 1.2 1.2v6.2c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z"/></symbol>
+    <symbol id="i-pull" viewBox="0 0 16 16"><path d="M8 2.5v7.5M4.8 7 8 10.2 11.2 7"/><path d="M2.5 11v1.5c0 .6.5 1 1 1h9c.6 0 1-.4 1-1V11"/></symbol>
     <symbol id="i-cc" viewBox="0 0 16 16"><rect x="1.6" y="3" width="12.8" height="4" rx="2"/><rect x="1.6" y="9" width="12.8" height="4" rx="2"/><circle cx="4.2" cy="5" r="1" fill="currentColor"/><circle cx="11.8" cy="11" r="1" fill="currentColor"/></symbol>
 
     <symbol id="ci-ok" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3 7 10.4l4.2-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -557,6 +590,7 @@ svg.ci { display: inline-block; flex: none; }
             <div class="win-title">Repositories</div>
             <div class="tabs">
               <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
               <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
               <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
             </div>
@@ -601,6 +635,7 @@ svg.ci { display: inline-block; flex: none; }
             <div class="win-title">Repositories</div>
             <div class="tabs">
               <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
               <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
               <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
             </div>
@@ -645,6 +680,7 @@ svg.ci { display: inline-block; flex: none; }
             <div class="win-title">Account</div>
             <div class="tabs">
               <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
               <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
               <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
             </div>
@@ -695,6 +731,7 @@ svg.ci { display: inline-block; flex: none; }
             <div class="win-title">General</div>
             <div class="tabs">
               <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
               <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
               <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
             </div>
@@ -716,6 +753,131 @@ svg.ci { display: inline-block; flex: none; }
         <h2>09 · Settings · General</h2>
         <ul>
           <li>Small set of knobs. Defaults: 2 min refresh, last push as activity, stable releases only, launch at login on.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 10 settings workspace -->
+    <section class="frame span2" id="f-settings-workspace">
+      <div class="stage dark wall-dark win-stage win-pair">
+        <div class="win">
+          <div class="win-bar">
+            <div class="lights"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+            <div class="win-title">Workspace</div>
+            <div class="tabs">
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
+            </div>
+          </div>
+          <div class="win-body">
+            <p class="lead">Keep the default branch of your local clones in step with GitHub. Fast-forward only: Shipwatch never creates commits, resets, stashes, or switches branches.</p>
+            <div class="form ws-form">
+              <span class="lbl">Workspace folder:</span>
+              <span class="inline"><span class="field"><span class="ph">No folder selected</span></span><span class="mac-btn def">Choose…</span></span>
+              <span class="hint">The folder where you keep your clones, for example ~/Developer.</span>
+              <span class="lbl dis">Keep default branches up to date:</span><span class="dis"><span class="toggle off"></span></span>
+              <span class="hint">Choose a workspace folder first.</span>
+            </div>
+            <div class="box empty">
+              <div class="big"><svg class="i" width="40" height="40" viewBox="0 0 16 16" style="stroke-width:1"><use href="#i-folder"/></svg></div>
+              <h4>No workspace selected</h4>
+              <p>Shipwatch only looks inside the folder you choose, for clones of the repositories you track. Nothing on disk changes until you turn the switch on.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="win">
+          <div class="win-bar">
+            <div class="lights"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+            <div class="win-title">Workspace</div>
+            <div class="tabs">
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
+            </div>
+          </div>
+          <div class="win-body">
+            <div class="form ws-form">
+              <span class="lbl">Workspace folder:</span>
+              <span class="inline"><span class="field"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-folder"/></svg>~/Developer</span><span class="mac-btn">Change…</span></span>
+              <span class="hint">Scanned up to 3 levels deep. Hidden folders and node_modules are always skipped.</span>
+              <span class="lbl">Keep default branches up to date:</span><span><span class="toggle"></span></span>
+              <span class="hint">Runs after every refresh, only when GitHub has new commits.</span>
+            </div>
+
+            <div class="sect-h">Excluded folders</div>
+            <div class="tbl">
+              <div class="tr ex"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-folder"/></svg><span>~/Developer/archive</span></div>
+              <div class="tr ex sel"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-folder"/></svg><span>~/Developer/forks</span></div>
+              <div class="tbl-foot">
+                <span class="b"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-plus"/></svg></span>
+                <span class="b"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-minus"/></svg></span>
+                <span class="info">Not scanned, including subfolders</span>
+              </div>
+            </div>
+
+            <div class="sect-h">Local clones<span class="aside">scanned 15:40</span></div>
+            <div class="tbl" data-clones></div>
+            <div class="ws-actions">
+              <span>Last sync 15:40 · 1 updated · 2 skipped</span>
+              <span class="spacer"></span>
+              <span class="mac-btn">Rescan</span>
+              <span class="mac-btn def"><svg class="i" width="12" height="12" viewBox="0 0 16 16"><use href="#i-pull"/></svg>Sync Now</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>10 · Settings · Workspace<small>new tab: first run (left) and configured (right)</small></h2>
+        <ul>
+          <li>The switch stays disabled until a workspace folder is chosen with the standard folder picker. Nothing is scanned before that.</li>
+          <li>Scan: folders up to 3 levels deep with a <code>.git</code> folder whose remote points at a tracked repo. Hidden folders, <code>node_modules</code>, symlinks and excluded folders are skipped. Every clone of a repo is listed.</li>
+          <li>After each refresh, if the GitHub default branch moved, Shipwatch fetches only that branch and fast-forwards the local one. This also works when another branch is checked out (<code>website</code> on <code>feat/nav</code>).</li>
+          <li>Never forced. Skipped, with the reason shown here: uncommitted changes on a checked-out default branch, history that diverged (someone committed on main), or network/auth errors.</li>
+          <li>Unchecking a clone opts that repo out. Excluded folders (+/−) are not scanned at all.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 11 popover with local clone actions -->
+    <section class="frame" id="f-ws-menu">
+      <div class="stage dark wall-dark">
+        <div class="menubar">
+          <div class="left"><b>Finder</b></div>
+          <span class="mb active"><svg class="i" width="17" height="17" viewBox="0 0 16 16"><use href="#i-boat"/></svg><span class="dot" style="background:#ffd60a"></span></span>
+          <span class="mb"><svg class="i" width="16" height="16" viewBox="0 0 16 16"><use href="#i-wifi"/></svg></span>
+          <span class="mb"><svg class="i" width="24" height="16" viewBox="0 0 24 16"><use href="#i-batt"/></svg></span>
+          <span class="mb"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-search"/></svg></span>
+          <span class="mb"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-cc"/></svg></span>
+          <span class="mb">Sat 14 Nov&nbsp; 15:40</span>
+        </div>
+        <div class="anchor" style="padding-right:70px;padding-bottom:230px">
+          <div class="pop" data-pop="ws"></div>
+        </div>
+        <div class="ctx dark">
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-gh"/></svg>Open Repository</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-play"/></svg>Open Actions</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-tag"/></svg>Open Releases</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-copy"/></svg>Copy Latest Tag</div>
+          <div class="sep"></div>
+          <div class="mi hl"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-pull"/></svg>Update Local Clone Now</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Show Local Clone in Finder</div>
+          <div class="sep"></div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-up"/></svg>Move Up</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-down"/></svg>Move Down</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-eye-off"/></svg>Hide “cli-tool”</div>
+          <div class="sep"></div>
+          <div class="mi danger"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-minus"/></svg>Remove from Shipwatch…</div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>11 · Popover · local clones<small>footer note + context menu</small></h2>
+        <ul>
+          <li>When a clone was skipped, a footer note says so; "Review" opens Settings › Workspace. No silent failures.</li>
+          <li>Context menu gains "Update Local Clone Now" (syncs that repo's clones immediately) and "Show Local Clone in Finder". Both are hidden when the repo has no clone in the workspace.</li>
         </ul>
       </div>
     </section>
@@ -824,6 +986,37 @@ document.querySelector('[data-pop="ctx"]').innerHTML =
   head(`${I('i-check', 11)} Updated 32 s ago · 5 repositories`) +
   `<div class="list">${ctxRows.map(row).join('')}</div>`;
 
+const cloneRows = [
+  { name: 'api-server', owner: 'mbianchidev', path: '~/Developer/api-server', st: 'ok', t: 'Up to date', sub: 'main' },
+  { name: 'website', owner: 'mbianchidev', path: '~/Developer/web/website', br: 'feat/nav', st: 'ok', t: 'Updated 3 min ago', sub: 'main +4 commits', sel: true },
+  { name: 'cli-tool', owner: 'mbianchidev', path: '~/Developer/cli-tool', st: 'warn', t: 'Skipped', sub: 'uncommitted changes on main' },
+  { name: 'infra', owner: 'acme-org', path: '~/Developer/acme/infra', st: 'warn', t: 'Skipped', sub: 'main diverged from origin' },
+  { name: 'infra', owner: 'acme-org', path: '~/Developer/scratch/infra', st: 'ok', t: 'Up to date', sub: 'main' },
+  { name: 'dotfiles', owner: 'mbianchidev', path: '~/Developer/dotfiles', st: 'none', t: 'Off for this repo', sub: '', off: true },
+];
+document.querySelector('[data-clones]').innerHTML =
+  `<div class="tr ws th"><span>Sync</span><span>Repository · local path</span><span>Default branch</span></div>` +
+  cloneRows.map(c => `<div class="tr ws ${c.off ? 'off' : ''}">
+    <span class="chk ${c.off ? '' : 'on'}">${c.off ? '' : I('i-check', 11)}</span>
+    <span class="two"><span>${c.name}<span class="o">${c.owner}</span></span><span class="path">${c.path}${c.br ? `<span class="bchip">on ${c.br}</span>` : ''}</span></span>
+    <span class="st ${c.st === 'warn' ? 'warn' : ''}">${ci(c.st, 13)}<span class="two"><span>${c.t}</span>${c.sub ? `<span class="sub">${c.sub}</span>` : ''}</span></span>
+  </div>`).join('') +
+  `<div class="tbl-foot"><span class="info">6 clones of 5 repositories · 3 tracked repositories not cloned here</span></div>`;
+
+const wsRows = [
+  { name: 'api-server', owner: 'mbianchidev', ci: 'run', rel: { tag: 'v2.4.1', age: '3d' }, issues: 4, prs: 11, bots: 5, act: '4m ago' },
+  { name: 'cli-tool', owner: 'mbianchidev', ci: 'fail', rel: { tag: 'v0.9.3', age: '5d' }, issues: 12, prs: 3, bots: 0, act: '6h ago', cls: 'hover' },
+  { name: 'website', owner: 'mbianchidev', ci: 'ok', rel: { tag: 'v1.12.0', age: '2w' }, issues: 0, prs: 2, bots: 2, act: '1d ago' },
+];
+document.querySelector('[data-pop="ws"]').innerHTML =
+  head(`${I('i-check', 11)} Updated 32 s ago · 5 repositories`) +
+  `<div class="list">${wsRows.map(row).join('')}</div>` +
+  `<div class="hidden-note ws-note">${I('i-warn', 12)}2 local clones skipped ·<a>Review</a></div>` +
+  `<div class="pop-foot">
+    <div class="mi">${I('i-list', 14)}Manage Repositories…<span class="kbd">⌘,</span></div>
+    <div class="mi">${I('i-power', 14)}Quit Shipwatch<span class="kbd">⌘Q</span></div>
+  </div>`;
+
 const cursorSvg = (x, y) => {
   const c = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   c.setAttribute('class', 'cursor'); c.setAttribute('viewBox', '0 0 18 22');
@@ -847,12 +1040,12 @@ requestAnimationFrame(() => {
     const a = seg.getBoundingClientRect(), s = stage.getBoundingClientRect();
     stage.appendChild(cursorSvg(a.left - s.left + a.width * 0.55, a.top - s.top + a.height * 0.45));
   }
-  // context menu anchored at the right-clicked row
-  {
-    const stage = document.querySelector('#f-context .stage');
+  // context menus anchored at the right-clicked row
+  for (const [id, dx] of [['#f-context', 70], ['#f-ws-menu', 225]]) {
+    const stage = document.querySelector(`${id} .stage`);
     const row = stage.querySelector('.row.hover');
     const r = row.getBoundingClientRect(), s = stage.getBoundingClientRect();
-    const x = r.left - s.left + 70, y = r.top - s.top + 30;
+    const x = r.left - s.left + dx, y = r.top - s.top + 30;
     const ctx = stage.querySelector('.ctx');
     ctx.style.left = (x + 2) + 'px'; ctx.style.top = (y + 4) + 'px';
     stage.appendChild(cursorSvg(x, y));
