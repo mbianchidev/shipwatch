@@ -19,8 +19,8 @@ existing user changes.
 - `Sources/ShipwatchReleaseTool`: update signing for releases. Not shipped.
 - `Sources/ShipwatchSnapshots`: screenshots, iconset and DMG background from mocked data.
 - `Tests/ShipwatchCoreTests` and `Tests/ShipwatchUpdateTests`: Swift Testing suites.
-- `scripts/` and `packaging/macos/`: packaging, package checks, the dmgbuild
-  layout and its hash-locked requirements.
+- `scripts/` and `packaging/macos/`: packaging, package checks, release notes,
+  the dmgbuild layout and its hash-locked requirements.
 - `.github/workflows`: CI, CodeQL and continuous releases.
 - `docs/`: user and developer docs, generated `screenshots/` and the original `mockups/`.
 

@@ -16,9 +16,12 @@ Every push to `main` publishes a new release; nobody creates tags or releases by
    `ShipwatchReleaseTool sign`.
 3. **Check.** `scripts/check-macos-package.sh` verifies the bundle, the
    bundled update helper, the DMG layout and the update signature.
-4. **Publish.** `gh release create` tags the commit that triggered the run and
-   uses its commit message as the release notes. Prefer squash merges, so the
-   notes start with the pull request title, and write that title for users.
+4. **Publish.** `gh release create` tags the commit that triggered the run.
+   `scripts/release-notes.sh` writes the release notes: the pull requests
+   merged and the commits made since the previous release, and a link to the
+   full comparison. Write pull request titles and commit subjects for users;
+   they are the changelog, and installed apps show the start of it next to
+   **Release notes**.
 
 Releases run one at a time: a second push waits for the first release to finish
 instead of cancelling it.
