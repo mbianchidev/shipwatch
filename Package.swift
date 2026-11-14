@@ -11,9 +11,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "ShipwatchCore"),
+        .target(name: "ShipwatchUpdate"),
         .target(name: "ShipwatchUI", dependencies: ["ShipwatchCore"]),
         .executableTarget(name: "Shipwatch", dependencies: ["ShipwatchUI"]),
         .executableTarget(name: "ShipwatchSnapshots", dependencies: ["ShipwatchUI", "ShipwatchCore"]),
         .testTarget(name: "ShipwatchCoreTests", dependencies: ["ShipwatchCore"]),
+        .testTarget(name: "ShipwatchUpdateTests", dependencies: ["ShipwatchUpdate"]),
     ]
 )
