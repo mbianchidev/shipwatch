@@ -63,6 +63,8 @@ Any one of these, in priority order:
    ```bash
    SHIPWATCH_CLIENT_ID=Iv23li... SHIPWATCH_APP_SLUG=shipwatch bash scripts/package-macos.sh
    ```
+   Official releases read them from the `SHIPWATCH_CLIENT_ID` and
+   `SHIPWATCH_APP_SLUG` Actions variables, see [Releases](releases.md#configuration).
 3. **`swift run`**: export the same `SHIPWATCH_CLIENT_ID` and `SHIPWATCH_APP_SLUG` variables.
 
 Then click **Sign in with GitHub** in the menu bar popover and enter the code

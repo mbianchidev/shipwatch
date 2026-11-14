@@ -5,10 +5,14 @@ Shipwatch is a Swift package with no third-party dependencies.
 | Target | Role |
 | --- | --- |
 | `ShipwatchCore` | GitHub API client, device flow, token storage, models, CI evaluation. No UI. |
-| `ShipwatchUI` | SwiftUI views hosted in AppKit, app state (`AppModel`), preferences. |
+| `ShipwatchUpdate` | Self-update feed, download, Ed25519 signature check, staging, swap and rollback. No UI. |
+| `ShipwatchUI` | SwiftUI views hosted in AppKit, app state (`AppModel`), preferences, `Updater`. |
 | `Shipwatch` | Executable entry point: starts `AppDelegate`. |
-| `ShipwatchSnapshots` | Renders README screenshots from mocked data and the app iconset. |
+| `ShipwatchUpdateHelper` | Bundled in `Contents/Helpers`; replaces the app after it quits and rolls back on failure. |
+| `ShipwatchReleaseTool` | Release-only `keygen`, `sign` and `verify` for update signatures. Not shipped. |
+| `ShipwatchSnapshots` | Renders README screenshots from mocked data, the app iconset and the DMG background. |
 | `ShipwatchCoreTests` | Swift Testing suites with mocked HTTP responses. |
+| `ShipwatchUpdateTests` | Swift Testing suites with temporary app bundles and fake command runners. |
 
 ## Menu bar
 
@@ -54,6 +58,18 @@ are shown on that row only.
 | Popover opens and data is older than 60 s | immediately |
 | Mac wakes from sleep | 5 seconds after wake |
 
+## Self-update
+
+`Updater` (in `ShipwatchUI`) checks the latest GitHub release of
+`mbianchidev/shipwatch` on a schedule, downloads `Shipwatch.dmg` and its `.sig`
+into a temporary folder, and verifies the signature against the public keys in
+`UpdateTrust` before mounting anything. It then stages the new app next to the
+installed one, checks its bundle and code signature, and starts the helper
+copied from the installed app. The helper waits for Shipwatch to quit, swaps the
+bundles, launches the new version and waits for it to confirm startup; if it
+does not, the helper restores the previous app. Only packaged builds update
+themselves. See [Updates](updates.md) and [Releases](releases.md).
+
 ## Auth
 
 `TokenVault` hands out a valid token: the GitHub App user token from the
@@ -69,6 +85,7 @@ re-reads it. See [GitHub App setup](github-app-setup.md).
 | App token | login Keychain, service `dev.mbianchi.shipwatch` |
 | Tracked repos, order, hidden flags, settings | `UserDefaults` (`dev.mbianchi.shipwatch`) |
 | `gh` token | memory only |
+| Last update result, update lock | `~/Library/Application Support/Shipwatch/` |
 
 ## Logs
 
