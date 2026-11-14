@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shipwatch · UI mockups</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  background: #0e1016;
+  color: #e9e9ee;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; cursor: pointer; }
+svg.i { display: inline-block; flex: none; vertical-align: middle; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+svg.ci { display: inline-block; flex: none; }
+
+/* ---------- page ---------- */
+.page { padding: 40px 48px 64px; width: 1560px; margin: 0 auto; }
+.page > header h1 { font-size: 30px; margin: 0 0 6px; font-weight: 700; letter-spacing: -.02em; }
+.page > header p { margin: 0; color: #9a9aa6; font-size: 14px; max-width: 900px; line-height: 1.5; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 32px; align-items: start; }
+.frame { border-radius: 18px; overflow: hidden; background: #171a22; box-shadow: 0 0 0 1px rgba(255,255,255,.06); display: flex; flex-direction: column; }
+.frame.span2 { grid-column: span 2; }
+.stage { position: relative; flex: 1; }
+.caption { padding: 16px 22px 20px; border-top: 1px solid rgba(255,255,255,.06); }
+.caption h2 { font-size: 15px; margin: 0 0 8px; color: #fff; }
+.caption h2 small { font-weight: 500; color: #7d7d8a; margin-left: 8px; font-size: 12px; }
+.caption ol, .caption ul { margin: 0; padding-left: 18px; color: #a8a8b4; line-height: 1.6; font-size: 13px; }
+.caption code { font: 12px ui-monospace, "SF Mono", monospace; color: #d6d6e0; background: rgba(255,255,255,.07); padding: 1px 5px; border-radius: 4px; }
+
+/* ---------- wallpapers & themes ---------- */
+.wall-dark {
+  background:
+    radial-gradient(900px 520px at 85% -10%, #6b4fa0 0%, transparent 60%),
+    radial-gradient(800px 520px at 0% 110%, #1f6f8b 0%, transparent 60%),
+    #1c2033;
+}
+.wall-light {
+  background:
+    radial-gradient(900px 520px at 90% -10%, #ffd6a5 0%, transparent 60%),
+    radial-gradient(900px 600px at 0% 110%, #a0c4ff 0%, transparent 60%),
+    #e8ecf5;
+}
+.dark {
+  --fg: #f2f2f7; --fg2: rgba(235,235,245,.62); --fg3: rgba(235,235,245,.36);
+  --sep: rgba(255,255,255,.09); --hover: rgba(255,255,255,.075); --chip: rgba(255,255,255,.075); --chip2: rgba(255,255,255,.15);
+  --accent: #0a84ff; --green: #32d74b; --red: #ff453a; --yellow: #ffd60a; --orange: #ff9f0a; --gray: #8e8e93; --bot: #6cb6ff;
+  color: var(--fg);
+}
+.light {
+  --fg: #1d1d1f; --fg2: rgba(60,60,67,.68); --fg3: rgba(60,60,67,.4);
+  --sep: rgba(0,0,0,.08); --hover: rgba(0,0,0,.045); --chip: rgba(0,0,0,.05); --chip2: rgba(0,0,0,.1);
+  --accent: #007aff; --green: #28b04a; --red: #ff3b30; --yellow: #e0a800; --orange: #f08c00; --gray: #8e8e93; --bot: #0969da;
+  color: var(--fg);
+}
+
+/* ---------- menu bar ---------- */
+.menubar { height: 30px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 12px; font-size: 13px; font-weight: 500; }
+.dark .menubar { background: rgba(14,14,22,.38); backdrop-filter: blur(20px); }
+.light .menubar { background: rgba(255,255,255,.5); backdrop-filter: blur(20px); }
+.menubar .left { margin-right: auto; display: flex; gap: 18px; align-items: center; padding-left: 6px; }
+.menubar .left b { font-weight: 700; }
+.mb { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; height: 22px; border-radius: 6px; position: relative; }
+.mb.active { background: rgba(255,255,255,.22); }
+.light .mb.active { background: rgba(0,0,0,.1); }
+.mb .dot { position: absolute; width: 7px; height: 7px; border-radius: 50%; right: 3px; top: 2px; box-shadow: 0 0 0 1.5px rgba(30,30,40,.9); }
+.light .mb .dot { box-shadow: 0 0 0 1.5px rgba(240,240,245,.95); }
+
+/* ---------- popover ---------- */
+.anchor { display: flex; justify-content: flex-end; padding: 6px 150px 40px 0; }
+.pop { flex: none; width: 430px; border-radius: 16px; overflow: hidden; backdrop-filter: blur(50px) saturate(180%); position: relative; }
+.dark .pop { background: rgba(38,38,46,.82); box-shadow: 0 24px 70px rgba(0,0,0,.55), 0 0 0 .5px rgba(0,0,0,.6), inset 0 0 0 .5px rgba(255,255,255,.14); }
+.light .pop { background: rgba(250,250,252,.86); box-shadow: 0 24px 70px rgba(0,0,0,.22), 0 0 0 .5px rgba(0,0,0,.18), inset 0 0 0 .5px rgba(255,255,255,.7); }
+.pop-head { display: flex; align-items: center; gap: 10px; padding: 12px 10px 8px 14px; }
+.logo { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(180deg, #1f5f9e, #123e6b); display: grid; place-items: center; color: #fff; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.35); flex: none; }
+.logo svg.i { stroke-width: 1.6; }
+.title { font-weight: 700; font-size: 14px; line-height: 1.1; }
+.subtitle { font-size: 11px; color: var(--fg2); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+.icon-btn { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--fg2); }
+.icon-btn.hover { background: var(--hover); color: var(--fg); }
+.spacer { flex: 1; }
+
+.summary { display: flex; gap: 6px; padding: 0 14px 10px; }
+.sum { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 3px 8px 3px 6px; border-radius: 20px; background: var(--chip); color: var(--fg2); }
+.sum b { color: var(--fg); font-weight: 600; }
+
+.banner { margin: 0 10px 8px; padding: 8px 10px; border-radius: 10px; font-size: 12px; display: flex; gap: 8px; align-items: flex-start; line-height: 1.35; }
+.banner.warn { background: color-mix(in srgb, var(--orange) 16%, transparent); color: var(--fg); }
+.banner.warn svg { color: var(--orange); margin-top: 1px; }
+.banner .sub { color: var(--fg2); }
+
+.list { padding: 2px 0 6px; border-top: 1px solid var(--sep); }
+.row { display: flex; gap: 9px; padding: 9px 12px 9px 8px; margin: 2px 6px 0; border-radius: 10px; align-items: flex-start; position: relative; }
+.row.hover { background: var(--hover); }
+.row.expanded { background: var(--hover); }
+.row .disc { color: var(--fg3); margin-top: 2px; width: 10px; display: grid; place-items: center; }
+.row .disc svg { stroke-width: 2; }
+.row .ci-wrap { margin-top: 0; border-radius: 50%; }
+.row .body { flex: 1; min-width: 0; }
+.l1 { display: flex; align-items: center; gap: 6px; height: 18px; }
+.name { font-weight: 600; font-size: 13px; }
+.owner { color: var(--fg3); font-size: 12px; }
+.rel { display: inline-flex; align-items: center; gap: 5px; font: 500 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 2px 7px; border-radius: 6px; background: var(--chip); color: var(--fg); }
+.rel .age { color: var(--fg2); font-family: -apple-system, sans-serif; font-weight: 400; }
+.rel.none { color: var(--fg3); background: transparent; font-family: -apple-system, sans-serif; font-weight: 400; font-style: italic; padding-right: 0; }
+.rel.pre { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--orange) 55%, transparent); }
+.rel.pre .badge { color: var(--orange); font-family: -apple-system, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
+.l2 { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--fg2); }
+.stat { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 5px; border-radius: 6px; }
+.stat b, .seg b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat.zero b { color: var(--fg3); }
+.seg { display: inline-flex; border-radius: 6px; background: var(--chip); position: relative; }
+.seg > a { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 6px; border-radius: 6px; }
+.seg > a + a { border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: inset 1px 0 0 var(--sep); }
+.seg > a.bot { color: var(--bot); }
+.seg > a.bot b { color: var(--bot); }
+.seg > a.hl { background: color-mix(in srgb, var(--bot) 20%, transparent); }
+.act { white-space: nowrap; display: inline-flex; gap: 4px; align-items: center; color: var(--fg2); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.err { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--orange); }
+.err a { color: var(--accent); }
+.row.dim .name, .row.dim .owner { opacity: .7; }
+
+.runs { margin: 9px 0 2px; border-radius: 9px; background: var(--chip); padding: 4px; }
+.runs-h { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--fg3); padding: 5px 8px 3px; }
+.run { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 6px; font-size: 12px; }
+.run.hover { background: var(--chip2); }
+.run .wf { font-weight: 500; color: var(--fg); }
+.run .meta { color: var(--fg2); font-variant-numeric: tabular-nums; }
+.run .br { font: 10.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run .ext { color: var(--fg3); margin-left: auto; }
+.runs .all { display: flex; align-items: center; gap: 5px; padding: 6px 8px 4px; font-size: 11.5px; color: var(--accent); }
+
+.pop-foot { border-top: 1px solid var(--sep); padding: 5px 6px 6px; }
+.mi { display: flex; align-items: center; gap: 9px; padding: 4px 10px; border-radius: 7px; font-size: 13px; height: 26px; }
+.mi .kbd { margin-left: auto; color: var(--fg3); font-size: 12px; letter-spacing: .04em; }
+.mi.hl { background: var(--accent); color: #fff; }
+.mi.hl .kbd { color: rgba(255,255,255,.75); }
+.mi svg.i { color: var(--fg2); }
+.mi.hl svg.i { color: #fff; }
+.hidden-note { padding: 7px 14px 4px 16px; font-size: 11.5px; color: var(--fg3); display: flex; gap: 6px; align-items: center; }
+.hidden-note a { color: var(--accent); }
+
+.tip { position: absolute; top: calc(100% + 7px); left: -30px; z-index: 5; white-space: nowrap; font-size: 11.5px; padding: 5px 9px; border-radius: 7px; display: flex; align-items: center; gap: 6px; }
+.dark .tip { background: rgba(20,20,24,.96); color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.5), 0 0 0 .5px rgba(255,255,255,.15); }
+.light .tip { background: #fff; color: #1d1d1f; box-shadow: 0 6px 20px rgba(0,0,0,.18), 0 0 0 .5px rgba(0,0,0,.12); }
+.tip code { font: 10.5px ui-monospace, monospace; opacity: .7; }
+.cursor { position: absolute; z-index: 6; width: 18px; height: 22px; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.45)); pointer-events: none; }
+
+/* ---------- context menu ---------- */
+.ctx { position: absolute; width: 250px; border-radius: 11px; padding: 5px; z-index: 8; backdrop-filter: blur(40px) saturate(180%); }
+.dark .ctx { background: rgba(44,44,52,.9); box-shadow: 0 16px 50px rgba(0,0,0,.55), 0 0 0 .5px rgba(0,0,0,.6), inset 0 0 0 .5px rgba(255,255,255,.16); }
+.ctx .mi { height: 24px; padding: 3px 9px; }
+.ctx .sep { height: 1px; background: var(--sep); margin: 4px 9px; }
+.ctx .mi.danger { color: var(--red); }
+.ctx .mi.danger svg.i { color: var(--red); }
+
+/* ---------- onboarding ---------- */
+.onb { padding: 22px 22px 18px; text-align: center; }
+.onb .logo { width: 56px; height: 56px; border-radius: 15px; margin: 4px auto 12px; }
+.onb h3 { margin: 0 0 6px; font-size: 17px; font-weight: 700; }
+.onb p { margin: 0 auto 16px; color: var(--fg2); font-size: 12.5px; line-height: 1.45; max-width: 330px; }
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; height: 34px; border-radius: 9px; font-size: 13px; font-weight: 600; width: 100%; }
+.btn.primary { background: var(--accent); color: #fff; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.25), 0 1px 2px rgba(0,0,0,.3); }
+.btn.secondary { background: var(--chip2); color: var(--fg); font-weight: 500; }
+.btn.secondary .bsub { color: var(--fg2); font-weight: 400; font-size: 11.5px; }
+.btn.ghost { background: transparent; color: var(--fg2); font-weight: 500; }
+.or { display: flex; align-items: center; gap: 10px; color: var(--fg3); font-size: 11px; margin: 14px 0; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--sep); }
+.fine { font-size: 11px; color: var(--fg3); margin-top: 10px; line-height: 1.45; display: flex; gap: 6px; align-items: flex-start; justify-content: center; text-align: left; }
+.steps { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; }
+.steps span { width: 22px; height: 4px; border-radius: 2px; background: var(--chip2); }
+.steps span.on { background: var(--accent); }
+.code { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 4px 0 16px; padding: 14px; border-radius: 12px; background: var(--chip); font: 600 26px ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .12em; }
+.code .copy { width: 28px; height: 28px; border-radius: 7px; background: var(--chip2); display: grid; place-items: center; color: var(--fg2); }
+.waiting { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--fg2); font-size: 12px; margin-top: 14px; }
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--chip2); border-top-color: var(--accent); }
+.perm { text-align: left; border-radius: 10px; background: var(--chip); padding: 6px 4px; margin: 0 0 16px; }
+.perm div { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: 12.5px; }
+.perm div span:last-child { margin-left: auto; font-size: 11px; color: var(--green); font-weight: 600; }
+.perm svg.i { color: var(--fg2); }
+
+/* ---------- settings window ---------- */
+.win-stage { padding: 36px 40px 44px; display: flex; justify-content: center; }
+.win { width: 640px; border-radius: 14px; overflow: hidden; position: relative; }
+.light .win { background: #f5f5f7; box-shadow: 0 30px 80px rgba(0,0,0,.3), 0 0 0 .5px rgba(0,0,0,.25); }
+.win-bar { padding: 10px 14px 8px; display: flex; flex-direction: column; align-items: center; position: relative; border-bottom: 1px solid rgba(0,0,0,.09); background: linear-gradient(#efeff2, #e8e8ec); }
+.lights { position: absolute; left: 14px; top: 13px; display: flex; gap: 8px; }
+.lights span { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.18); }
+.win-title { font-weight: 600; font-size: 13px; color: #3a3a3c; }
+.tabs { display: flex; gap: 2px; margin-top: 8px; }
+.tab { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 12px 4px; border-radius: 8px; font-size: 11px; color: #5a5a60; min-width: 76px; }
+.tab svg.i { width: 20px; height: 20px; stroke-width: 1.4; }
+.tab.sel { background: rgba(0,0,0,.075); color: #007aff; }
+.win-body { padding: 18px 22px 20px; color: #1d1d1f; }
+.win-body .lead { font-size: 12.5px; color: #6e6e73; margin: 0 0 12px; line-height: 1.45; }
+.tbl { background: #fff; border-radius: 10px; box-shadow: 0 0 0 .5px rgba(0,0,0,.16), 0 1px 2px rgba(0,0,0,.05); overflow: hidden; }
+.tr { display: grid; grid-template-columns: 22px 48px 1fr 170px; align-items: center; padding: 0 10px; height: 32px; font-size: 13px; }
+.tr:nth-child(odd):not(.th) { background: #f8f8fa; }
+.tr.th { font-size: 11px; color: #8a8a8e; font-weight: 600; background: #fbfbfc; border-bottom: 1px solid #ececef; height: 26px; }
+.tr.sel { background: #0064e1 !important; color: #fff; }
+.tr.sel .o, .tr.sel .st { color: rgba(255,255,255,.8) !important; }
+.tr.sel svg.i { color: #fff !important; }
+.tr .grip { color: #b5b5ba; }
+.tr .eye { color: #007aff; }
+.tr.hid { color: #9a9aa0; }
+.tr.hid .eye { color: #b0b0b6; }
+.tr .o { color: #8a8a8e; margin-left: 4px; font-size: 12px; }
+.tr .st { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6e6e73; }
+.tr .st .lock { color: #8a8a8e; }
+.tr .st.warn { color: #c26a00; }
+.tr .st.warn a { color: #007aff; margin-left: 2px; }
+.tbl-foot { display: flex; align-items: center; border-top: 1px solid #e5e5ea; background: #fbfbfc; height: 26px; }
+.tbl-foot .b { width: 30px; height: 26px; display: grid; place-items: center; border-right: 1px solid #e5e5ea; color: #3a3a3c; }
+.tbl-foot .b svg.i { stroke-width: 1.8; }
+.tbl-foot .info { margin-left: auto; padding-right: 10px; font-size: 11.5px; color: #8a8a8e; }
+.form { display: grid; grid-template-columns: 190px 1fr; gap: 14px 16px; align-items: center; font-size: 13px; padding: 4px 6px; }
+.form .lbl { text-align: right; color: #3a3a3c; }
+.form .hint { grid-column: 2; margin-top: -8px; font-size: 11.5px; color: #8a8a8e; }
+.pop-btn { display: inline-flex; align-items: center; gap: 18px; height: 24px; padding: 0 6px 0 10px; border-radius: 6px; background: #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.2), 0 1px 1.5px rgba(0,0,0,.08); font-size: 13px; }
+.pop-btn .ud { width: 16px; height: 16px; border-radius: 4px; background: #007aff; color: #fff; display: grid; place-items: center; }
+.toggle { width: 32px; height: 19px; border-radius: 10px; background: #34c759; position: relative; display: inline-block; }
+.toggle::after { content: ""; position: absolute; width: 15px; height: 15px; border-radius: 50%; background: #fff; top: 2px; right: 2px; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.toggle.off { background: #d6d6db; }
+.toggle.off::after { right: auto; left: 2px; }
+.chk { width: 15px; height: 15px; border-radius: 4px; display: inline-grid; place-items: center; background: #fff; box-shadow: inset 0 0 0 1px rgba(0,0,0,.25); color: #fff; flex: none; }
+.chk.on { background: #007aff; box-shadow: none; }
+.chk.dis { background: #c7d9f5; box-shadow: none; }
+.chk svg.i { stroke-width: 2.4; }
+.mac-btn { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 12px; border-radius: 6px; background: #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.22), 0 1px 1.5px rgba(0,0,0,.08); font-size: 13px; color: #1d1d1f; }
+.mac-btn.def { background: linear-gradient(#2a8cff, #0068e0); color: #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.15), 0 1px 1.5px rgba(0,0,0,.15); }
+.mac-btn.dis { opacity: .5; }
+.box { background: #fff; border-radius: 10px; box-shadow: 0 0 0 .5px rgba(0,0,0,.16); padding: 12px 14px; }
+.acct { display: flex; align-items: center; gap: 12px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #8ec5fc, #e0c3fc); display: grid; place-items: center; color: #4a3a8a; flex: none; }
+.acct .n { font-weight: 600; font-size: 14px; }
+.acct .s { font-size: 12px; color: #6e6e73; display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+.pill-ok { font-size: 11px; font-weight: 600; color: #1f8a3a; background: #e3f6e8; border-radius: 10px; padding: 2px 8px; }
+.sect-h { font-size: 11px; font-weight: 600; color: #8a8a8e; text-transform: uppercase; letter-spacing: .04em; margin: 16px 2px 6px; }
+.kv { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12.5px; border-bottom: 1px solid #f0f0f2; }
+.kv:last-child { border-bottom: 0; }
+.kv svg.i { color: #8a8a8e; }
+.kv .r { margin-left: auto; font-size: 11.5px; color: #1f8a3a; font-weight: 600; }
+.kv .r.muted { color: #8a8a8e; font-weight: 400; }
+
+.sheet-dim { position: absolute; inset: 88px 0 0 0; background: rgba(0,0,0,.12); }
+.sheet { position: absolute; left: 50%; top: 52px; transform: translateX(-50%); width: 470px; background: #f7f7f9; border-radius: 0 0 12px 12px; box-shadow: 0 18px 50px rgba(0,0,0,.35), 0 0 0 .5px rgba(0,0,0,.2); padding: 16px 18px 14px; color: #1d1d1f; }
+.sheet h4 { margin: 0 0 4px; font-size: 14px; }
+.sheet .lead { font-size: 12px; color: #6e6e73; margin: 0 0 10px; }
+.search { display: flex; align-items: center; gap: 6px; height: 28px; border-radius: 7px; background: #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.2), 0 0 0 3.5px rgba(0,122,255,.35); padding: 0 8px; font-size: 13px; color: #1d1d1f; margin-bottom: 10px; }
+.search svg.i { color: #8a8a8e; }
+.search .caret { width: 1px; height: 15px; background: #007aff; margin-left: -4px; }
+.seg-ctl { display: inline-flex; background: rgba(0,0,0,.06); border-radius: 7px; padding: 2px; font-size: 12px; margin-bottom: 10px; }
+.seg-ctl span { padding: 3px 12px; border-radius: 5px; color: #3a3a3c; }
+.seg-ctl span.on { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12); font-weight: 500; }
+.pick { background: #fff; border-radius: 9px; box-shadow: 0 0 0 .5px rgba(0,0,0,.16); max-height: 270px; overflow: hidden; }
+.pick .grp { font-size: 11px; font-weight: 600; color: #8a8a8e; padding: 7px 12px 4px; background: #fbfbfc; border-bottom: 1px solid #f0f0f2; display: flex; align-items: center; gap: 6px; }
+.pick .it { display: flex; align-items: center; gap: 9px; padding: 0 12px; height: 31px; font-size: 13px; border-bottom: 1px solid #f3f3f5; }
+.pick .it .meta { margin-left: auto; font-size: 11.5px; color: #8a8a8e; display: flex; align-items: center; gap: 5px; }
+.pick .it.added { color: #9a9aa0; }
+.pick mark { background: #fff1a8; color: inherit; border-radius: 2px; padding: 0 1px; }
+.sheet-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.sheet-foot .grant { white-space: nowrap; font-size: 12px; color: #007aff; display: flex; align-items: center; gap: 4px; margin-right: auto; }
+
+/* ---------- settings window, dark ---------- */
+.dark .win { background: #262628; box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 .5px rgba(0,0,0,.7); }
+.dark .win-bar { background: linear-gradient(#38383b, #313134); border-bottom-color: rgba(0,0,0,.55); }
+.dark .lights span { box-shadow: inset 0 0 0 .5px rgba(0,0,0,.3); }
+.dark .win-title { color: #e5e5e7; }
+.dark .tab { color: #a8a8ad; }
+.dark .tab.sel { background: rgba(255,255,255,.1); color: #0a84ff; }
+.dark .win-body { color: #f2f2f7; }
+.dark .win-body .lead, .dark .sheet .lead { color: #98989d; }
+.dark .tbl { background: #1c1c1e; box-shadow: 0 0 0 .5px rgba(255,255,255,.12); }
+.dark .tr:nth-child(odd):not(.th) { background: #222224; }
+.dark .tr.th { background: #2a2a2c; color: #8e8e93; border-bottom-color: #3a3a3c; }
+.dark .tr.sel { background: #0a5bd6 !important; }
+.dark .tr .grip { color: #5a5a5f; }
+.dark .tr .eye { color: #0a84ff; }
+.dark .tr.hid { color: #6e6e73; }
+.dark .tr.hid .eye { color: #5a5a5f; }
+.dark .tr .o, .dark .tr .st .lock { color: #8e8e93; }
+.dark .tr .st { color: #a1a1a6; }
+.dark .tr .st.warn { color: #ff9f0a; }
+.dark .tr .st.warn a, .dark .sheet-foot .grant { color: #0a84ff; }
+.dark .tbl-foot { background: #2a2a2c; border-top-color: #3a3a3c; }
+.dark .tbl-foot .b { border-right-color: #3a3a3c; color: #d1d1d6; }
+.dark .tbl-foot .info { color: #8e8e93; }
+.dark .form .lbl { color: #d1d1d6; }
+.dark .form .hint { color: #8e8e93; }
+.dark .pop-btn { background: #48484a; color: #f2f2f7; box-shadow: 0 0 0 .5px rgba(0,0,0,.5), inset 0 .5px 0 rgba(255,255,255,.12); }
+.dark .pop-btn .ud { background: #0a84ff; }
+.dark .toggle { background: #30d158; }
+.dark .toggle.off { background: #48484a; }
+.dark .chk { background: #2c2c2e; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
+.dark .chk.on { background: #0a84ff; box-shadow: none; }
+.dark .chk.dis { background: #23446e; box-shadow: none; color: #9fb6d8; }
+.dark .mac-btn { background: #5a5a5d; color: #f2f2f7; box-shadow: 0 0 0 .5px rgba(0,0,0,.5), inset 0 .5px 0 rgba(255,255,255,.14); }
+.dark .mac-btn.def { background: linear-gradient(#2a8cff, #0a6ae0); color: #fff; }
+.dark .box { background: #1c1c1e; box-shadow: 0 0 0 .5px rgba(255,255,255,.12); }
+.dark .acct .s { color: #98989d; }
+.dark .pill-ok { color: #30d158; background: rgba(48,209,88,.16); }
+.dark .sect-h { color: #8e8e93; }
+.dark .kv { border-bottom-color: #2c2c2e; }
+.dark .kv svg.i { color: #8e8e93; }
+.dark .kv .r { color: #30d158; }
+.dark .kv .r.muted { color: #8e8e93; }
+.dark .sheet-dim { background: rgba(0,0,0,.35); }
+.dark .sheet { background: #2c2c2e; color: #f2f2f7; box-shadow: 0 18px 50px rgba(0,0,0,.6), 0 0 0 .5px rgba(0,0,0,.7), inset 0 0 0 .5px rgba(255,255,255,.1); }
+.dark .search { background: #1c1c1e; color: #f2f2f7; box-shadow: 0 0 0 .5px rgba(255,255,255,.15), 0 0 0 3.5px rgba(10,132,255,.5); }
+.dark .search svg.i { color: #8e8e93; }
+.dark .search .caret { background: #0a84ff; }
+.dark .pick { background: #1c1c1e; box-shadow: 0 0 0 .5px rgba(255,255,255,.12); }
+.dark .pick .grp { background: #232325; color: #8e8e93; border-bottom-color: #2c2c2e; }
+.dark .pick .it { border-bottom-color: #262628; }
+.dark .pick .it .meta { color: #8e8e93; }
+.dark .pick .it.added { color: #6e6e73; }
+.dark .pick mark { background: rgba(255,214,10,.32); }
+
+/* ---------- menu bar states ---------- */
+.states { padding: 26px 28px 30px; display: grid; gap: 14px; }
+.state { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: center; }
+.state .bar { height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 10px; font-size: 13px; font-weight: 500; }
+.state .bar.d { background: linear-gradient(90deg, #3a3060, #2a4560); color: #fff; }
+.state .bar.l { background: linear-gradient(90deg, #f3e2cf, #d9e4f7); color: #111; }
+.state .desc b { color: #fff; font-size: 13px; }
+.state .desc div { color: #9a9aa6; font-size: 12.5px; margin-top: 2px; line-height: 1.45; }
+
+/* ---------- settings · workspace ---------- */
+.win-pair { gap: 36px; align-items: flex-start; }
+.ws-form { grid-template-columns: 226px 1fr; }
+.inline { display: inline-flex; align-items: center; gap: 8px; }
+.field { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 6px; min-width: 200px; font-size: 12.5px; background: #fff; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.22); }
+.field .ph { color: #8a8a8e; }
+.field svg.i { color: #1e7cf2; }
+.dis { opacity: .42; }
+.sect-h .aside { float: right; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.tr.ex { grid-template-columns: 24px 1fr; height: 28px; font: 12px ui-monospace, "SF Mono", Menlo, monospace; }
+.tr.ex svg.i { color: #8a8a8e; }
+.tr.ws { grid-template-columns: 34px 1fr 200px; height: 42px; }
+.tr.ws.th { height: 26px; }
+.tr.ws .two { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tr.ws .path { font: 11px ui-monospace, "SF Mono", Menlo, monospace; color: #8a8a8e; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tr.ws .bchip { font: 10px ui-monospace, "SF Mono", Menlo, monospace; padding: 0 5px; border-radius: 4px; background: rgba(10,132,255,.16); color: #0a84ff; }
+.tr.ws .st { align-items: flex-start; }
+.tr.ws .st .ci { margin-top: 1px; }
+.tr.ws .st .sub { font-size: 11px; color: #8a8a8e; }
+.tr.ws.off { color: #9a9aa0; }
+.ws-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 11.5px; color: #8a8a8e; }
+.empty { text-align: center; padding: 26px 34px 24px; margin-top: 18px; }
+.empty .big { color: #0a84ff; margin-bottom: 8px; }
+.empty h4 { margin: 0 0 6px; font-size: 14px; }
+.empty p { margin: 0 auto; max-width: 420px; font-size: 12px; line-height: 1.5; color: #6e6e73; }
+.ws-note svg.i { color: var(--orange); }
+.dark .field { background: #1c1c1e; color: #f2f2f7; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.18); }
+.dark .field .ph, .dark .tr.ws .path, .dark .tr.ws .st .sub, .dark .ws-actions, .dark .tr.ex svg.i { color: #8e8e93; }
+.dark .tr.ws.off { color: #6e6e73; }
+.dark .empty p { color: #98989d; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-boat" viewBox="0 0 16 16"><path d="M7.6 1.6v9.2"/><path d="M7.6 2.6 3 9.6h4.6"/><path d="M9 4.2l4.2 5.4H9z"/><path d="M1.6 11.4h12.8l-1.9 2.6H3.5z"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 16 16"><path d="M2 2.6v4.3c0 .4.2.8.4 1l5.8 5.8c.5.5 1.3.5 1.8 0l3.7-3.7c.5-.5.5-1.3 0-1.8L7.9 2.4c-.3-.3-.6-.4-1-.4H2.6c-.3 0-.6.3-.6.6z"/><circle cx="5" cy="5" r="1"/></symbol>
+    <symbol id="i-issue" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-pr" viewBox="0 0 16 16"><circle cx="4" cy="3.5" r="1.6"/><circle cx="4" cy="12.5" r="1.6"/><circle cx="12" cy="12.5" r="1.6"/><path d="M4 5.1v5.8"/><path d="M12 10.9V6.6c0-1.1-.9-2-2-2H7.4"/><path d="M9 3 7.4 4.6 9 6.2"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 16 16"><rect x="2.2" y="5" width="11.6" height="8.4" rx="2.4"/><path d="M8 5V2.6"/><circle cx="8" cy="2.1" r=".7" fill="currentColor"/><path d="M5.8 8.6v1.2M10.2 8.6v1.2"/><path d="M.9 8.6v2M15.1 8.6v2"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13.2 8.4A5.2 5.2 0 1 1 11.6 4.3"/><path d="M13.2 2.4v3h-3"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.6v1.8M8 12.6v1.8M1.6 8h1.8M12.6 8h1.8M3.5 3.5l1.3 1.3M11.2 11.2l1.3 1.3M3.5 12.5l1.3-1.3M11.2 4.8l1.3-1.3"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 16 16"><path d="M6.5 3.5H3.8c-.7 0-1.3.6-1.3 1.3v7.4c0 .7.6 1.3 1.3 1.3h7.4c.7 0 1.3-.6 1.3-1.3V9.5"/><path d="M9.5 2.5h4v4M13.5 2.5 7.5 8.5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.6V8l2.4 1.5"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+    <symbol id="i-chev-d" viewBox="0 0 16 16"><path d="M3.5 6 8 10.5 12.5 6"/></symbol>
+    <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 13V3M4 7l4-4 4 4"/></symbol>
+    <symbol id="i-down" viewBox="0 0 16 16"><path d="M8 3v10M4 9l4 4 4-4"/></symbol>
+    <symbol id="i-updown" viewBox="0 0 16 16"><path d="M5 6.2 8 3.2l3 3M5 9.8l3 3 3-3"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 16 16"><path d="M1.2 8S3.7 3.2 8 3.2 14.8 8 14.8 8 12.3 12.8 8 12.8 1.2 8 1.2 8z"/><circle cx="8" cy="8" r="2.1"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 16 16"><path d="M6.3 3.5A6.8 6.8 0 0 1 8 3.2c4.3 0 6.8 4.8 6.8 4.8a12 12 0 0 1-1.8 2.4M4.3 4.6A11.6 11.6 0 0 0 1.2 8S3.7 12.8 8 12.8c1.4 0 2.6-.5 3.6-1.1"/><path d="M2 2l12 12"/></symbol>
+    <symbol id="i-grip" viewBox="0 0 16 16"><g fill="currentColor" stroke="none"><circle cx="6" cy="4" r="1"/><circle cx="10" cy="4" r="1"/><circle cx="6" cy="8" r="1"/><circle cx="10" cy="8" r="1"/><circle cx="6" cy="12" r="1"/><circle cx="10" cy="12" r="1"/></g></symbol>
+    <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 16 16"><path d="M3 8h10"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.6"/><path d="M5.2 7V5a2.8 2.8 0 0 1 5.6 0v2"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.8 2 1.8 10 0 12M8 2c-1.8 2-1.8 10 0 12"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 16 16"><rect x="5" y="5" width="8.5" height="8.5" rx="1.6"/><path d="M11 5V3.8c0-.7-.6-1.3-1.3-1.3H3.8c-.7 0-1.3.6-1.3 1.3v5.9c0 .7.6 1.3 1.3 1.3H5"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 16 16"><path d="M7.1 2.3 1.5 12.2c-.4.7.1 1.5.9 1.5h11.2c.8 0 1.3-.8.9-1.5L8.9 2.3c-.4-.7-1.4-.7-1.8 0z"/><path d="M8 6.2v3"/><circle cx="8" cy="11.3" r=".6" fill="currentColor"/></symbol>
+    <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.4 10.4 14 14"/></symbol>
+    <symbol id="i-person" viewBox="0 0 16 16"><circle cx="8" cy="5.5" r="2.8"/><path d="M2.6 14c.6-2.8 2.8-4.4 5.4-4.4s4.8 1.6 5.4 4.4"/></symbol>
+    <symbol id="i-term" viewBox="0 0 16 16"><rect x="1.6" y="2.6" width="12.8" height="10.8" rx="2"/><path d="M4.4 6.2 6.6 8l-2.2 1.8M8.4 10.2h3"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.4 6.6 11.4 12.5 4.8"/></symbol>
+    <symbol id="i-x" viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></symbol>
+    <symbol id="i-power" viewBox="0 0 16 16"><path d="M8 1.8v6"/><path d="M4.6 4.2a5.2 5.2 0 1 0 6.8 0"/></symbol>
+    <symbol id="i-play" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M6.8 5.6 10.4 8l-3.6 2.4z"/></symbol>
+    <symbol id="i-key" viewBox="0 0 16 16"><circle cx="5.2" cy="10.8" r="3"/><path d="M7.4 8.6 13.6 2.4M11.4 4.6l1.6 1.6M9.8 6.2l1.2 1.2"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 16 16"><path d="M2 4.5h7.5M12.5 4.5H14M2 11.5h2M7 11.5h7"/><circle cx="11" cy="4.5" r="1.6"/><circle cx="5.5" cy="11.5" r="1.6"/></symbol>
+    <symbol id="i-list" viewBox="0 0 16 16"><path d="M5.5 4h8.5M5.5 8h8.5M5.5 12h8.5"/><circle cx="2.5" cy="4" r=".5" fill="currentColor"/><circle cx="2.5" cy="8" r=".5" fill="currentColor"/><circle cx="2.5" cy="12" r=".5" fill="currentColor"/></symbol>
+    <symbol id="i-gh" viewBox="0 0 16 16"><path fill="currentColor" stroke="none" d="M8 .6a7.5 7.5 0 0 0-2.4 14.6c.4.1.5-.2.5-.4v-1.4c-2.1.5-2.5-.9-2.5-.9-.3-.9-.8-1.1-.8-1.1-.7-.5 0-.5 0-.5.8.1 1.2.8 1.2.8.7 1.2 1.8.8 2.2.6.1-.5.3-.8.5-1-1.7-.2-3.4-.8-3.4-3.7 0-.8.3-1.5.8-2-.1-.2-.3-1 .1-2 0 0 .6-.2 2.1.8a7 7 0 0 1 3.8 0C11.5 2.5 12.1 2.7 12.1 2.7c.4 1 .2 1.8.1 2 .5.5.8 1.2.8 2 0 2.9-1.8 3.5-3.4 3.7.3.2.5.7.5 1.4v2.1c0 .2.1.5.6.4A7.5 7.5 0 0 0 8 .6z"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 16 16"><path d="M1.6 6.2a9.2 9.2 0 0 1 12.8 0M3.8 8.6a6 6 0 0 1 8.4 0M6 11a2.8 2.8 0 0 1 4 0"/><circle cx="8" cy="13.2" r=".7" fill="currentColor"/></symbol>
+    <symbol id="i-batt" viewBox="0 0 24 16"><rect x="1" y="3.5" width="19" height="9" rx="2.6"/><rect x="3" y="5.5" width="12" height="5" rx="1.2" fill="currentColor" stroke="none"/><path d="M22 6.8v2.4"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 16 16"><path d="M1.8 4.2c0-.7.5-1.2 1.2-1.2h3.2l1.5 1.6H13c.7 0 1.2.5 1.2 1.2v6.2c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z"/></symbol>
+    <symbol id="i-pull" viewBox="0 0 16 16"><path d="M8 2.5v7.5M4.8 7 8 10.2 11.2 7"/><path d="M2.5 11v1.5c0 .6.5 1 1 1h9c.6 0 1-.4 1-1V11"/></symbol>
+    <symbol id="i-cc" viewBox="0 0 16 16"><rect x="1.6" y="3" width="12.8" height="4" rx="2"/><rect x="1.6" y="9" width="12.8" height="4" rx="2"/><circle cx="4.2" cy="5" r="1" fill="currentColor"/><circle cx="11.8" cy="11" r="1" fill="currentColor"/></symbol>
+
+    <symbol id="ci-ok" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3 7 10.4l4.2-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="ci-fail" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="ci-run" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="2"/><path d="M8 2a6 6 0 0 1 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8" cy="8" r="2.2" fill="currentColor"/></symbol>
+    <symbol id="ci-queued" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.4 2.2"/></symbol>
+    <symbol id="ci-none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.4 8h5.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="ci-warn" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M8 4.6v4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="11.2" r="1" fill="#fff"/></symbol>
+  </defs>
+</svg>
+
+<div class="page">
+  <header>
+    <h1>Shipwatch · UI mockups</h1>
+    <p>A tiny native macOS menu bar app (SwiftUI <code style="font:13px ui-monospace,monospace">MenuBarExtra</code>, window style) that watches the GitHub repositories you pick: latest release, Actions status with links to running workflows, last activity, open issues, and open PRs with a separate Dependabot count. Read-only access through a GitHub App (device flow sign-in), with the GitHub CLI token as fallback. All data below is fictional.</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- 01 main dark -->
+    <section class="frame" id="f-main-dark">
+      <div class="stage dark wall-dark">
+        <div class="menubar">
+          <div class="left"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-gh"/></svg><b>Finder</b><span>File</span><span>Edit</span><span>View</span></div>
+          <span class="mb"><svg class="i" width="16" height="16" viewBox="0 0 16 16"><use href="#i-wifi"/></svg></span>
+          <span class="mb active"><svg class="i" width="17" height="17" viewBox="0 0 16 16"><use href="#i-boat"/></svg><span class="dot" style="background:#ffd60a"></span></span>
+          <span class="mb"><svg class="i" width="24" height="16" viewBox="0 0 24 16"><use href="#i-batt"/></svg></span>
+          <span class="mb"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-cc"/></svg></span>
+          <span class="mb">Sat 14 Nov&nbsp; 15:40</span>
+        </div>
+        <div class="anchor" style="padding-right:118px">
+          <div class="pop" data-pop="dark"></div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>01 · Menu popover<small>dark, one row expanded</small></h2>
+        <ol>
+          <li>Menu bar icon shows the worst current state as a dot: yellow = something running, red = something failed.</li>
+          <li>Summary chips: how many repos are running / failing / passing.</li>
+          <li>Each row: CI status icon (click opens the running or latest run), repo name (opens repo), latest release tag + age (opens release), open issues, open PRs, Dependabot PRs as a separate clickable segment, last activity.</li>
+          <li>Click a row to expand it: running and queued workflows with direct links, then the latest result of each workflow on the default branch.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 02 main light -->
+    <section class="frame" id="f-main-light">
+      <div class="stage light wall-light">
+        <div class="menubar">
+          <div class="left"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-gh"/></svg><b>Finder</b><span>File</span><span>Edit</span><span>View</span></div>
+          <span class="mb"><svg class="i" width="16" height="16" viewBox="0 0 16 16"><use href="#i-wifi"/></svg></span>
+          <span class="mb active"><svg class="i" width="17" height="17" viewBox="0 0 16 16"><use href="#i-boat"/></svg><span class="dot" style="background:#ff3b30"></span></span>
+          <span class="mb"><svg class="i" width="24" height="16" viewBox="0 0 24 16"><use href="#i-batt"/></svg></span>
+          <span class="mb"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-cc"/></svg></span>
+          <span class="mb">Sat 14 Nov&nbsp; 15:40</span>
+        </div>
+        <div class="anchor" style="padding-right:118px">
+          <div class="pop" data-pop="light"></div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>02 · Menu popover<small>light, hover + edge states</small></h2>
+        <ol>
+          <li>Hovering the Dependabot segment shows where it goes: the repo's open PRs filtered to <code>author:app/dependabot</code>.</li>
+          <li>Pre-releases get an orange outline and a "pre" badge; repos with no releases say so.</li>
+          <li>A repo the GitHub App can't read shows an inline warning with a "Grant access" link to the app's installation settings.</li>
+          <li>Rate limit or network problems show a banner; the last good data stays visible.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 03 menu bar states -->
+    <section class="frame" id="f-states">
+      <div class="stage" style="background:#1d2130">
+        <div class="states">
+          <div class="state"><div class="bar d"><span class="mb"><svg class="i" width="17" height="17" viewBox="0 0 16 16"><use href="#i-boat"/></svg></span><span>15:40</span></div><div class="desc"><b>All good</b><div>Plain template icon. Adapts to light/dark menu bar.</div></div></div>
+          <div class="state"><div class="bar d"><span class="mb"><svg class="i" width="17" height="17" viewBox="0 0 16 16"><use href="#i-boat"/></svg><span class="dot" style="background:#ffd60a"></span></span><span>15:40</span></div><div class="desc"><b>Workflow running</b><div>Yellow dot while any watched repo has an in-progress or queued run.</div></div></div>
+          <div class="state"><div class="bar d"><span class="mb"><svg class="i" width="17" height="17" viewBox="0 0 16 16"><use href="#i-boat"/></svg><span class="dot" style="background:#ff453a"></span></span><span>15:40</span></div><div class="desc"><b>Something failed</b><div>Red dot when a default-branch run failed. Red wins over yellow.</div></div></div>
+          <div class="state"><div class="bar l"><span class="mb"><svg class="i" width="17" height="17" viewBox="0 0 16 16" style="opacity:.4"><use href="#i-boat"/></svg></span><span>15:40</span></div><div class="desc"><b>Signed out / offline</b><div>Dimmed icon. Clicking opens sign-in or the last cached data.</div></div></div>
+          <div class="state"><div class="bar l"><span class="mb"><svg class="i" width="17" height="17" viewBox="0 0 16 16"><use href="#i-boat"/></svg><span class="dot" style="background:#ff3b30;box-shadow:0 0 0 1.5px #e9e6f0"></span></span><span>15:40</span></div><div class="desc"><b>Light menu bar</b><div>Same states; the dot keeps its color on any wallpaper.</div></div></div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>03 · Menu bar icon states</h2>
+        <ul>
+          <li>SF Symbol <code>sailboat</code> as a template image plus a small status dot. No text in the menu bar, so it stays tiny.</li>
+          <li>Optional setting: show the failing count next to the icon (off by default).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 04 context menu -->
+    <section class="frame" id="f-context">
+      <div class="stage dark wall-dark">
+        <div class="menubar">
+          <div class="left"><b>Finder</b></div>
+          <span class="mb active"><svg class="i" width="17" height="17" viewBox="0 0 16 16"><use href="#i-boat"/></svg><span class="dot" style="background:#ffd60a"></span></span>
+          <span class="mb">Sat 14 Nov&nbsp; 15:40</span>
+        </div>
+        <div class="anchor" style="padding-right:70px;padding-bottom:150px">
+          <div class="pop" data-pop="ctx"></div>
+        </div>
+        <div class="ctx dark" style="left:228px;top:198px">
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-gh"/></svg>Open Repository</div>
+          <div class="mi hl"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-play"/></svg>Open Actions<span class="kbd"></span></div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-tag"/></svg>Open Releases</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-copy"/></svg>Copy Latest Tag</div>
+          <div class="sep"></div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-up"/></svg>Move Up</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-down"/></svg>Move Down</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-eye-off"/></svg>Hide “cli-tool”</div>
+          <div class="sep"></div>
+          <div class="mi danger"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-minus"/></svg>Remove from Shipwatch…</div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>04 · Row context menu<small>right-click or ⌃-click</small></h2>
+        <ul>
+          <li>Quick hide/show, reorder and remove without opening Settings.</li>
+          <li>Hidden repos keep being tracked but vanish from the list; the footer offers "Show hidden" to peek.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 05 sign-in -->
+    <section class="frame span2" id="f-signin">
+      <div class="stage dark wall-dark" style="display:flex;gap:28px;justify-content:center;padding:40px 30px 44px">
+        <div class="pop" style="width:350px">
+          <div class="onb">
+            <div class="logo"><svg class="i" width="30" height="30" viewBox="0 0 16 16"><use href="#i-boat"/></svg></div>
+            <h3>Welcome to Shipwatch</h3>
+            <p>Releases, Actions, issues and PRs for the repos you care about, one click away.</p>
+            <a class="btn primary"><svg class="i" width="16" height="16" viewBox="0 0 16 16"><use href="#i-gh"/></svg>Sign in with GitHub</a>
+            <div class="fine"><svg class="i" width="12" height="12" viewBox="0 0 16 16" style="margin-top:1px"><use href="#i-lock"/></svg><span>Read-only. Shipwatch only sees the repositories you grant to its GitHub App.</span></div>
+            <div class="or">or</div>
+            <a class="btn secondary" style="flex-direction:column;gap:0;height:44px"><span style="display:flex;gap:7px;align-items:center"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-term"/></svg>Use GitHub CLI token</span><span class="bsub">gh found · signed in as @mbianchidev</span></a>
+          </div>
+        </div>
+
+        <div class="pop" style="width:350px">
+          <div class="onb">
+            <div class="steps"><span class="on"></span><span></span></div>
+            <h3>Authorize on GitHub</h3>
+            <p>Enter this code at <b style="color:var(--fg)">github.com/login/device</b></p>
+            <div class="code">WDJB-MJHT<span class="copy"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-copy"/></svg></span></div>
+            <a class="btn primary"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-ext"/></svg>Copy Code &amp; Open GitHub</a>
+            <div class="waiting"><span class="spin"></span>Waiting for authorization · expires in 14:32</div>
+            <a class="btn ghost" style="margin-top:10px;height:28px">Cancel</a>
+          </div>
+        </div>
+
+        <div class="pop" style="width:350px">
+          <div class="onb">
+            <div class="steps"><span class="on"></span><span class="on"></span></div>
+            <h3>Choose repositories</h3>
+            <p>Install the Shipwatch app and pick exactly which repositories it may read. You can change this any time.</p>
+            <div class="perm">
+              <div><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-play"/></svg>Actions<span>Read-only</span></div>
+              <div><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-tag"/></svg>Contents (releases)<span>Read-only</span></div>
+              <div><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-issue"/></svg>Issues<span>Read-only</span></div>
+              <div><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-pr"/></svg>Pull requests<span>Read-only</span></div>
+              <div><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-list"/></svg>Metadata<span>Read-only</span></div>
+            </div>
+            <a class="btn primary"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-ext"/></svg>Install on GitHub</a>
+            <a class="btn ghost" style="margin-top:8px;height:28px">I've installed it · Continue</a>
+          </div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>05 · First run &amp; sign-in<small>GitHub App device flow, gh CLI fallback</small></h2>
+        <ol>
+          <li><b>Sign in with GitHub</b> starts the OAuth device flow of the Shipwatch GitHub App. No client secret ships in the app; the token is stored in the macOS Keychain.</li>
+          <li>The user types the code on github.com. The app polls until approved (or the code expires).</li>
+          <li>If the app isn't installed yet, Shipwatch links to the installation page where the user selects repositories. Tokens can only read repos where the app is installed, so access stays limited to what was set up.</li>
+          <li><b>Use GitHub CLI token</b> reads <code>gh auth token</code> on demand (never copied to disk by Shipwatch). Shipwatch still only queries the repos configured in Settings.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 06 settings repos -->
+    <section class="frame" id="f-settings-repos">
+      <div class="stage dark wall-dark win-stage">
+        <div class="win">
+          <div class="win-bar">
+            <div class="lights"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+            <div class="win-title">Repositories</div>
+            <div class="tabs">
+              <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
+            </div>
+          </div>
+          <div class="win-body">
+            <p class="lead">Repositories shown in the menu, in this order. Drag to reorder, click the eye to hide or show.</p>
+            <div class="tbl">
+              <div class="tr th"><span></span><span>Show</span><span>Repository</span><span>Access</span></div>
+              <div class="tr"><svg class="i grip" width="14" height="14" viewBox="0 0 16 16"><use href="#i-grip"/></svg><svg class="i eye" width="16" height="16" viewBox="0 0 16 16"><use href="#i-eye"/></svg><span>api-server<span class="o">mbianchidev</span></span><span class="st"><svg class="i lock" width="12" height="12" viewBox="0 0 16 16"><use href="#i-lock"/></svg>Private · app</span></div>
+              <div class="tr"><svg class="i grip" width="14" height="14" viewBox="0 0 16 16"><use href="#i-grip"/></svg><svg class="i eye" width="16" height="16" viewBox="0 0 16 16"><use href="#i-eye"/></svg><span>website<span class="o">mbianchidev</span></span><span class="st"><svg class="i lock" width="12" height="12" viewBox="0 0 16 16"><use href="#i-globe"/></svg>Public · app</span></div>
+              <div class="tr sel"><svg class="i grip" width="14" height="14" viewBox="0 0 16 16"><use href="#i-grip"/></svg><svg class="i eye" width="16" height="16" viewBox="0 0 16 16"><use href="#i-eye"/></svg><span>cli-tool<span class="o">mbianchidev</span></span><span class="st"><svg class="i lock" width="12" height="12" viewBox="0 0 16 16"><use href="#i-globe"/></svg>Public · app</span></div>
+              <div class="tr"><svg class="i grip" width="14" height="14" viewBox="0 0 16 16"><use href="#i-grip"/></svg><svg class="i eye" width="16" height="16" viewBox="0 0 16 16"><use href="#i-eye"/></svg><span>infra<span class="o">acme-org</span></span><span class="st"><svg class="i lock" width="12" height="12" viewBox="0 0 16 16"><use href="#i-lock"/></svg>Private · app</span></div>
+              <div class="tr"><svg class="i grip" width="14" height="14" viewBox="0 0 16 16"><use href="#i-grip"/></svg><svg class="i eye" width="16" height="16" viewBox="0 0 16 16"><use href="#i-eye"/></svg><span>dotfiles<span class="o">mbianchidev</span></span><span class="st"><svg class="i lock" width="12" height="12" viewBox="0 0 16 16"><use href="#i-globe"/></svg>Public · app</span></div>
+              <div class="tr hid"><svg class="i grip" width="14" height="14" viewBox="0 0 16 16"><use href="#i-grip"/></svg><svg class="i eye" width="16" height="16" viewBox="0 0 16 16"><use href="#i-eye-off"/></svg><span>old-blog<span class="o">mbianchidev</span></span><span class="st"><svg class="i lock" width="12" height="12" viewBox="0 0 16 16"><use href="#i-globe"/></svg>Public · app</span></div>
+              <div class="tr hid"><svg class="i grip" width="14" height="14" viewBox="0 0 16 16"><use href="#i-grip"/></svg><svg class="i eye" width="16" height="16" viewBox="0 0 16 16"><use href="#i-eye-off"/></svg><span>experiments<span class="o">mbianchidev</span></span><span class="st"><svg class="i lock" width="12" height="12" viewBox="0 0 16 16"><use href="#i-lock"/></svg>Private · app</span></div>
+              <div class="tr"><svg class="i grip" width="14" height="14" viewBox="0 0 16 16"><use href="#i-grip"/></svg><svg class="i eye" width="16" height="16" viewBox="0 0 16 16"><use href="#i-eye"/></svg><span>legacy-api<span class="o">acme-org</span></span><span class="st warn"><svg class="i" width="12" height="12" viewBox="0 0 16 16"><use href="#i-warn"/></svg>No access<a>Grant…</a></span></div>
+              <div class="tbl-foot">
+                <span class="b"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-plus"/></svg></span>
+                <span class="b"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-minus"/></svg></span>
+                <span class="info">8 repositories · 2 hidden</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>06 · Settings · Repositories<small>⌘, from the popover</small></h2>
+        <ul>
+          <li><b>+</b> opens the picker (07). <b>−</b> removes the selected repo from Shipwatch (does nothing on GitHub).</li>
+          <li>Eye toggles hide/show. Drag the grip to reorder; order is the menu order.</li>
+          <li>Access column tells you if the token can read it, with a shortcut to grant access.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 07 add sheet -->
+    <section class="frame" id="f-settings-add">
+      <div class="stage dark wall-dark win-stage">
+        <div class="win" style="height:520px">
+          <div class="win-bar">
+            <div class="lights"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+            <div class="win-title">Repositories</div>
+            <div class="tabs">
+              <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
+            </div>
+          </div>
+          <div class="sheet-dim"></div>
+          <div class="sheet" style="top:88px">
+            <h4>Add Repositories</h4>
+            <p class="lead">Repositories your token can read. Already added ones are greyed out.</p>
+            <div class="search"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-search"/></svg>pay<span class="caret"></span></div>
+            <div class="pick">
+              <div class="grp"><svg class="i" width="12" height="12" viewBox="0 0 16 16"><use href="#i-person"/></svg>mbianchidev</div>
+              <div class="it"><span class="chk on"><svg class="i" width="11" height="11" viewBox="0 0 16 16"><use href="#i-check"/></svg></span><span><mark>pay</mark>slip-parser</span><span class="meta"><svg class="i" width="11" height="11" viewBox="0 0 16 16"><use href="#i-lock"/></svg>Private · 2d ago</span></div>
+              <div class="it"><span class="chk"></span><span>re<mark>pay</mark>-calculator</span><span class="meta"><svg class="i" width="11" height="11" viewBox="0 0 16 16"><use href="#i-globe"/></svg>Public · 1y ago</span></div>
+              <div class="grp"><svg class="i" width="12" height="12" viewBox="0 0 16 16"><use href="#i-person"/></svg>acme-org</div>
+              <div class="it"><span class="chk on"><svg class="i" width="11" height="11" viewBox="0 0 16 16"><use href="#i-check"/></svg></span><span><mark>pay</mark>ments</span><span class="meta"><svg class="i" width="11" height="11" viewBox="0 0 16 16"><use href="#i-lock"/></svg>Private · 5h ago</span></div>
+              <div class="it added"><span class="chk dis"><svg class="i" width="11" height="11" viewBox="0 0 16 16"><use href="#i-check"/></svg></span><span><mark>pay</mark>ments-infra</span><span class="meta">Added</span></div>
+              <div class="it"><span class="chk"></span><span><mark>pay</mark>-webhooks</span><span class="meta"><svg class="i" width="11" height="11" viewBox="0 0 16 16"><use href="#i-lock"/></svg>Private · 3w ago</span></div>
+            </div>
+            <div class="sheet-foot">
+              <a class="grant"><svg class="i" width="12" height="12" viewBox="0 0 16 16"><use href="#i-ext"/></svg>Grant access to more repos</a>
+              <span class="mac-btn">Cancel</span>
+              <span class="mac-btn def">Add 2 Repositories</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>07 · Add repositories sheet</h2>
+        <ul>
+          <li>Lists repos from the app installations (or, with the gh fallback, repos you own/collaborate on). Type to filter; multi-select.</li>
+          <li>Typing a full <code>owner/name</code> also works for anything the token can read.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 08 settings account -->
+    <section class="frame" id="f-settings-account">
+      <div class="stage dark wall-dark win-stage">
+        <div class="win">
+          <div class="win-bar">
+            <div class="lights"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+            <div class="win-title">Account</div>
+            <div class="tabs">
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
+              <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
+            </div>
+          </div>
+          <div class="win-body">
+            <div class="box">
+              <div class="acct">
+                <div class="avatar"><svg class="i" width="20" height="20" viewBox="0 0 16 16"><use href="#i-person"/></svg></div>
+                <div><div class="n">@mbianchidev</div><div class="s"><svg class="i" width="12" height="12" viewBox="0 0 16 16"><use href="#i-gh"/></svg>Signed in with the Shipwatch GitHub App</div></div>
+                <span class="spacer"></span><span class="pill-ok">Read-only</span>
+              </div>
+            </div>
+            <div class="sect-h">Permissions granted</div>
+            <div class="box" style="padding:4px 14px">
+              <div class="kv"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-play"/></svg>Actions<span class="r">Read</span></div>
+              <div class="kv"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-tag"/></svg>Contents (releases)<span class="r">Read</span></div>
+              <div class="kv"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-issue"/></svg>Issues · Pull requests · Metadata<span class="r">Read</span></div>
+              <div class="kv"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-list"/></svg>Installed on<span class="r muted">mbianchidev (7 repos) · acme-org (3 repos)</span></div>
+            </div>
+            <div class="sect-h">Fallback</div>
+            <div class="box" style="padding:4px 14px">
+              <div class="kv"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-term"/></svg>Use GitHub CLI token if app sign-in is unavailable<span class="spacer"></span><span class="toggle"></span></div>
+              <div class="kv"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-key"/></svg>gh at /opt/homebrew/bin/gh<span class="r muted">signed in as @mbianchidev</span></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <span class="mac-btn"><svg class="i" width="12" height="12" viewBox="0 0 16 16"><use href="#i-ext"/></svg>Manage Repository Access…</span>
+              <span class="spacer"></span>
+              <span class="mac-btn">Sign Out</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>08 · Settings · Account</h2>
+        <ul>
+          <li>Shows which auth is active and the read-only scope. "Manage Repository Access…" opens the app installation page on GitHub.</li>
+          <li>Sign Out deletes the token from the Keychain.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 09 settings general -->
+    <section class="frame" id="f-settings-general">
+      <div class="stage dark wall-dark win-stage">
+        <div class="win">
+          <div class="win-bar">
+            <div class="lights"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+            <div class="win-title">General</div>
+            <div class="tabs">
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
+              <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
+            </div>
+          </div>
+          <div class="win-body" style="padding-top:26px;padding-bottom:30px">
+            <div class="form">
+              <span class="lbl">Refresh every:</span><span><span class="pop-btn">2 minutes<span class="ud"><svg class="i" width="10" height="10" viewBox="0 0 16 16"><use href="#i-updown"/></svg></span></span></span>
+              <span class="hint">Refreshes faster (every 20 s) while a workflow is running.</span>
+              <span class="lbl">Last activity means:</span><span><span class="pop-btn">Last push<span class="ud"><svg class="i" width="10" height="10" viewBox="0 0 16 16"><use href="#i-updown"/></svg></span></span></span>
+              <span class="hint">Last push, or any update (issues, PRs, comments).</span>
+              <span class="lbl">Include pre-releases:</span><span><span class="toggle off"></span></span>
+              <span class="lbl">Show failing count in menu bar:</span><span><span class="toggle off"></span></span>
+              <span class="lbl">Launch at login:</span><span><span class="toggle"></span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>09 · Settings · General</h2>
+        <ul>
+          <li>Small set of knobs. Defaults: 2 min refresh, last push as activity, stable releases only, launch at login on.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 10 settings workspace -->
+    <section class="frame span2" id="f-settings-workspace">
+      <div class="stage dark wall-dark win-stage win-pair">
+        <div class="win">
+          <div class="win-bar">
+            <div class="lights"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+            <div class="win-title">Workspace</div>
+            <div class="tabs">
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
+            </div>
+          </div>
+          <div class="win-body">
+            <p class="lead">Keep the default branch of your local clones in step with GitHub. Fast-forward only: Shipwatch never creates commits, resets, stashes, or switches branches.</p>
+            <div class="form ws-form">
+              <span class="lbl">Workspace folder:</span>
+              <span class="inline"><span class="field"><span class="ph">No folder selected</span></span><span class="mac-btn def">Choose…</span></span>
+              <span class="hint">The folder where you keep your clones, for example ~/Developer.</span>
+              <span class="lbl dis">Keep default branches up to date:</span><span class="dis"><span class="toggle off"></span></span>
+              <span class="hint">Choose a workspace folder first.</span>
+            </div>
+            <div class="box empty">
+              <div class="big"><svg class="i" width="40" height="40" viewBox="0 0 16 16" style="stroke-width:1"><use href="#i-folder"/></svg></div>
+              <h4>No workspace selected</h4>
+              <p>Shipwatch only looks inside the folder you choose, for clones of the repositories you track. Nothing on disk changes until you turn the switch on.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="win">
+          <div class="win-bar">
+            <div class="lights"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+            <div class="win-title">Workspace</div>
+            <div class="tabs">
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-list"/></svg>Repositories</div>
+              <div class="tab sel"><svg class="i" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Workspace</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-sliders"/></svg>General</div>
+              <div class="tab"><svg class="i" viewBox="0 0 16 16"><use href="#i-person"/></svg>Account</div>
+            </div>
+          </div>
+          <div class="win-body">
+            <div class="form ws-form">
+              <span class="lbl">Workspace folder:</span>
+              <span class="inline"><span class="field"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-folder"/></svg>~/Developer</span><span class="mac-btn">Change…</span></span>
+              <span class="hint">Scanned up to 3 levels deep. Hidden folders and node_modules are always skipped.</span>
+              <span class="lbl">Keep default branches up to date:</span><span><span class="toggle"></span></span>
+              <span class="hint">Runs after every refresh, only when GitHub has new commits.</span>
+            </div>
+
+            <div class="sect-h">Excluded folders</div>
+            <div class="tbl">
+              <div class="tr ex"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-folder"/></svg><span>~/Developer/archive</span></div>
+              <div class="tr ex sel"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-folder"/></svg><span>~/Developer/forks</span></div>
+              <div class="tbl-foot">
+                <span class="b"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-plus"/></svg></span>
+                <span class="b"><svg class="i" width="13" height="13" viewBox="0 0 16 16"><use href="#i-minus"/></svg></span>
+                <span class="info">Not scanned, including subfolders</span>
+              </div>
+            </div>
+
+            <div class="sect-h">Local clones<span class="aside">scanned 15:40</span></div>
+            <div class="tbl" data-clones></div>
+            <div class="ws-actions">
+              <span>Last sync 15:40 · 1 updated · 2 skipped</span>
+              <span class="spacer"></span>
+              <span class="mac-btn">Rescan</span>
+              <span class="mac-btn def"><svg class="i" width="12" height="12" viewBox="0 0 16 16"><use href="#i-pull"/></svg>Sync Now</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>10 · Settings · Workspace<small>new tab: first run (left) and configured (right)</small></h2>
+        <ul>
+          <li>The switch stays disabled until a workspace folder is chosen with the standard folder picker. Nothing is scanned before that.</li>
+          <li>Scan: folders up to 3 levels deep with a <code>.git</code> folder whose remote points at a tracked repo. Hidden folders, <code>node_modules</code>, symlinks and excluded folders are skipped. Every clone of a repo is listed.</li>
+          <li>After each refresh, if the GitHub default branch moved, Shipwatch fetches only that branch and fast-forwards the local one. This also works when another branch is checked out (<code>website</code> on <code>feat/nav</code>).</li>
+          <li>Never forced. Skipped, with the reason shown here: uncommitted changes on a checked-out default branch, history that diverged (someone committed on main), or network/auth errors.</li>
+          <li>Unchecking a clone opts that repo out. Excluded folders (+/−) are not scanned at all.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 11 popover with local clone actions -->
+    <section class="frame" id="f-ws-menu">
+      <div class="stage dark wall-dark">
+        <div class="menubar">
+          <div class="left"><b>Finder</b></div>
+          <span class="mb active"><svg class="i" width="17" height="17" viewBox="0 0 16 16"><use href="#i-boat"/></svg><span class="dot" style="background:#ffd60a"></span></span>
+          <span class="mb"><svg class="i" width="16" height="16" viewBox="0 0 16 16"><use href="#i-wifi"/></svg></span>
+          <span class="mb"><svg class="i" width="24" height="16" viewBox="0 0 24 16"><use href="#i-batt"/></svg></span>
+          <span class="mb"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-search"/></svg></span>
+          <span class="mb"><svg class="i" width="15" height="15" viewBox="0 0 16 16"><use href="#i-cc"/></svg></span>
+          <span class="mb">Sat 14 Nov&nbsp; 15:40</span>
+        </div>
+        <div class="anchor" style="padding-right:70px;padding-bottom:230px">
+          <div class="pop" data-pop="ws"></div>
+        </div>
+        <div class="ctx dark">
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-gh"/></svg>Open Repository</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-play"/></svg>Open Actions</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-tag"/></svg>Open Releases</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-copy"/></svg>Copy Latest Tag</div>
+          <div class="sep"></div>
+          <div class="mi hl"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-pull"/></svg>Update Local Clone Now</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-folder"/></svg>Show Local Clone in Finder</div>
+          <div class="sep"></div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-up"/></svg>Move Up</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-down"/></svg>Move Down</div>
+          <div class="mi"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-eye-off"/></svg>Hide “cli-tool”</div>
+          <div class="sep"></div>
+          <div class="mi danger"><svg class="i" width="14" height="14" viewBox="0 0 16 16"><use href="#i-minus"/></svg>Remove from Shipwatch…</div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>11 · Popover · local clones<small>footer note + context menu</small></h2>
+        <ul>
+          <li>When a clone was skipped, a footer note says so; "Review" opens Settings › Workspace. No silent failures.</li>
+          <li>Context menu gains "Update Local Clone Now" (syncs that repo's clones immediately) and "Show Local Clone in Finder". Both are hidden when the repo has no clone in the workspace.</li>
+        </ul>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+const I = (id, size = 14, extra = '') => `<svg class="i" width="${size}" height="${size}" viewBox="0 0 16 16" ${extra}><use href="#${id}"/></svg>`;
+const CI = {
+  ok: ['ci-ok', 'var(--green)'], fail: ['ci-fail', 'var(--red)'], run: ['ci-run', 'var(--yellow)'],
+  queued: ['ci-queued', 'var(--yellow)'], none: ['ci-none', 'var(--gray)'], warn: ['ci-warn', 'var(--orange)'],
+};
+const ci = (s, size = 16) => `<svg class="ci" width="${size}" height="${size}" viewBox="0 0 16 16" style="color:${CI[s][1]}"><use href="#${CI[s][0]}"/></svg>`;
+
+function rel(r) {
+  if (!r.rel) return `<span class="rel none">No releases</span>`;
+  return `<a class="rel ${r.rel.pre ? 'pre' : ''}">${I('i-tag', 12)}${r.rel.tag}${r.rel.pre ? '<span class="badge">pre</span>' : ''}<span class="age">${r.rel.age}</span></a>`;
+}
+function runs(list) {
+  return `<div class="runs">` + list.map(x => x.h
+    ? `<div class="runs-h">${x.h}</div>`
+    : x.all
+      ? `<a class="all">${I('i-ext', 12)}${x.all}</a>`
+      : `<a class="run ${x.hover ? 'hover' : ''}">${ci(x.s, 13)}<span class="wf">${x.wf}</span><span class="br">${x.br}</span><span class="meta">${x.meta}</span><span class="ext">${I('i-ext', 12)}</span></a>`
+  ).join('') + `</div>`;
+}
+function row(r) {
+  const prs = `<span class="seg"><a>${I('i-pr', 13)}<b>${r.prs}</b> ${r.prs === 1 ? 'PR' : 'PRs'}</a>${r.bots ? `<a class="bot ${r.botHl ? 'hl' : ''}">${I('i-bot', 13)}<b>${r.bots}</b> dependabot</a>` : ''}${r.tip || ''}</span>`;
+  const l2 = r.err
+    ? `<div class="err">${I('i-warn', 13)}<span>Shipwatch can't read this repo.</span><a>Grant access…</a></div>`
+    : `<div class="l2"><a class="stat ${r.issues ? '' : 'zero'}">${I('i-issue', 13)}<b>${r.issues}</b> ${r.issues === 1 ? 'issue' : 'issues'}</a>${prs}<span class="spacer"></span><span class="act">${I('i-clock', 12)}${r.act}</span></div>`;
+  return `<div class="row ${r.cls || ''}">
+    <span class="disc">${r.runs ? I('i-chev-d', 10) : I('i-chev-r', 10)}</span>
+    <span class="ci-wrap">${ci(r.ci)}</span>
+    <div class="body">
+      <div class="l1"><a class="name">${r.name}</a><span class="owner">${r.owner}</span><span class="spacer"></span>${r.err ? '' : rel(r)}</div>
+      ${l2}
+      ${r.runs ? runs(r.runs) : ''}
+    </div>
+  </div>`;
+}
+function head(sub, extra = '') {
+  return `<div class="pop-head">
+    <div class="logo">${I('i-boat', 17)}</div>
+    <div><div class="title">Shipwatch</div><div class="subtitle">${sub}</div></div>
+    <span class="spacer"></span>
+    <a class="icon-btn" title="Refresh (⌘R)">${I('i-refresh', 15)}</a>
+    <a class="icon-btn" title="Settings (⌘,)">${I('i-gear', 15)}</a>
+  </div>${extra}`;
+}
+function summary(run, fail, ok) {
+  return `<div class="summary">
+    <span class="sum">${ci('run', 12)}<b>${run}</b> running</span>
+    <span class="sum">${ci('fail', 12)}<b>${fail}</b> failing</span>
+    <span class="sum">${ci('ok', 12)}<b>${ok}</b> passing</span>
+  </div>`;
+}
+function foot(hidden) {
+  return `${hidden ? `<div class="hidden-note">${I('i-eye-off', 12)}${hidden} hidden repositories ·<a>Show</a></div>` : ''}
+  <div class="pop-foot">
+    <div class="mi">${I('i-list', 14)}Manage Repositories…<span class="kbd">⌘,</span></div>
+    <div class="mi">${I('i-power', 14)}Quit Shipwatch<span class="kbd">⌘Q</span></div>
+  </div>`;
+}
+
+const dark = [
+  { name: 'api-server', owner: 'mbianchidev', ci: 'run', rel: { tag: 'v2.4.1', age: '3d' }, issues: 4, prs: 11, bots: 5, act: '4m ago', cls: 'expanded',
+    runs: [
+      { h: 'Running now' },
+      { s: 'run', wf: 'CI', br: 'main', meta: '#482 · 3m 12s', hover: true },
+      { s: 'queued', wf: 'CodeQL', br: 'dependabot/npm/vite-6.1', meta: 'queued' },
+      { h: 'Latest on main' },
+      { s: 'ok', wf: 'Release', br: 'v2.4.1', meta: '3d ago' },
+      { s: 'ok', wf: 'Docker image', br: 'main', meta: '2h ago' },
+      { all: 'All workflow runs' },
+    ] },
+  { name: 'website', owner: 'mbianchidev', ci: 'ok', rel: { tag: 'v1.12.0', age: '2w' }, issues: 0, prs: 2, bots: 2, act: '1d ago' },
+  { name: 'cli-tool', owner: 'mbianchidev', ci: 'fail', rel: { tag: 'v0.9.3', age: '5d' }, issues: 12, prs: 3, bots: 0, act: '6h ago' },
+  { name: 'infra', owner: 'acme-org', ci: 'ok', rel: null, issues: 1, prs: 7, bots: 4, act: '2d ago' },
+  { name: 'dotfiles', owner: 'mbianchidev', ci: 'none', rel: null, issues: 0, prs: 0, bots: 0, act: '3w ago' },
+];
+document.querySelector('[data-pop="dark"]').innerHTML =
+  head(`${I('i-check', 11)} Updated 32 s ago · 5 repositories`) + summary(1, 1, 2) +
+  `<div class="list">${dark.map(row).join('')}</div>` + foot(2);
+
+const tip = `<span class="tip">${I('i-ext', 12)}Open 5 Dependabot PRs on GitHub</span>`;
+const light = [
+  { name: 'payments', owner: 'acme-org', ci: 'ok', rel: { tag: 'v3.0.0-rc.2', age: '1d', pre: true }, issues: 9, prs: 14, bots: 5, act: '12m ago', cls: 'hover', botHl: true, tip },
+  { name: 'website', owner: 'mbianchidev', ci: 'run', rel: { tag: 'v1.12.0', age: '2w' }, issues: 0, prs: 2, bots: 2, act: '1m ago' },
+  { name: 'cli-tool', owner: 'mbianchidev', ci: 'fail', rel: { tag: 'v0.9.3', age: '5d' }, issues: 12, prs: 3, bots: 0, act: '6h ago' },
+  { name: 'legacy-api', owner: 'acme-org', ci: 'warn', err: true, cls: 'dim' },
+  { name: 'dotfiles', owner: 'mbianchidev', ci: 'none', rel: null, issues: 0, prs: 0, bots: 0, act: '3w ago' },
+];
+const banner = `<div class="banner warn">${I('i-warn', 14)}<div><b>GitHub rate limit reached.</b><div class="sub">Showing data from 15:31. Next refresh at 15:52.</div></div></div>`;
+document.querySelector('[data-pop="light"]').innerHTML =
+  head(`${I('i-clock', 11)} Updated 9 min ago · 5 repositories`) + banner + summary(1, 1, 1) +
+  `<div class="list">${light.map(row).join('')}</div>` + foot(0);
+
+const ctxRows = [
+  { name: 'api-server', owner: 'mbianchidev', ci: 'run', rel: { tag: 'v2.4.1', age: '3d' }, issues: 4, prs: 11, bots: 5, act: '4m ago' },
+  { name: 'cli-tool', owner: 'mbianchidev', ci: 'fail', rel: { tag: 'v0.9.3', age: '5d' }, issues: 12, prs: 3, bots: 0, act: '6h ago', cls: 'hover' },
+  { name: 'website', owner: 'mbianchidev', ci: 'ok', rel: { tag: 'v1.12.0', age: '2w' }, issues: 0, prs: 2, bots: 2, act: '1d ago' },
+];
+document.querySelector('[data-pop="ctx"]').innerHTML =
+  head(`${I('i-check', 11)} Updated 32 s ago · 5 repositories`) +
+  `<div class="list">${ctxRows.map(row).join('')}</div>`;
+
+const cloneRows = [
+  { name: 'api-server', owner: 'mbianchidev', path: '~/Developer/api-server', st: 'ok', t: 'Up to date', sub: 'main' },
+  { name: 'website', owner: 'mbianchidev', path: '~/Developer/web/website', br: 'feat/nav', st: 'ok', t: 'Updated 3 min ago', sub: 'main +4 commits', sel: true },
+  { name: 'cli-tool', owner: 'mbianchidev', path: '~/Developer/cli-tool', st: 'warn', t: 'Skipped', sub: 'uncommitted changes on main' },
+  { name: 'infra', owner: 'acme-org', path: '~/Developer/acme/infra', st: 'warn', t: 'Skipped', sub: 'main diverged from origin' },
+  { name: 'infra', owner: 'acme-org', path: '~/Developer/scratch/infra', st: 'ok', t: 'Up to date', sub: 'main' },
+  { name: 'dotfiles', owner: 'mbianchidev', path: '~/Developer/dotfiles', st: 'none', t: 'Off for this repo', sub: '', off: true },
+];
+document.querySelector('[data-clones]').innerHTML =
+  `<div class="tr ws th"><span>Sync</span><span>Repository · local path</span><span>Default branch</span></div>` +
+  cloneRows.map(c => `<div class="tr ws ${c.off ? 'off' : ''}">
+    <span class="chk ${c.off ? '' : 'on'}">${c.off ? '' : I('i-check', 11)}</span>
+    <span class="two"><span>${c.name}<span class="o">${c.owner}</span></span><span class="path">${c.path}${c.br ? `<span class="bchip">on ${c.br}</span>` : ''}</span></span>
+    <span class="st ${c.st === 'warn' ? 'warn' : ''}">${ci(c.st, 13)}<span class="two"><span>${c.t}</span>${c.sub ? `<span class="sub">${c.sub}</span>` : ''}</span></span>
+  </div>`).join('') +
+  `<div class="tbl-foot"><span class="info">6 clones of 5 repositories · 3 tracked repositories not cloned here</span></div>`;
+
+const wsRows = [
+  { name: 'api-server', owner: 'mbianchidev', ci: 'run', rel: { tag: 'v2.4.1', age: '3d' }, issues: 4, prs: 11, bots: 5, act: '4m ago' },
+  { name: 'cli-tool', owner: 'mbianchidev', ci: 'fail', rel: { tag: 'v0.9.3', age: '5d' }, issues: 12, prs: 3, bots: 0, act: '6h ago', cls: 'hover' },
+  { name: 'website', owner: 'mbianchidev', ci: 'ok', rel: { tag: 'v1.12.0', age: '2w' }, issues: 0, prs: 2, bots: 2, act: '1d ago' },
+];
+document.querySelector('[data-pop="ws"]').innerHTML =
+  head(`${I('i-check', 11)} Updated 32 s ago · 5 repositories`) +
+  `<div class="list">${wsRows.map(row).join('')}</div>` +
+  `<div class="hidden-note ws-note">${I('i-warn', 12)}2 local clones skipped ·<a>Review</a></div>` +
+  `<div class="pop-foot">
+    <div class="mi">${I('i-list', 14)}Manage Repositories…<span class="kbd">⌘,</span></div>
+    <div class="mi">${I('i-power', 14)}Quit Shipwatch<span class="kbd">⌘Q</span></div>
+  </div>`;
+
+const cursorSvg = (x, y) => {
+  const c = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  c.setAttribute('class', 'cursor'); c.setAttribute('viewBox', '0 0 18 22');
+  c.style.left = x + 'px'; c.style.top = y + 'px';
+  c.innerHTML = '<path d="M2 1.5v16.2l4.1-3.9 2.6 6 2.6-1.1-2.6-5.9h5.7z" fill="#000" stroke="#fff" stroke-width="1.3" stroke-linejoin="round"/>';
+  return c;
+};
+requestAnimationFrame(() => {
+  document.querySelectorAll('.stage').forEach(st => {
+    const icon = st.querySelector('.menubar .mb.active'); const pop = st.querySelector('.anchor .pop');
+    if (!icon || !pop) return;
+    const anchor = pop.parentElement; const sr = st.getBoundingClientRect(); const ir = icon.getBoundingClientRect();
+    anchor.style.justifyContent = 'flex-start';
+    anchor.style.paddingRight = '0';
+    anchor.style.paddingLeft = Math.min(sr.width - pop.offsetWidth - 16, Math.max(12, ir.left - sr.left + ir.width / 2 - pop.offsetWidth / 2)) + 'px';
+  });
+  // hover cursor on the dependabot segment (light frame)
+  {
+    const stage = document.querySelector('#f-main-light .stage');
+    const seg = stage.querySelector('.seg .bot');
+    const a = seg.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    stage.appendChild(cursorSvg(a.left - s.left + a.width * 0.55, a.top - s.top + a.height * 0.45));
+  }
+  // context menus anchored at the right-clicked row
+  for (const [id, dx] of [['#f-context', 70], ['#f-ws-menu', 225]]) {
+    const stage = document.querySelector(`${id} .stage`);
+    const row = stage.querySelector('.row.hover');
+    const r = row.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    const x = r.left - s.left + dx, y = r.top - s.top + 30;
+    const ctx = stage.querySelector('.ctx');
+    ctx.style.left = (x + 2) + 'px'; ctx.style.top = (y + 4) + 'px';
+    stage.appendChild(cursorSvg(x, y));
+  }
+  document.body.dataset.ready = '1';
+});
+</script>
+</body>
+</html>

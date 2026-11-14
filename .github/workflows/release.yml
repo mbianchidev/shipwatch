@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish, such as v0.2.0. Leave empty to bump the patch.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish release
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python for dmgbuild
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Compute version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          # Bump the patch of the latest published release on every push to main. To start a
+          # new minor or major line, run this workflow by hand with that version.
+          LATEST="$(gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || true)"
+          LATEST="${LATEST:-v0.0.0}"
+          if [[ ! "$LATEST" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Latest release tag '$LATEST' is not vMAJOR.MINOR.PATCH."
+            exit 1
+          fi
+          if [ -n "$REQUESTED" ]; then
+            if [[ ! "$REQUESTED" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Requested version '$REQUESTED' is not vMAJOR.MINOR.PATCH."
+              exit 1
+            fi
+            NEWEST="$(printf '%s\n%s\n' "${LATEST#v}" "${REQUESTED#v}" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
+            if [ "$NEWEST" != "${REQUESTED#v}" ] || [ "$REQUESTED" = "$LATEST" ]; then
+              echo "::error::Requested version $REQUESTED must be newer than $LATEST."
+              exit 1
+            fi
+            VERSION="$REQUESTED"
+          else
+            VERSION="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing $VERSION (previous: $LATEST)"
+
+      - name: Package and sign universal app and DMG
+        env:
+          SHIPWATCH_VERSION: ${{ steps.version.outputs.version }}
+          SHIPWATCH_CLIENT_ID: ${{ vars.SHIPWATCH_CLIENT_ID }}
+          SHIPWATCH_APP_SLUG: ${{ vars.SHIPWATCH_APP_SLUG }}
+          SHIPWATCH_UPDATE_SIGNING_KEY: ${{ secrets.SHIPWATCH_UPDATE_SIGNING_KEY }}
+        run: |
+          if [ -z "$SHIPWATCH_UPDATE_SIGNING_KEY" ]; then
+            echo "::error::Secret SHIPWATCH_UPDATE_SIGNING_KEY is missing; installed apps would reject this release. See docs/releases.md."
+            exit 1
+          fi
+          bash scripts/package-macos.sh --universal-build
+
+      - name: Verify macOS package
+        run: bash scripts/check-macos-package.sh
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git log -1 --pretty=%B > "$RUNNER_TEMP/notes.md"
+          gh release create "$VERSION" --repo "$REPO" --target "$GITHUB_SHA" \
+            --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" \
+            dist/Shipwatch.dmg dist/Shipwatch.dmg.sha256 dist/Shipwatch.dmg.sig

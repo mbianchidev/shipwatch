@@ -1,0 +1,22 @@
+Install Shipwatch
+
+1. Drag Shipwatch onto the Applications folder.
+2. Eject the disk image and open Shipwatch from Applications.
+   It lives in the menu bar (the sailboat), not in the Dock.
+3. This build is ad-hoc signed, not Developer ID signed or notarized, so macOS
+   may refuse to open it the first time. Only continue if you downloaded it
+   from the official releases page below. After the warning, open
+   System Settings > Privacy & Security, scroll to Security, click
+   Open Anyway for Shipwatch, then click Open. macOS remembers this choice.
+
+Sign in with the Shipwatch GitHub App (read-only), or use your GitHub CLI
+login if `gh auth login` is already set up. Launch at login can be toggled in
+Settings > General.
+
+Shipwatch checks for updates and verifies each download's signature before
+installing it. You can also replace the app in Applications by hand.
+To uninstall, quit Shipwatch, sign out in Settings > Account to delete its
+Keychain token, and move Shipwatch.app to the Trash.
+
+Downloads and full instructions:
+https://github.com/mbianchidev/shipwatch
