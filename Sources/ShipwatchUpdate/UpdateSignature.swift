@@ -1,14 +1,22 @@
 import CryptoKit
 import Foundation
 
-/// The key that release DMGs are signed with. Only its holder can publish an update installed apps accept.
+/// The keys release DMGs may be signed with. Only their holder can publish an update installed apps accept.
 package enum UpdateTrust {
-    /// Base64 of the raw 32-byte Ed25519 public key. Generate the pair with `ShipwatchReleaseTool keygen`.
-    package static let publicKeyBase64 = "rC6w2axaHERB9ET4MFgIpp7IuXyCzga5+Fnjrqg0wz4="
+    /// Base64 of each raw 32-byte Ed25519 public key. Normally one; during a key rotation also the next key,
+    /// see docs/releases.md. Generate a pair with `ShipwatchReleaseTool keygen`.
+    package static let publicKeysBase64 = [
+        "rC6w2axaHERB9ET4MFgIpp7IuXyCzga5+Fnjrqg0wz4=",
+    ]
 
-    /// The embedded key. Fails closed when the constant is missing or malformed.
-    package static func publicKey() throws -> Curve25519.Signing.PublicKey {
-        try publicKey(base64: publicKeyBase64)
+    /// The embedded keys. Fails closed when the list is empty or any entry is malformed.
+    package static func publicKeys() throws -> [Curve25519.Signing.PublicKey] {
+        try publicKeys(base64: publicKeysBase64)
+    }
+
+    package static func publicKeys(base64 list: [String]) throws -> [Curve25519.Signing.PublicKey] {
+        guard !list.isEmpty else { throw UpdateSignatureError.untrustedBuild }
+        return try list.map(publicKey(base64:))
     }
 
     package static func publicKey(base64: String) throws -> Curve25519.Signing.PublicKey {
@@ -138,19 +146,20 @@ package struct UpdateSignature: Codable, Equatable, Sendable {
         return document
     }
 
-    /// Decodes `signatureData` and verifies `fileAt` against it with the embedded release key.
+    /// Decodes `signatureData` and verifies `fileAt` against it with the embedded release keys.
     package static func verifyRelease(fileAt url: URL, signatureData: Data, version: String) throws {
-        let key = try UpdateTrust.publicKey()
-        try decode(signatureData).verify(fileAt: url, version: version, publicKey: key)
+        let keys = try UpdateTrust.publicKeys()
+        try decode(signatureData).verify(fileAt: url, version: version, trustedKeys: keys)
     }
 
-    /// Checks the identity, version, size and SHA-256 of `fileAt`, then the Ed25519 signature over all of them.
+    /// Checks the identity, version, size and SHA-256 of `fileAt`, then that one of `trustedKeys` signed all of them.
     package func verify(
         fileAt url: URL,
         version expectedVersion: String,
-        publicKey: Curve25519.Signing.PublicKey,
+        trustedKeys: [Curve25519.Signing.PublicKey],
         bundleIdentifier expectedIdentifier: String = ShipwatchBundle.identifier
     ) throws {
+        guard !trustedKeys.isEmpty else { throw UpdateSignatureError.untrustedBuild }
         guard format == Self.currentFormat else { throw UpdateSignatureError.unsupportedFormat(format) }
         guard bundleIdentifier == expectedIdentifier else { throw UpdateSignatureError.wrongBundle(bundleIdentifier) }
         guard version == expectedVersion, UpdateVersion(version) != nil else {
@@ -164,7 +173,7 @@ package struct UpdateSignature: Codable, Equatable, Sendable {
         guard digest.size == size else { throw UpdateSignatureError.sizeMismatch(expected: size, actual: digest.size) }
         guard digest.sha256 == sha256 else { throw UpdateSignatureError.checksumMismatch }
         let message = Self.message(bundleIdentifier: bundleIdentifier, version: version, size: size, sha256: sha256)
-        guard publicKey.isValidSignature(signatureBytes, for: message) else {
+        guard trustedKeys.contains(where: { $0.isValidSignature(signatureBytes, for: message) }) else {
             throw UpdateSignatureError.invalidSignature
         }
     }

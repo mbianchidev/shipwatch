@@ -14,7 +14,7 @@ enum ReleaseTool {
       ShipwatchReleaseTool sign <dmg> --version <x.y.z>
           Writes <dmg>.sig using the private key from \(keyEnvironmentVariable).
       ShipwatchReleaseTool verify <dmg> <sig> --version <x.y.z>
-          Verifies <sig> for <dmg> against the public key built into Shipwatch.
+          Verifies <sig> for <dmg> against the public keys built into Shipwatch.
     """
 
     struct Failure: Error {
@@ -41,7 +41,7 @@ enum ReleaseTool {
             fputs("\(failure.message)\n", stderr)
             return failure.status
         } catch UpdateSignatureError.untrustedBuild {
-            fputs("UpdateTrust.publicKeyBase64 in Sources/ShipwatchUpdate/UpdateSignature.swift is not a valid base64 Ed25519 public key.\n", stderr)
+            fputs("UpdateTrust.publicKeysBase64 in Sources/ShipwatchUpdate/UpdateSignature.swift must list valid base64 Ed25519 public keys.\n", stderr)
             return 1
         } catch {
             fputs("\(error.localizedDescription)\n", stderr)
@@ -65,8 +65,8 @@ enum ReleaseTool {
             throw Failure(message: "Set \(keyEnvironmentVariable) to the base64 Ed25519 private key.")
         }
         let key = try UpdateTrust.privateKey(base64: encoded)
-        guard key.publicKey.rawRepresentation == (try UpdateTrust.publicKey()).rawRepresentation else {
-            throw Failure(message: "\(keyEnvironmentVariable) does not match UpdateTrust.publicKeyBase64, so installed apps would reject this signature.")
+        guard try UpdateTrust.publicKeys().contains(where: { $0.rawRepresentation == key.publicKey.rawRepresentation }) else {
+            throw Failure(message: "\(keyEnvironmentVariable) does not match UpdateTrust.publicKeysBase64, so installed apps would reject this signature.")
         }
         let dmgURL = URL(fileURLWithPath: dmg)
         let signature = try UpdateSignature.sign(fileAt: dmgURL, version: version, privateKey: key)

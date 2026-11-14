@@ -25,7 +25,7 @@ struct UpdateSignatureTests {
         try withSignedImage { image, signature, key in
             let decoded = try UpdateSignature.decode(signature.encoded())
             #expect(decoded == signature)
-            try decoded.verify(fileAt: image, version: "1.2.3", publicKey: key.publicKey)
+            try decoded.verify(fileAt: image, version: "1.2.3", trustedKeys: [key.publicKey])
 
             // Installed apps depend on this exact message; changing it breaks every existing install.
             let message = "shipwatch-update-v1\ndev.mbianchi.shipwatch\n1.2.3\n65536\n\(signature.sha256)\n"
@@ -40,12 +40,12 @@ struct UpdateSignatureTests {
             try handle.write(contentsOf: Data([0xFF]))
             try handle.close()
             #expect(throws: UpdateSignatureError.checksumMismatch) {
-                try signature.verify(fileAt: image, version: "1.2.3", publicKey: key.publicKey)
+                try signature.verify(fileAt: image, version: "1.2.3", trustedKeys: [key.publicKey])
             }
 
             try Data(repeating: 0, count: 10).write(to: image)
             #expect(throws: UpdateSignatureError.sizeMismatch(expected: 65_536, actual: 10)) {
-                try signature.verify(fileAt: image, version: "1.2.3", publicKey: key.publicKey)
+                try signature.verify(fileAt: image, version: "1.2.3", trustedKeys: [key.publicKey])
             }
         }
     }
@@ -54,10 +54,10 @@ struct UpdateSignatureTests {
         try withSignedImage { image, signature, key in
             let otherSHA = String(repeating: "a", count: 64)
             #expect(throws: UpdateSignatureError.checksumMismatch) {
-                try signature.replacing(sha256: otherSHA).verify(fileAt: image, version: "1.2.3", publicKey: key.publicKey)
+                try signature.replacing(sha256: otherSHA).verify(fileAt: image, version: "1.2.3", trustedKeys: [key.publicKey])
             }
             #expect(throws: UpdateSignatureError.sizeMismatch(expected: 65_537, actual: 65_536)) {
-                try signature.replacing(size: 65_537).verify(fileAt: image, version: "1.2.3", publicKey: key.publicKey)
+                try signature.replacing(size: 65_537).verify(fileAt: image, version: "1.2.3", trustedKeys: [key.publicKey])
             }
 
             // An attacker who swaps the image and rewrites size and checksum to match still lacks the key.
@@ -65,7 +65,7 @@ struct UpdateSignatureTests {
             let digest = try FileDigest(of: image)
             #expect(throws: UpdateSignatureError.invalidSignature) {
                 try signature.replacing(size: digest.size, sha256: digest.sha256)
-                    .verify(fileAt: image, version: "1.2.3", publicKey: key.publicKey)
+                    .verify(fileAt: image, version: "1.2.3", trustedKeys: [key.publicKey])
             }
         }
     }
@@ -73,19 +73,19 @@ struct UpdateSignatureTests {
     @Test func wrongVersionBundleOrKeyFails() throws {
         try withSignedImage { image, signature, key in
             #expect(throws: UpdateSignatureError.wrongVersion(expected: "1.2.4", found: "1.2.3")) {
-                try signature.verify(fileAt: image, version: "1.2.4", publicKey: key.publicKey)
+                try signature.verify(fileAt: image, version: "1.2.4", trustedKeys: [key.publicKey])
             }
             // Rewriting the version to match a newer release breaks the signature.
             #expect(throws: UpdateSignatureError.invalidSignature) {
-                try signature.replacing(version: "1.2.4").verify(fileAt: image, version: "1.2.4", publicKey: key.publicKey)
+                try signature.replacing(version: "1.2.4").verify(fileAt: image, version: "1.2.4", trustedKeys: [key.publicKey])
             }
             #expect(throws: UpdateSignatureError.invalidSignature) {
-                try signature.verify(fileAt: image, version: "1.2.3", publicKey: Curve25519.Signing.PrivateKey().publicKey)
+                try signature.verify(fileAt: image, version: "1.2.3", trustedKeys: [Curve25519.Signing.PrivateKey().publicKey])
             }
         }
         try withSignedImage(bundleIdentifier: "com.example.other") { image, signature, key in
             #expect(throws: UpdateSignatureError.wrongBundle("com.example.other")) {
-                try signature.verify(fileAt: image, version: "1.2.3", publicKey: key.publicKey)
+                try signature.verify(fileAt: image, version: "1.2.3", trustedKeys: [key.publicKey])
             }
         }
     }
@@ -100,9 +100,21 @@ struct UpdateSignatureTests {
         }
     }
 
-    @Test(arguments: ["", "PLACEHOLDER_REPLACE_WITH_BASE64_ED25519_PUBLIC_KEY", Data(count: 31).base64EncodedString()])
-    func invalidTrustedKeyFailsClosed(base64: String) {
-        #expect(throws: UpdateSignatureError.untrustedBuild) { try UpdateTrust.publicKey(base64: base64) }
+    @Test func anyTrustedKeyVerifiesDuringARotation() throws {
+        try withSignedImage { image, signature, key in
+            let next = Curve25519.Signing.PrivateKey().publicKey
+            try signature.verify(fileAt: image, version: "1.2.3", trustedKeys: [next, key.publicKey])
+            #expect(throws: UpdateSignatureError.untrustedBuild) {
+                try signature.verify(fileAt: image, version: "1.2.3", trustedKeys: [])
+            }
+        }
+    }
+
+    static let valid = Curve25519.Signing.PrivateKey().publicKey.rawRepresentation.base64EncodedString()
+
+    @Test(arguments: [[], [""], ["PLACEHOLDER"], [valid, Data(count: 31).base64EncodedString()]])
+    func invalidTrustedKeysFailClosed(list: [String]) {
+        #expect(throws: UpdateSignatureError.untrustedBuild) { try UpdateTrust.publicKeys(base64: list) }
     }
 }
 
