@@ -175,6 +175,13 @@ struct RepoRowView: View {
         if let tag = status?.latestRelease?.tagName {
             Button("Copy Latest Tag (\(tag))") { model.copyToPasteboard(tag) }
         }
+        let clones = model.workspace.clones(of: ref)
+        if !clones.isEmpty {
+            Divider()
+            Button(clones.count == 1 ? "Update Local Clone Now" : "Update Local Clones Now") { model.syncClones(of: repo) }
+                .disabled(!model.workspace.canSync || model.workspace.isOptedOut(ref))
+            Button(clones.count == 1 ? "Show Local Clone in Finder" : "Show Local Clones in Finder") { model.revealClones(of: repo) }
+        }
         Divider()
         Button("Move Up") { model.move(repo.id, by: -1) }
             .disabled(repo.hidden || model.prefs.repos.visible.first?.id == repo.id)

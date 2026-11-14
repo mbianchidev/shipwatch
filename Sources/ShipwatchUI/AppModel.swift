@@ -6,13 +6,14 @@ import os
 let uiLog = Logger(subsystem: "dev.mbianchi.shipwatch", category: "ui")
 
 public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
-    case repositories, general, account
+    case repositories, workspace, general, account
 
     public var id: String { rawValue }
 
     public var title: String {
         switch self {
         case .repositories: "Repositories"
+        case .workspace: "Workspace"
         case .general: "General"
         case .account: "Account"
         }
@@ -21,6 +22,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     var symbol: String {
         switch self {
         case .repositories: "list.bullet"
+        case .workspace: "folder"
         case .general: "slider.horizontal.3"
         case .account: "person.crop.circle"
         }
@@ -52,6 +54,7 @@ public enum SignInStep: Equatable, Sendable {
 @MainActor
 public struct AppActions {
     public var openURL: @MainActor (URL) -> Void = { NSWorkspace.shared.open($0) }
+    public var revealInFinder: @MainActor ([URL]) -> Void = { NSWorkspace.shared.activateFileViewerSelecting($0) }
     public var showSettings: @MainActor (SettingsTab) -> Void = { _ in }
     public var showPopover: @MainActor () -> Void = {}
     public var quit: @MainActor () -> Void = { NSApp.terminate(nil) }
@@ -64,6 +67,7 @@ public struct AppActions {
 public final class AppModel {
     public let prefs: Preferences
     let updater: Updater
+    public let workspace: WorkspaceModel
     @ObservationIgnored public var actions = AppActions()
 
     // Data
@@ -109,10 +113,12 @@ public final class AppModel {
         bundled: AppConfig = .bundled,
         store: any TokenStore = KeychainTokenStore(),
         cli: GitHubCLI = GitHubCLI(),
-        transport: any HTTPTransport = URLSessionTransport()
+        transport: any HTTPTransport = URLSessionTransport(),
+        git: (any GitRunning)? = ProcessGit.locate()
     ) {
         self.prefs = prefs
         updater = Updater(prefs: prefs)
+        workspace = WorkspaceModel(prefs: prefs, git: git)
         self.bundled = bundled
         self.cli = cli
         self.transport = transport
@@ -157,6 +163,7 @@ public final class AppModel {
     public func start() {
         launchAtLogin = LoginItem.isEnabled
         observeWake()
+        Task { await workspace.rescan() }
         Task {
             await vault.setDeviceFlow(makeDeviceFlow())
             await vault.setCLIEnabled(prefs.cliFallback)
@@ -247,6 +254,8 @@ public final class AppModel {
             lastUpdated = Date()
             banner = nil
             rateLimitedUntil = nil
+            let fresh = batch.statuses
+            Task { await workspace.afterRefresh(statuses: fresh) }
             if let limit = batch.rateLimit, limit.remaining < 50 {
                 uiLog.notice("GitHub rate limit low: \(limit.remaining) left")
             }
@@ -515,6 +524,7 @@ public final class AppModel {
         statuses[id] = nil
         expanded.remove(id)
         if pendingRemoval == id { pendingRemoval = nil }
+        Task { await workspace.rescan() }
     }
 
     public func setHidden(_ id: TrackedRepo.ID, _ hidden: Bool) {
@@ -541,6 +551,31 @@ public final class AppModel {
 
     public func open(_ url: URL) {
         actions.openURL(url)
+    }
+
+    // MARK: Local clones
+
+    public func setSyncClones(_ enabled: Bool) {
+        prefs.syncClones = enabled
+        if enabled { workspace.syncAll(statuses: statuses) }
+    }
+
+    public func syncAllClones() {
+        workspace.syncAll(statuses: statuses)
+    }
+
+    public func syncClones(of repo: TrackedRepo) {
+        workspace.sync(repo.ref, statuses: statuses)
+    }
+
+    public func setCloneSyncOptedOut(_ ref: RepoRef, _ optedOut: Bool) {
+        workspace.setOptedOut(ref, optedOut, statuses: statuses)
+    }
+
+    public func revealClones(of repo: TrackedRepo) {
+        let paths = workspace.clones(of: repo.ref).map(\.path)
+        guard !paths.isEmpty else { return }
+        actions.revealInFinder(paths)
     }
 
     /// Shows the update status in Settings and checks right away.

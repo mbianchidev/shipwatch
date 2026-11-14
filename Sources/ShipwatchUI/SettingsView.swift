@@ -16,6 +16,7 @@ public struct SettingsView: View {
             Group {
                 switch model.settingsTab {
                 case .repositories: RepositoriesSettingsView(model: model)
+                case .workspace: WorkspaceSettingsView(model: model)
                 case .general: GeneralSettingsView(model: model)
                 case .account: AccountSettingsView(model: model)
                 }
@@ -74,8 +75,33 @@ struct SettingsCard<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) { content }
-            .background(Theme.settingsCard, in: RoundedRectangle(cornerRadius: 9))
+            .settingsTable()
+    }
+}
+
+extension View {
+    /// Dark rounded container shared by Settings cards and tables.
+    func settingsTable() -> some View {
+        background(Theme.settingsCard, in: RoundedRectangle(cornerRadius: 9))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.white.opacity(0.08), lineWidth: 0.5))
+    }
+}
+
+/// Trailing-aligned label in the first column of a Settings form grid.
+func formLabel(_ text: String) -> some View {
+    Text(text)
+        .gridColumnAlignment(.trailing)
+}
+
+/// Small explanatory line under a Settings form row, in the second column.
+func formCaption(_ text: String, color: Color = .secondary) -> some View {
+    GridRow {
+        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+        Text(text)
+            .font(.system(size: 11.5))
+            .foregroundStyle(color)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -115,7 +141,7 @@ struct GeneralSettingsView: View {
         @Bindable var prefs = model.prefs
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 6) {
             GridRow {
-                label("Refresh every:")
+                formLabel("Refresh every:")
                 Picker("Refresh every", selection: Binding(get: { prefs.refreshMinutes }, set: { model.setRefreshMinutes($0) })) {
                     ForEach(Preferences.refreshChoices, id: \.self) { minutes in
                         Text(minutes.counted("minute")).tag(minutes)
@@ -124,10 +150,10 @@ struct GeneralSettingsView: View {
                 .labelsHidden()
                 .fixedSize()
             }
-            caption("Refreshes faster (every 20 s) while a workflow is running.")
+            formCaption("Refreshes faster (every 20 s) while a workflow is running.")
 
             GridRow {
-                label("Last activity means:")
+                formLabel("Last activity means:")
                 Picker("Last activity means", selection: $prefs.activityMode) {
                     ForEach(ActivityMode.allCases, id: \.self) { mode in
                         Text(mode.label).tag(mode)
@@ -137,10 +163,10 @@ struct GeneralSettingsView: View {
                 .fixedSize()
             }
             .padding(.top, 8)
-            caption("Last push, or any update (issues, PRs, comments).")
+            formCaption("Last push, or any update (issues, PRs, comments).")
 
             GridRow {
-                label("Include pre-releases:")
+                formLabel("Include pre-releases:")
                 Toggle("Include pre-releases", isOn: Binding(get: { prefs.includePrereleases }, set: { model.setIncludePrereleases($0) }))
                     .labelsHidden()
                     .toggleStyle(.switch)
@@ -148,7 +174,7 @@ struct GeneralSettingsView: View {
             .padding(.top, 8)
 
             GridRow {
-                label("Show failing count in menu bar:")
+                formLabel("Show failing count in menu bar:")
                 Toggle("Show failing count in menu bar", isOn: $prefs.showFailingCount)
                     .labelsHidden()
                     .toggleStyle(.switch)
@@ -156,7 +182,7 @@ struct GeneralSettingsView: View {
             .padding(.top, 4)
 
             GridRow {
-                label("Launch at login:")
+                formLabel("Launch at login:")
                 Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                     .labelsHidden()
                     .toggleStyle(.switch)
@@ -164,9 +190,9 @@ struct GeneralSettingsView: View {
             }
             .padding(.top, 4)
             if !model.loginItemAvailable {
-                caption("Available when Shipwatch runs from its app bundle.")
+                formCaption("Available when Shipwatch runs from its app bundle.")
             } else if let error = model.launchAtLoginError {
-                caption(error, color: Theme.failing)
+                formCaption(error, color: Theme.failing)
             }
             updateRows
         }
@@ -182,12 +208,12 @@ struct GeneralSettingsView: View {
         Divider().padding(.vertical, 10)
 
         GridRow {
-            label("Version:")
+            formLabel("Version:")
             Text(updater.isSupported ? updater.currentVersion.description : "Development build")
                 .foregroundStyle(.secondary)
         }
         GridRow {
-            label("Updates:")
+            formLabel("Updates:")
             UpdateStatusLine(updater: updater)
         }
         .padding(.top, 4)
@@ -213,7 +239,7 @@ struct GeneralSettingsView: View {
         }
 
         GridRow {
-            label("Check automatically:")
+            formLabel("Check automatically:")
             HStack(spacing: 10) {
                 Toggle("Check for updates automatically", isOn: Binding(get: { prefs.checkForUpdates }, set: { updater.setCheckForUpdates($0) }))
                     .labelsHidden()
@@ -232,16 +258,16 @@ struct GeneralSettingsView: View {
         .padding(.top, 8)
 
         GridRow {
-            label("Install automatically:")
+            formLabel("Install automatically:")
             Toggle("Install updates automatically", isOn: $prefs.installUpdatesAutomatically)
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .disabled(!updater.isSupported)
         }
         .padding(.top, 4)
-        caption("Updates are signed by the Shipwatch release key and checked before installing. Shipwatch restarts to finish.")
+        formCaption("Updates are signed by the Shipwatch release key and checked before installing. Shipwatch restarts to finish.")
         if let message = updater.pause.message(offering: updater.availableRelease?.version), !updater.hasFailed {
-            caption(message, color: Theme.failing)
+            formCaption(message, color: Theme.failing)
         }
     }
 
@@ -253,20 +279,6 @@ struct GeneralSettingsView: View {
         }
     }
 
-    private func label(_ text: String) -> some View {
-        Text(text)
-            .gridColumnAlignment(.trailing)
-    }
-
-    private func caption(_ text: String, color: Color = .secondary) -> some View {
-        GridRow {
-            Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
-            Text(text)
-                .font(.system(size: 11.5))
-                .foregroundStyle(color)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
 }
 
 /// One line describing the updater state. Uses a symbol and words, not only color.

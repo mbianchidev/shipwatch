@@ -22,6 +22,10 @@ public final class Preferences {
         static let checkForUpdates = "checkForUpdates"
         static let updateCheckHours = "updateCheckHours"
         static let installUpdatesAutomatically = "installUpdatesAutomatically"
+        static let workspacePath = "workspacePath"
+        static let excludedFolders = "excludedFolders"
+        static let syncClones = "syncClones"
+        static let cloneSyncOptOut = "cloneSyncOptOut"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -63,6 +67,22 @@ public final class Preferences {
     public var installUpdatesAutomatically: Bool {
         didSet { defaults.set(installUpdatesAutomatically, forKey: Key.installUpdatesAutomatically) }
     }
+    /// Absolute path of the folder scanned for local clones. Nothing is scanned while it's `nil`.
+    public var workspacePath: String? {
+        didSet { defaults.set(workspacePath, forKey: Key.workspacePath) }
+    }
+    /// Absolute paths skipped by the scan, including their subfolders.
+    public var excludedFolders: [String] {
+        didSet { defaults.set(excludedFolders, forKey: Key.excludedFolders) }
+    }
+    /// Fast-forward the default branch of local clones after each refresh.
+    public var syncClones: Bool {
+        didSet { defaults.set(syncClones, forKey: Key.syncClones) }
+    }
+    /// `TrackedRepo.id`s whose clones are never touched.
+    public var cloneSyncOptOut: Set<String> {
+        didSet { defaults.set(cloneSyncOptOut.sorted(), forKey: Key.cloneSyncOptOut) }
+    }
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -80,6 +100,10 @@ public final class Preferences {
         let hours = defaults.integer(forKey: Key.updateCheckHours)
         updateCheckHours = Self.updateCheckChoices.contains(hours) ? hours : 6
         installUpdatesAutomatically = defaults.bool(forKey: Key.installUpdatesAutomatically)
+        workspacePath = defaults.string(forKey: Key.workspacePath).flatMap { $0.isEmpty ? nil : $0 }
+        excludedFolders = defaults.stringArray(forKey: Key.excludedFolders) ?? []
+        syncClones = defaults.bool(forKey: Key.syncClones)
+        cloneSyncOptOut = Set(defaults.stringArray(forKey: Key.cloneSyncOptOut) ?? [])
     }
 
     private static func loadRepos(_ defaults: UserDefaults) -> RepoList {

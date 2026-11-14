@@ -46,9 +46,7 @@ struct RepositoriesSettingsView: View {
                 Divider()
                 footer
             }
-            .background(Theme.settingsCard, in: RoundedRectangle(cornerRadius: 9))
-            .clipShape(RoundedRectangle(cornerRadius: 9))
-            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.white.opacity(0.08), lineWidth: 0.5))
+            .settingsTable()
         }
         .sheet(isPresented: Binding(get: { model.isAddingRepositories }, set: { model.isAddingRepositories = $0 })) {
             AddRepositoriesSheet(model: model)
@@ -297,9 +295,7 @@ package struct AddRepositoriesSheet: View {
 
             list
                 .frame(height: 290)
-                .background(Theme.settingsCard, in: RoundedRectangle(cornerRadius: 9))
-                .clipShape(RoundedRectangle(cornerRadius: 9))
-                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.white.opacity(0.08), lineWidth: 0.5))
+                .settingsTable()
 
             HStack {
                 if model.authMethod == .githubApp {

@@ -57,6 +57,7 @@ struct DashboardView: View {
                 .scrollIndicators(.automatic)
                 .frame(height: min(max(listHeight, 60), maxListHeight))
                 hiddenFooter
+                workspaceNote
             }
             UpdateFooter(model: model)
             Divider()
@@ -112,6 +113,28 @@ struct DashboardView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.link)
+                Spacer()
+            }
+            .font(.system(size: 11.5))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+    }
+
+    /// Says when a local clone was skipped or failed, so nothing fails silently.
+    @ViewBuilder
+    private var workspaceNote: some View {
+        let count = model.workspace.attentionCount
+        if count > 0 {
+            HStack(spacing: 5) {
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundStyle(Theme.warning)
+                    .accessibilityHidden(true)
+                Text("\(count.counted("local clone")) skipped ·")
+                Button("Review") { model.actions.showSettings(.workspace) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.link)
                 Spacer()
             }
             .font(.system(size: 11.5))

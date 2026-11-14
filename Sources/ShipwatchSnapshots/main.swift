@@ -16,6 +16,13 @@ struct OfflineTransport: HTTPTransport {
     }
 }
 
+/// Looks installed so the Workspace tab renders normally, but never touches a real clone.
+struct OfflineGit: GitRunning {
+    func run(_ arguments: [String], in directory: URL, environment: [String: String], timeout: TimeInterval) throws -> GitOutput {
+        throw GitError.notInstalled
+    }
+}
+
 enum SnapshotError: Error, CustomStringConvertible {
     case render(String)
     var description: String {
@@ -106,7 +113,8 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
         bundled: AppConfig(clientID: "Iv23liSNAPSHOTMOCK00", appSlug: "shipwatch"),
         store: MemoryTokenStore(),
         cli: cli,
-        transport: OfflineTransport()
+        transport: OfflineTransport(),
+        git: OfflineGit()
     )
     model.loginItemAvailable = true
     model.launchAtLogin = true
@@ -129,6 +137,44 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     model.lastUpdated = ago(40)
     model.nextRefresh = now.addingTimeInterval(20)
     return model
+}
+
+/// Fills the Workspace tab with clones under `~/Developer` in every sync state.
+@MainActor
+func configureWorkspace(_ model: AppModel) {
+    let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Developer", isDirectory: true)
+    let prefs = model.prefs
+    prefs.workspacePath = root.path
+    prefs.excludedFolders = [root.appendingPathComponent("archive").path, root.appendingPathComponent("forks").path]
+    prefs.syncClones = true
+    prefs.cloneSyncOptOut = ["octocat/dotfiles"]
+
+    func clone(_ relative: String, _ repo: String, on branch: String = "main") -> LocalClone {
+        LocalClone(path: root.appendingPathComponent(relative, isDirectory: true), ref: ref(repo), remote: "origin", headBranch: branch)
+    }
+    let clones = [
+        clone("acme/infra", "acme-org/infra"),
+        clone("api-server", "octocat/api-server"),
+        clone("cli-tool", "octocat/cli-tool"),
+        clone("dotfiles", "octocat/dotfiles"),
+        clone("scratch/infra", "acme-org/infra"),
+        clone("web/website", "octocat/website", on: "feat/nav"),
+    ]
+    let workspace = model.workspace
+    workspace.scan = WorkspaceScan(clones: clones)
+    workspace.scannedAt = ago(40)
+    let head = String(repeating: "a", count: 40)
+    func result(_ outcome: CloneSyncOutcome, fastForward: FastForward? = nil) -> CloneSyncResult {
+        CloneSyncResult(outcome: outcome, branch: "main", remoteHead: head, date: ago(40), lastFastForward: fastForward)
+    }
+    workspace.results = [
+        clones[0].path: result(.skipped(.diverged)),
+        clones[1].path: result(.upToDate),
+        clones[2].path: result(.skipped(.uncommittedChanges)),
+        clones[4].path: result(.upToDate),
+        clones[5].path: result(.upToDate, fastForward: FastForward(date: ago(3 * minute), commits: 4)),
+    ]
+    workspace.lastSync = WorkspaceSyncSummary(date: ago(40), updated: 1, skipped: 2)
 }
 
 /// A stand-in for the transparent title bar the real Settings window draws.
@@ -284,6 +330,8 @@ MainActor.assumeIsolated {
         try render(addSheet(model), dark: true, name: "settings-add", into: output)
         try render(settings(model, .account), dark: true, name: "settings-account", into: output)
         try render(settings(model, .general), dark: true, name: "settings-general", into: output)
+        configureWorkspace(model)
+        try render(settings(model, .workspace), dark: true, name: "settings-workspace", into: output)
 
         let signedOut = makeModel(defaults: defaults, signedIn: false)
         try render(popover(signedOut, dark: true), dark: true, name: "onboarding", into: output)
