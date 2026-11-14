@@ -142,6 +142,8 @@ public struct RepoStatus: Equatable, Sendable {
     public var isPrivate: Bool
     public var isArchived: Bool
     public var defaultBranch: String?
+    /// The commit the default branch points at on GitHub.
+    public var defaultBranchHead: String?
     public var latestRelease: Release?
     public var openIssues: Int
     public var openPullRequests: Int
@@ -155,7 +157,7 @@ public struct RepoStatus: Equatable, Sendable {
 
     public init(
         ref: RepoRef, url: URL? = nil, isPrivate: Bool = false, isArchived: Bool = false,
-        defaultBranch: String? = nil, latestRelease: Release? = nil, openIssues: Int = 0,
+        defaultBranch: String? = nil, defaultBranchHead: String? = nil, latestRelease: Release? = nil, openIssues: Int = 0,
         openPullRequests: Int = 0, dependabotPullRequests: Int = 0, pushedAt: Date? = nil,
         lastIssueUpdate: Date? = nil, lastPullRequestUpdate: Date? = nil, ci: CISummary? = nil,
         problem: RepoProblem? = nil
@@ -165,6 +167,7 @@ public struct RepoStatus: Equatable, Sendable {
         self.isPrivate = isPrivate
         self.isArchived = isArchived
         self.defaultBranch = defaultBranch
+        self.defaultBranchHead = defaultBranchHead
         self.latestRelease = latestRelease
         self.openIssues = openIssues
         self.openPullRequests = openPullRequests

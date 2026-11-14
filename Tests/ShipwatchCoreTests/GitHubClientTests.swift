@@ -26,6 +26,7 @@ struct RepoQueryTests {
         let api = statuses[0]
         #expect(api.isPrivate)
         #expect(api.defaultBranch == "main")
+        #expect(api.defaultBranchHead == "9f1c2e7a4b3d5e6f708192a3b4c5d6e7f8091a2b")
         #expect(api.latestRelease?.tagName == "v2.4.1")
         #expect(api.openIssues == 4)
         #expect(api.openPullRequests == 11)

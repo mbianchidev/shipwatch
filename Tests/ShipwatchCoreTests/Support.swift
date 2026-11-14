@@ -107,7 +107,7 @@ enum Fixtures {
         }
         return """
         {"nameWithOwner":"\(fullName)","url":"https://github.com/\(fullName)","isPrivate":\(isPrivate),"isArchived":false,
-         "pushedAt":"2026-11-14T15:36:00Z","defaultBranchRef":{"name":"main"},"latestRelease":\(latest),
+         "pushedAt":"2026-11-14T15:36:00Z","defaultBranchRef":{"name":"main","target":{"oid":"9f1c2e7a4b3d5e6f708192a3b4c5d6e7f8091a2b"}},"latestRelease":\(latest),
          "releases":{"nodes":[\(nodes.joined(separator: ","))]},"issues":{"totalCount":\(issues)},
          "pullRequests":{"totalCount":\(prs)},"recentIssue":{"nodes":[{"updatedAt":"2026-11-14T12:00:00Z"}]},
          "recentPullRequest":{"nodes":[{"updatedAt":"2026-11-14T15:39:00Z"}]}}

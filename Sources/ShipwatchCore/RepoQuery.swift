@@ -8,7 +8,7 @@ enum RepoQuery {
     static let fragment = """
     fragment RepoFields on Repository {
       nameWithOwner url isPrivate isArchived pushedAt
-      defaultBranchRef { name }
+      defaultBranchRef { name target { oid } }
       latestRelease { tagName url publishedAt isPrerelease }
       releases(first: 10, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { tagName url publishedAt isPrerelease isDraft } }
       issues(states: OPEN) { totalCount }
@@ -144,8 +144,13 @@ enum RepoQuery {
         var updatedAt: Date
     }
 
-    struct Named: Decodable {
+    struct BranchRef: Decodable {
+        struct Target: Decodable {
+            var oid: String
+        }
+
         var name: String
+        var target: Target?
     }
 
     struct ReleaseNode: Decodable {
@@ -166,7 +171,7 @@ enum RepoQuery {
         var isPrivate: Bool
         var isArchived: Bool
         var pushedAt: Date?
-        var defaultBranchRef: Named?
+        var defaultBranchRef: BranchRef?
         var latestRelease: ReleaseNode?
         var releases: Nodes<ReleaseNode>
         var issues: Count
@@ -189,6 +194,7 @@ enum RepoQuery {
                 isPrivate: isPrivate,
                 isArchived: isArchived,
                 defaultBranch: defaultBranchRef?.name,
+                defaultBranchHead: defaultBranchRef?.target?.oid,
                 latestRelease: release,
                 openIssues: issues.totalCount,
                 openPullRequests: pullRequests.totalCount,
