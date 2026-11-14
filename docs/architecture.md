@@ -67,9 +67,11 @@ picked a workspace folder and turned the switch on.
 - **`WorkspaceScanner`** walks the workspace up to 3 levels deep, skipping
   excluded folders, hidden folders, `node_modules`, symlinks and packages. A
   folder with a `.git` directory is a clone when one of its remotes in
-  `.git/config` parses (`RepoRef(gitRemote:)`) to a tracked github.com
-  repository; `origin` wins when several do. It reads files only and never runs
-  git, and it does not descend into clones. Folders it can't list (usually
+  `.git/config` parses (`RepoRef(gitRemote:)`) to a github.com repository. A
+  tracked remote wins, then `origin`. Clones of tracked repositories go to
+  `clones`; the rest go to `untracked`, which Settings > Workspace offers to
+  track. It reads files only and never runs git, and it does not descend into
+  clones. Folders it can't list (usually
   macOS privacy prompts that were declined) are reported, not fatal.
 - **`CloneSyncer`** fast-forwards one clone's local default branch to the head
   commit GitHub reported:
@@ -101,7 +103,8 @@ picked a workspace folder and turned the switch on.
 ## Self-update
 
 `Updater` (in `ShipwatchUI`) checks the latest GitHub release of
-`mbianchidev/shipwatch` on a schedule, downloads `Shipwatch.dmg` and its `.sig`
+`mbianchidev/shipwatch` on a schedule (the REST API, or github.com's
+`releases/latest` redirect while the API is rate limited), downloads `Shipwatch.dmg` and its `.sig`
 into a temporary folder, and verifies the signature against the public keys in
 `UpdateTrust` before mounting anything. It then stages the new app next to the
 installed one, checks its bundle and code signature, and starts the helper

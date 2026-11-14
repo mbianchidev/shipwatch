@@ -21,16 +21,19 @@ public struct LocalClone: Hashable, Sendable, Identifiable {
 
 public struct WorkspaceScan: Equatable, Sendable {
     public var clones: [LocalClone]
+    /// Clones of github.com repositories that aren't tracked, so they can be offered for tracking.
+    public var untracked: [LocalClone]
     /// Folders that could not be listed, usually because macOS privacy settings block them.
     public var unreadable: [URL]
 
-    public init(clones: [LocalClone] = [], unreadable: [URL] = []) {
+    public init(clones: [LocalClone] = [], untracked: [LocalClone] = [], unreadable: [URL] = []) {
         self.clones = clones
+        self.untracked = untracked
         self.unreadable = unreadable
     }
 }
 
-/// Finds clones of tracked repositories inside the workspace folder. Reads files only; never runs git.
+/// Finds github.com clones inside the workspace folder, split into tracked and untracked. Reads files only; never runs git.
 public struct WorkspaceScanner: Sendable {
     public static let maxDepth = 3
     public static let skippedFolderNames: Set<String> = ["node_modules"]
@@ -43,12 +46,15 @@ public struct WorkspaceScanner: Sendable {
         self.excluded = excluded
     }
 
-    /// `tracked` holds `RepoRef.key` values. Every clone of a tracked repository is returned, sorted by path.
+    /// `tracked` holds `RepoRef.key` values. Every clone of a tracked repository is returned in `clones`, every
+    /// other github.com clone in `untracked`, both sorted by path.
     public func scan(tracked: Set<String>) -> WorkspaceScan {
         let excludedPaths = excluded.map { Self.canonical($0).path }
         var result = WorkspaceScan()
         visit(Self.canonical(root), depth: 0, tracked: tracked, excluded: excludedPaths, into: &result)
-        result.clones.sort { $0.path.path.localizedStandardCompare($1.path.path) == .orderedAscending }
+        let byPath: (LocalClone, LocalClone) -> Bool = { $0.path.path.localizedStandardCompare($1.path.path) == .orderedAscending }
+        result.clones.sort(by: byPath)
+        result.untracked.sort(by: byPath)
         return result
     }
 
@@ -72,7 +78,11 @@ public struct WorkspaceScanner: Sendable {
         if fileManager.fileExists(atPath: directory.appendingPathComponent(".git").path, isDirectory: &isDirectory) {
             // A `.git` file means a linked worktree or a submodule; their main repository is handled on its own.
             if isDirectory.boolValue, let clone = Self.clone(at: directory, tracked: tracked) {
-                result.clones.append(clone)
+                if tracked.contains(clone.ref.key) {
+                    result.clones.append(clone)
+                } else {
+                    result.untracked.append(clone)
+                }
             }
             return
         }
@@ -94,14 +104,16 @@ public struct WorkspaceScanner: Sendable {
         }
     }
 
+    /// The clone's github.com remote: a tracked one when there is one, `origin` among several. `nil` without any.
     static func clone(at directory: URL, tracked: Set<String>) -> LocalClone? {
         let gitDirectory = directory.appendingPathComponent(".git")
         guard let config = try? String(contentsOf: gitDirectory.appendingPathComponent("config"), encoding: .utf8) else { return nil }
-        let matches = GitConfig.remotes(in: config).compactMap { remote -> (name: String, ref: RepoRef)? in
-            guard let ref = RepoRef(gitRemote: remote.url), tracked.contains(ref.key) else { return nil }
-            return (remote.name, ref)
+        let remotes = GitConfig.remotes(in: config).compactMap { remote -> (name: String, ref: RepoRef)? in
+            RepoRef(gitRemote: remote.url).map { (remote.name, $0) }
         }
-        guard let match = matches.first(where: { $0.name == "origin" }) ?? matches.first else { return nil }
+        let trackedRemotes = remotes.filter { tracked.contains($0.ref.key) }
+        let candidates = trackedRemotes.isEmpty ? remotes : trackedRemotes
+        guard let match = candidates.first(where: { $0.name == "origin" }) ?? candidates.first else { return nil }
         let head = try? String(contentsOf: gitDirectory.appendingPathComponent("HEAD"), encoding: .utf8)
         return LocalClone(path: directory, ref: match.ref, remote: match.name, headBranch: head.flatMap(GitConfig.branch(fromHead:)))
     }

@@ -161,7 +161,11 @@ func configureWorkspace(_ model: AppModel) {
         clone("web/website", "octocat/website", on: "feat/nav"),
     ]
     let workspace = model.workspace
-    workspace.scan = WorkspaceScan(clones: clones)
+    workspace.scan = WorkspaceScan(clones: clones, untracked: [
+        clone("acme/handbook", "acme-org/handbook"),
+        clone("playground", "octocat/playground"),
+        clone("Spoon-Knife", "octocat/Spoon-Knife"),
+    ])
     workspace.scannedAt = ago(40)
     let head = String(repeating: "a", count: 40)
     func result(_ outcome: CloneSyncOutcome, fastForward: FastForward? = nil) -> CloneSyncResult {
@@ -270,12 +274,18 @@ func addSheet(_ model: AppModel) -> some View {
     ]
     picker.query = "pay"
     picker.selected = ["octocat/payments", "acme-org/payroll"]
-    model.settingsTab = .repositories
-    return SettingsWindowFrame(title: SettingsTab.repositories.title) {
+    return sheet(model, over: .repositories, AddRepositoriesSheet(model: model, picker: picker, loadsOnAppear: false))
+}
+
+/// The settings window on `tab`, dimmed, with `content` shown as its sheet.
+@MainActor
+func sheet(_ model: AppModel, over tab: SettingsTab, _ content: some View) -> some View {
+    model.settingsTab = tab
+    return SettingsWindowFrame(title: tab.title) {
         ZStack(alignment: .top) {
             SettingsView(model: model)
             Color.black.opacity(0.3)
-            AddRepositoriesSheet(model: model, picker: picker, loadsOnAppear: false)
+            content
                 .background(Color(white: 0.2))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.12)))
@@ -332,6 +342,8 @@ MainActor.assumeIsolated {
         try render(settings(model, .general), dark: true, name: "settings-general", into: output)
         configureWorkspace(model)
         try render(settings(model, .workspace), dark: true, name: "settings-workspace", into: output)
+        let trackFound = TrackFoundRepositoriesSheet(model: model, clones: model.workspace.untracked) {}
+        try render(sheet(model, over: .workspace, trackFound), dark: true, name: "settings-track-found", into: output)
 
         let signedOut = makeModel(defaults: defaults, signedIn: false)
         try render(popover(signedOut, dark: true), dark: true, name: "onboarding", into: output)

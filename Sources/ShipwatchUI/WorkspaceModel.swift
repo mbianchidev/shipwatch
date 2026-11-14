@@ -124,6 +124,14 @@ public final class WorkspaceModel {
         return prefs.repos.items.filter { !cloned.contains($0.id) }.count
     }
 
+    /// One clone per github.com repository in the workspace that isn't tracked, sorted by repository.
+    public var untracked: [LocalClone] {
+        var seen = Set<String>()
+        return scan.untracked
+            .filter { !prefs.repos.contains($0.ref) && seen.insert($0.ref.key).inserted }
+            .sorted { $0.ref.fullName.localizedStandardCompare($1.ref.fullName) == .orderedAscending }
+    }
+
     // MARK: Settings
 
     public func setWorkspace(_ url: URL?) {
