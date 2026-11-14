@@ -240,7 +240,7 @@ struct GeneralSettingsView: View {
         }
         .padding(.top, 4)
         caption("Updates are signed by the Shipwatch release key and checked before installing. Shipwatch restarts to finish.")
-        if let message = updater.pause.message, !updater.hasFailed {
+        if let message = updater.pause.message(offering: updater.availableRelease?.version), !updater.hasFailed {
             caption(message, color: Theme.failing)
         }
     }

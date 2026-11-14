@@ -85,8 +85,9 @@ verification or install fails. The list shows "Shipwatch update failed ·
 **Details**", and Settings > General shows the reason next to **Updates**.
 
 - A version that failed to install is not installed automatically again in
-  that session, or after the helper rolled it back. Newer versions still
-  install automatically, and **Install vX.Y.Z and Restart** retries by hand.
+  that session, or after the helper rolled it back. **Install vX.Y.Z and
+  Restart** retries by hand. A newer release clears the warning and installs
+  as usual, and so does installing that version or a newer one by hand.
 - If Shipwatch can't read the result of the last update, it pauses automatic
   installs for every version until an update installs successfully.
 - "The update signature is not valid for Shipwatch's release key", "does not

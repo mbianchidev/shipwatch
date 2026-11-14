@@ -73,7 +73,8 @@ package enum UpdateInstaller {
             version: version
         )
         update = prepared
-        try CommandRunner.run("/usr/bin/hdiutil", arguments: ["detach", "-quiet", mountPoint.path])
+        // The staged copy is verified; a busy volume is no reason to abandon it.
+        detach(mountPoint, log: log)
         mounted = false
 
         let helper = prepared.directory.appendingPathComponent(ShipwatchBundle.helperName)

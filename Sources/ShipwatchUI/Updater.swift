@@ -56,7 +56,8 @@ final class Updater {
         if isSupported && !startupPending {
             pause = UpdatePause(
                 resultURL: AppBundleUpdateResult.defaultURL,
-                failedVersionArgument: UserDefaults.standard.string(forKey: ShipwatchBundle.failedUpdateArgument)
+                failedVersionArgument: UserDefaults.standard.string(forKey: ShipwatchBundle.failedUpdateArgument),
+                currentVersion: currentVersion
             )
         }
     }

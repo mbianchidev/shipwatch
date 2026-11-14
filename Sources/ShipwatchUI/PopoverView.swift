@@ -264,7 +264,7 @@ struct UpdateFooter: View {
             row(symbol: nil) {
                 Text("Installing Shipwatch \(release.version.description)…")
             }
-        } else if updater.hasFailed || (updater.pause.message != nil && updater.availableRelease != nil) {
+        } else if updater.hasFailed || updater.availableRelease.flatMap({ updater.pause.message(offering: $0.version) }) != nil {
             row(symbol: "exclamationmark.triangle") {
                 Text("Shipwatch update failed ·")
                 Button("Details") { model.actions.showSettings(.general) }

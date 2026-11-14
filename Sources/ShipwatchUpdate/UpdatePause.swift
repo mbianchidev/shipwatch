@@ -4,7 +4,7 @@ import Foundation
 /// A failed version is only installed manually; newer versions still install automatically.
 package struct UpdatePause: Equatable, Sendable {
     /// Why automatic installs are paused, shown to the user.
-    package private(set) var message: String?
+    private var message: String?
     private var pausedVersion: String?
     private var pausesAll = false
 
@@ -22,9 +22,12 @@ package struct UpdatePause: Equatable, Sendable {
     }
 
     /// Reads `LastUpdate.json` and the `-ShipwatchFailedUpdateVersion` launch argument the helper passes on rollback.
-    package init(resultURL: URL, failedVersionArgument: String?) {
+    /// Failures of `currentVersion` or older are ignored: that version or a newer one is already installed.
+    package init(resultURL: URL, failedVersionArgument: String?, currentVersion: UpdateVersion) {
+        let isNewer = { (text: String) in UpdateVersion(text).map { $0 > currentVersion } ?? false }
         do {
-            if let result = try AppBundleUpdateResult.read(from: resultURL), let error = result.errorMessage {
+            if let result = try AppBundleUpdateResult.read(from: resultURL), let error = result.errorMessage,
+               isNewer(result.version) {
                 self.init(failedVersion: result.version, message: "Updating to \(result.version) failed: \(error)")
             } else {
                 self.init()
@@ -32,7 +35,8 @@ package struct UpdatePause: Equatable, Sendable {
         } catch {
             self.init(pausingAll: "Shipwatch could not read its last update result, so automatic installs are paused. Use Install to update manually.")
         }
-        if let version = failedVersionArgument.flatMap({ UpdateVersion($0) })?.description, pausedVersion != version {
+        if let version = failedVersionArgument.flatMap({ UpdateVersion($0) })?.description, isNewer(version),
+           pausedVersion != version {
             pausedVersion = version
             if !pausesAll {
                 message = "Updating to \(version) failed, so Shipwatch reopened the previous version."
@@ -48,5 +52,11 @@ package struct UpdatePause: Equatable, Sendable {
 
     package func allowsAutomaticInstall(of version: UpdateVersion) -> Bool {
         !pausesAll && pausedVersion != version.description
+    }
+
+    /// `message` while it concerns `release`, or while no release is on offer. A newer release than the failed one hides it.
+    package func message(offering release: UpdateVersion?) -> String? {
+        guard let release else { return message }
+        return allowsAutomaticInstall(of: release) ? nil : message
     }
 }

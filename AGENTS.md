@@ -46,8 +46,8 @@ warnings. No formatter is configured. Run `shellcheck` on changed scripts and
 ## Safety and implementation
 
 - Shipwatch only reads from GitHub. Do not add requests that change GitHub
-  data or ask for write permissions. The only POSTs are GraphQL queries and the OAuth
-  device flow and token refresh.
+  data or ask for write permissions. The only POSTs are GraphQL queries, the
+  OAuth device flow and token refresh.
 - Tests and snapshots use synthetic data (`octocat`, `acme-org`) and mocked
   transports. Never use real tokens, accounts or private repository data.
 - Do not launch the app (`swift run Shipwatch`) as validation: it reads the
