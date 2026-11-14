@@ -1,5 +1,5 @@
 #!/bin/bash
-# Verifies dist/Shipwatch.dmg without launching the app: checksum, bundle metadata, icon, signature and architectures.
+# Verifies dist/Shipwatch.dmg without launching the app: checksum, bundle metadata, icon, signatures, update helper and architectures.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -65,7 +65,21 @@ codesign --verify --deep --strict "$APP"
 for ARCH in arm64 x86_64; do
   lipo "$APP/Contents/MacOS/Shipwatch" -verify_arch "$ARCH" || die "Executable lacks $ARCH."
 done
+HELPER="$APP/Contents/Helpers/ShipwatchUpdateHelper"
+[ -f "$HELPER" ] && [ -x "$HELPER" ] || die "Missing executable update helper."
+for ARCH in arm64 x86_64; do
+  lipo "$HELPER" -verify_arch "$ARCH" || die "Update helper lacks $ARCH."
+done
+codesign --verify --strict -R='identifier "dev.mbianchi.shipwatch.update-helper"' "$HELPER" \
+  || die "Update helper signature or identifier is invalid."
 INSTALLED_APP="$STAGE/Mock Applications/Shipwatch.app"
 ditto "$APP" "$INSTALLED_APP"
 codesign --verify --deep --strict "$INSTALLED_APP"
+
+if [ -e "$DMG.sig" ]; then
+  swift run --package-path "$ROOT" ShipwatchReleaseTool verify "$DMG" "$DMG.sig" \
+    --version "$(plist CFBundleShortVersionString)" || die "Update signature verification failed."
+else
+  echo "Note: no $DMG.sig, so the update signature was not checked."
+fi
 echo "macOS package checks passed."
