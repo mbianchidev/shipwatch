@@ -22,13 +22,6 @@ public enum GitHubLinks {
         return components.url!
     }
 
-    /// Open pull requests not authored by Dependabot.
-    public static func humanPullRequests(_ ref: RepoRef) -> URL {
-        var components = URLComponents(url: pullRequests(ref), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "q", value: "is:pr is:open -author:app/dependabot")]
-        return components.url!
-    }
-
     public static func actions(_ ref: RepoRef) -> URL {
         repo(ref).appending(path: "actions")
     }
