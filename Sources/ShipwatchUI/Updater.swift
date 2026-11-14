@@ -39,6 +39,8 @@ final class Updater {
     @ObservationIgnored private var timer: Task<Void, Never>?
     @ObservationIgnored private var lastCheck: Date?
     @ObservationIgnored private var failures = 0
+    /// While GitHub's REST API is rate limited, checks read the release page instead.
+    @ObservationIgnored private var apiRateLimitedUntil: Date?
     /// Keeps the helper's termination handler alive until Shipwatch quits.
     @ObservationIgnored private var helper: Process?
 
@@ -167,8 +169,7 @@ final class Updater {
     private func performCheck(automatic: Bool) async {
         state = .checking
         do {
-            let data = try await downloader.fetchFeed()
-            let result = try UpdateFeed.evaluate(data, current: currentVersion)
+            let result = try await latestRelease()
             let now = Date()
             lastCheck = now
             failures = 0
@@ -190,6 +191,29 @@ final class Updater {
             updateLog.error("Update check failed: \(error.localizedDescription, privacy: .public)")
             state = .failed("Couldn't check for updates. \(error.localizedDescription)")
         }
+    }
+
+    /// Asks the REST API, which lists release notes and asset sizes. When it's rate limited (60 requests an hour per
+    /// network without a token), reads github.com's latest-release redirect until the limit resets.
+    private func latestRelease() async throws -> UpdateFeedResult {
+        if let until = apiRateLimitedUntil, until > Date() {
+            return try await latestReleaseFromPage()
+        }
+        apiRateLimitedUntil = nil
+        do {
+            return try UpdateFeed.evaluate(try await downloader.fetchFeed(), current: currentVersion)
+        } catch UpdateDownloadError.rateLimited(let until) {
+            let resume = until ?? Date().addingTimeInterval(UpdateDownloader.defaultRateLimitWait)
+            apiRateLimitedUntil = resume
+            updateLog.notice(
+                "GitHub API rate limited until \(resume.formatted(date: .omitted, time: .shortened), privacy: .public), reading the release page instead"
+            )
+            return try await latestReleaseFromPage()
+        }
+    }
+
+    private func latestReleaseFromPage() async throws -> UpdateFeedResult {
+        try UpdateFeed.evaluate(latestReleaseLocation: try await downloader.fetchLatestReleaseLocation(), current: currentVersion)
     }
 
     private func performInstall(_ release: UpdateRelease) async {
