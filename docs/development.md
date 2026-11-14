@@ -73,7 +73,8 @@ reads its `.DS_Store` to verify the layout, so Finder is never opened.
 
 `ShipwatchSnapshots` also renders the app icon (`--iconset`) from the same
 sailboat path as the menu bar icon, and the installer background
-(`--dmg-background`).
+(`--dmg-background`). `docs/logo.png` in the README is that iconset's
+`icon_256x256.png`; copy it again if the icon changes.
 
 ## Update tooling
 
