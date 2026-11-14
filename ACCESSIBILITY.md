@@ -39,11 +39,11 @@ checks on macOS:
 
 | Check | What to verify |
 | --- | --- |
-| Keyboard | Open the popover, move between rows and actions, open Settings, switch tabs, add and remove repositories, sign in and out |
-| VoiceOver | Each row reads the repository, release, CI status, activity, issue and pull request counts; icon-only buttons have names |
+| Keyboard | Open the popover, move between rows and actions, open Settings, switch tabs, add and remove repositories, choose a workspace and excluded folders, toggle clone sync, sign in and out |
+| VoiceOver | Each row reads the repository, release, CI status, activity, issue and pull request counts; each local clone reads its sync status; icon-only buttons have names |
 | Display settings | Increase Contrast, Reduce Transparency, Reduce Motion, light and dark menu bar |
 | Dynamic content | Refreshing and auto-updates do not move focus or repeat announcements |
-| Errors | Sign-in, rate-limit, network and update errors are shown as text |
+| Errors | Sign-in, rate-limit, network, update and clone sync errors are shown as text |
 
 Use synthetic repositories (for example a test account or `octocat`) and never
 real private data in screenshots or recordings.

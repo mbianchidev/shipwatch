@@ -93,7 +93,9 @@ the token from the Keychain (or `gh`), sends one GraphQL query per 20
 repositories for releases, counts and dates, and one conditional REST request per
 repository for recent workflow runs. Running beats failing and failing beats
 passing; only the latest completed run of each workflow on the default branch
-decides failing, so a red run fixed later is ignored. A bundled helper installs
+decides failing, so a red run fixed later is ignored. With clone sync on, it then
+runs `git fetch` and a fast-forward-only update in your local clones whose
+default branch is behind. A bundled helper installs
 verified updates and rolls back on failure. Details are in
 [Architecture](docs/architecture.md).
 
@@ -103,6 +105,8 @@ Open Settings with **Manage Repositories…** at the bottom of the list (Cmd-com
 
 - **Repositories:** add, reorder, hide, show and remove repositories, and check
   which ones your sign-in can read.
+- **Workspace:** optionally keep the default branch of your local clones up to
+  date, with folders to exclude from the scan.
 - **General:** refresh interval (2 minutes by default), what last activity means,
   pre-releases, a failing count in the menu bar, launch at login and updates.
 - **Account:** sign-in method, repository access and your own GitHub App.
@@ -123,6 +127,10 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
 - A sailboat menu bar icon with a red dot when something fails and a yellow dot
   while workflows run, plus an optional failing count.
 - Sign-in through a read-only GitHub App device flow, or your existing `gh` login.
+- Optional: keep `main` of your local clones current. Pick a workspace folder,
+  exclude folders, and Shipwatch fast-forwards each clone's default branch when
+  GitHub has new commits. It never commits, resets, stashes or switches
+  branches, and skips clones with local changes.
 - In-app updates from GitHub Releases, checked every 6 hours by default.
 
 ## Documentation

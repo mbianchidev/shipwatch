@@ -42,6 +42,11 @@ failing, failing beats passing.
 Right-click a row for **Open Repository**, **Open Actions**, **Open Releases**,
 **Copy Latest Tag**, **Move Up**, **Move Down**, **Hide** and
 **Remove from Shipwatch…**. Removing or hiding never changes anything on GitHub.
+When the repository has clones in your [workspace](#workspace), the menu also
+offers **Update Local Clone Now** and **Show Local Clone in Finder**.
+
+When clone sync skips or fails on a clone, a line at the bottom of the list says
+"N local clones skipped". Click **Review** to see why in Settings > Workspace.
 
 ## Settings
 
@@ -60,6 +65,52 @@ The repositories shown in the list, in order.
 - Select rows and click **-** to remove them from Shipwatch.
 - The **Access** column shows whether the current sign-in can read each
   repository. **Grant…** opens the GitHub App installation page.
+
+### Workspace
+
+Optionally keeps the default branch (usually `main`) of your local clones in
+step with GitHub, so it is current whenever you branch off it. Commit on feature
+branches: Shipwatch only fast-forwards and never creates commits, resets,
+stashes, forces, pushes or switches branches.
+
+1. Click **Choose…** and pick the folder where you keep your clones, for example
+   `~/Developer`. Shipwatch scans it up to 3 levels deep for folders whose git
+   remote points at a repository you track on github.com. Nothing on disk
+   changes yet.
+2. Optionally add **Excluded folders** with **+**. Shipwatch doesn't scan them or
+   anything inside them. Hidden folders, `node_modules`, symlinks and app
+   bundles are always skipped.
+3. Turn on **Keep default branches up to date** (default off).
+
+<p align="center">
+  <img src="screenshots/settings-workspace.png" alt="Workspace settings with the workspace folder, the sync switch, two excluded folders and a table of local clones showing up to date, updated and skipped statuses" width="560">
+</p>
+
+After every refresh where GitHub reports a new commit on a default branch,
+Shipwatch fetches that branch and fast-forwards the local one. A clone is
+skipped, with the reason in the **Local clones** table, when:
+
+| Reason | What to do |
+| --- | --- |
+| uncommitted changes on main | Commit, stash or discard them. Untracked files don't count. |
+| main diverged from origin | The local branch has commits that aren't on GitHub. Move them to a branch. |
+| rebase of main in progress | Finish or abort the rebase. |
+| no local main branch | Nothing to update. Check it out once if you want it kept current. |
+
+Errors such as an unreachable remote or a key that needs a passphrase show as
+failed; Shipwatch retries them after 15 minutes. See
+[Troubleshooting](troubleshooting.md#a-local-clone-was-skipped-or-failed).
+
+- Untick a repository's **Sync** checkbox to leave all its clones alone.
+- A clone on another branch still gets its default branch updated without
+  switching; the table shows "on *branch*".
+- **Sync Now** rescans and updates every clone right away, ignoring the
+  15 minute wait. **Rescan** only looks for clones again.
+- Right-click a clone for **Show in Finder**.
+
+Shipwatch needs git for this: Homebrew's, or Apple's from the Command Line Tools
+(`xcode-select --install`). It uses your existing SSH agent or credential
+helper and never prompts.
 
 ### General
 
@@ -100,9 +151,10 @@ token, it waits for the reset time. Details are in
 | What | Where |
 | --- | --- |
 | GitHub App token | login Keychain, service `dev.mbianchi.shipwatch` |
-| Repositories and settings | `UserDefaults` domain `dev.mbianchi.shipwatch` |
+| Repositories and settings, including the workspace folder and exclusions | `UserDefaults` domain `dev.mbianchi.shipwatch` |
 | Update state and lock | `~/Library/Application Support/Shipwatch` |
 | GitHub CLI token | memory only |
 
 Shipwatch sends no analytics. It only talks to `api.github.com`, `github.com`
-and GitHub's release download hosts.
+and GitHub's release download hosts. With clone sync on, git also fetches from
+your clones' github.com remotes, using your own git credentials.

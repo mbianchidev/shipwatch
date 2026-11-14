@@ -22,13 +22,17 @@ Without the variables, sign in with the GitHub CLI fallback or set the app in
 Settings > Account. Launch at login only works from a packaged `.app`.
 
 `swift test` runs both Swift Testing targets: `ShipwatchCoreTests` (GitHub API,
-CI status, repo list, device flow) and `ShipwatchUpdateTests` (feed, signature,
-download, install and rollback, all against temporary directories and fake
-command runners). Use `swift test --filter <SuiteName>` for one suite.
+CI status, repo list, device flow, workspace scan and clone fast-forward) and
+`ShipwatchUpdateTests` (feed, signature, download, install and rollback, all
+against temporary directories and fake command runners). The clone tests create
+temporary git repositories with your global git config ignored, and are
+skipped when git isn't installed. Use `swift test --filter <SuiteName>` for one
+suite.
 
 `swift run Shipwatch` is a development build, so the self-updater stays off and
 Settings > General shows "Development build". In-app updates only work from a
-packaged `Shipwatch.app` with a release version, see [Updates](updates.md).
+packaged `Shipwatch.app` with a release version, see [Updates](updates.md). It
+uses your real preferences, so with clone sync on it updates your real clones.
 
 ## Screenshots
 
@@ -37,10 +41,10 @@ swift run ShipwatchSnapshots            # writes docs/screenshots/*.png
 swift run ShipwatchSnapshots /tmp/shots # or anywhere else
 ```
 
-The renderer uses mocked repos (octocat, acme-org) and an offline transport, so
-it never touches the network or your Keychain. Windows are drawn offscreen and
-the app is never activated, so native controls (switches, checkboxes, default
-buttons) render in their inactive tint.
+The renderer uses mocked repos (octocat, acme-org), an offline transport and a
+git stub, so it never touches the network, your Keychain or your clones.
+Windows are drawn offscreen and the app is never activated, so native controls
+(switches, checkboxes, default buttons) render in their inactive tint.
 
 ## Package
 

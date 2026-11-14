@@ -12,7 +12,7 @@
 
 - [Contributing](../CONTRIBUTING.md) and [agent instructions](../AGENTS.md).
 - [Development](development.md): build, test, screenshots, packaging and CI.
-- [Architecture](architecture.md): targets, data flow, refresh cadence and storage.
+- [Architecture](architecture.md): targets, data flow, refresh cadence, local clone sync and storage.
 - [Releases](releases.md): automatic releases and the update signing key.
 - [Screenshots](screenshots) rendered from mocked data, and the original [mockups](mockups/index.html).
 

@@ -9,9 +9,11 @@ existing user changes.
 - `Package.swift`: SwiftPM package, macOS 14+, Swift tools 6.0, no third-party
   Swift package dependencies.
 - `Sources/ShipwatchCore`: GitHub API client, device flow, token storage, models,
-  CI evaluation. No UI.
-- `Sources/ShipwatchUI`: SwiftUI views hosted in AppKit, `AppModel`, preferences
-  and the `Updater`. `Sources/Shipwatch` is only the entry point.
+  CI evaluation, workspace scan (`Workspace.swift`) and clone fast-forward
+  (`CloneSyncer.swift`, git via `GitRunning` in `Git.swift`). No UI.
+- `Sources/ShipwatchUI`: SwiftUI views hosted in AppKit, `AppModel`,
+  `WorkspaceModel`, preferences and the `Updater`. `Sources/Shipwatch` is only
+  the entry point.
 - `Sources/ShipwatchUpdate` and `Sources/ShipwatchUpdateHelper`: self-update
   logic and the bundled helper that swaps and rolls back the app.
 - `Sources/ShipwatchReleaseTool`: update signing for releases. Not shipped.
@@ -48,10 +50,16 @@ warnings. No formatter is configured. Run `shellcheck` on changed scripts and
 - Shipwatch only reads from GitHub. Do not add requests that change GitHub
   data or ask for write permissions. The only POSTs are GraphQL queries, the
   OAuth device flow and token refresh.
+- Local clone sync is opt-in and fast-forward only. Never add git commands that
+  commit, reset, stash, check out, rebase, force, push or delete anything, and
+  keep git non-interactive. `CloneSyncerTests` use temporary repositories
+  (`GitFixture`, `IsolatedGit` ignores your global git config); snapshots use
+  `OfflineGit`. Never point tests or snapshots at real clones.
 - Tests and snapshots use synthetic data (`octocat`, `acme-org`) and mocked
   transports. Never use real tokens, accounts or private repository data.
 - Do not launch the app (`swift run Shipwatch`) as validation: it reads the
-  real Keychain and preferences. Prefer tests and `ShipwatchSnapshots`.
+  real Keychain and preferences, and can update real clones. Prefer tests and
+  `ShipwatchSnapshots`.
 - Never run `ShipwatchUpdateHelper` or an install against a real
   `Shipwatch.app`. Updater tests use temporary bundles and fake command runners.
 - Keep update checks failing closed: signature before mounting, allowed

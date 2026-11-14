@@ -51,6 +51,43 @@ Shipwatch keeps the installed version when an update can't be verified or
 installed, and shows why in Settings > General. See
 [Updates](updates.md#when-an-update-fails). You can always upgrade by hand.
 
+## A local clone isn't listed in Settings > Workspace
+
+- The repository must be tracked in Shipwatch, and the clone must be inside the
+  workspace folder, at most 3 levels deep, and not in an excluded folder.
+  Hidden folders, `node_modules` and symlinked folders are never scanned.
+- One of its remotes must point at github.com: `git@github.com:owner/name`,
+  `https://github.com/owner/name` or `ssh://git@github.com/owner/name`. SSH host
+  aliases such as `git@github-work:owner/name` and `url.*.insteadOf` rewrites
+  aren't recognized.
+- Linked worktrees and submodules aren't listed on their own. The main clone is,
+  and updating it updates the branch for all its worktrees.
+- For a workspace in Documents, Desktop, Downloads or iCloud Drive, macOS asks
+  once for access. If you declined, allow Shipwatch in System Settings > Privacy
+  & Security > Files and Folders, then click **Rescan**. Folders Shipwatch
+  couldn't read are listed in the `workspace` [logs](#collect-logs).
+
+## A local clone was skipped or failed
+
+Skipped clones show the reason in Settings > Workspace; see
+[Usage](usage.md#workspace) for each one. Shipwatch never resolves them for you.
+Failed clones are retried after 15 minutes, or now with **Sync Now**.
+
+- **"Needs git"**: install git with `xcode-select --install` or Homebrew, then
+  restart Shipwatch.
+- **Authentication or "Permission denied (publickey)"**: Shipwatch can't
+  answer prompts. For SSH remotes, add your key to the agent and Keychain
+  (`ssh-add --apple-use-keychain ~/.ssh/id_ed25519`); apps started from the
+  Dock or at login get the system SSH agent, not one started in a shell profile.
+  For HTTPS remotes, use a credential helper such as `osxkeychain` or
+  `gh auth setup-git`. Running `git fetch` in that clone once from Terminal
+  shows the full error.
+- **Host key verification failed**: connect once from Terminal
+  (`ssh -T git@github.com`) to accept GitHub's host key.
+- **Git hooks or Git LFS**: a fast-forward of the checked-out branch runs your
+  `post-merge` hook and LFS downloads, just like `git pull`. If those need
+  input, they fail; turn **Sync** off for that repository.
+
 ## Collect logs
 
 Shipwatch logs to the unified log, never to files, and never logs tokens.
@@ -59,6 +96,8 @@ Shipwatch logs to the unified log, never to files, and never logs tokens.
 log show --last 30m --predicate 'subsystem == "dev.mbianchi.shipwatch"' --info
 ```
 
-Use `log stream` instead of `log show --last 30m` to watch live. Check the
-output for repository names you'd rather not share before attaching it to an
+Use `log stream` instead of `log show --last 30m` to watch live. Add
+`&& category == "workspace"` inside the predicate to see only workspace scans
+and clone sync. Check the output for repository names and local paths you'd
+rather not share before attaching it to an
 [issue](https://github.com/mbianchidev/shipwatch/issues/new/choose).
