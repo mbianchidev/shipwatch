@@ -113,7 +113,8 @@ public struct CloneSyncer: Sendable {
 
     private func resolve(_ ref: String, in directory: URL) throws -> String? {
         let output = try git.run(["rev-parse", "--verify", "--quiet", "\(ref)^{commit}"], in: directory)
-        guard output.succeeded, !output.trimmed.isEmpty else { return nil }
+        guard output.succeeded else { return nil }
+        guard !output.trimmed.isEmpty else { throw GitError.commandFailed("git rev-parse printed nothing for \(ref)") }
         return output.trimmed.lowercased()
     }
 

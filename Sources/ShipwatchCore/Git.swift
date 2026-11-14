@@ -124,10 +124,12 @@ public struct ProcessGit: GitRunning {
         process.currentDirectoryURL = directory
         process.environment = Self.baseEnvironment().merging(environment) { _, override in override }
         process.standardInput = FileHandle.nullDevice
-        let output = Pipe()
-        let errors = Pipe()
-        process.standardOutput = output
-        process.standardError = errors
+        // Files, not pipes: no reader threads that a busy thread pool can starve, no buffer to fill, and the
+        // output is complete once git exits even if a background child (ssh, a credential helper) keeps the descriptors.
+        let output = try CaptureFile()
+        let errors = try CaptureFile()
+        process.standardOutput = output.handle
+        process.standardError = errors.handle
 
         let finished = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in finished.signal() }
@@ -137,51 +139,46 @@ public struct ProcessGit: GitRunning {
             throw GitError.launchFailed(error.localizedDescription)
         }
 
-        // Drain both pipes concurrently so a chatty command can't fill a buffer and stall.
-        let collected = PipeCollector()
-        let readers = DispatchGroup()
-        for (pipe, isError) in [(output, false), (errors, true)] {
-            readers.enter()
-            DispatchQueue.global(qos: .utility).async {
-                collected.store(pipe.fileHandleForReading.readDataToEndOfFile(), isError: isError)
-                readers.leave()
-            }
-        }
-
         if finished.wait(timeout: .now() + timeout) == .timedOut {
             process.terminate()
             if finished.wait(timeout: .now() + 3) == .timedOut {
                 kill(process.processIdentifier, SIGKILL)
                 finished.wait()
             }
-            _ = readers.wait(timeout: .now() + 3)
             throw GitError.timedOut(seconds: Int(timeout))
         }
-        // A background child (ssh, a credential helper) may still hold the pipes open; don't wait on it forever.
-        _ = readers.wait(timeout: .now() + 5)
-        let (stdout, stderr) = collected.values
-        return GitOutput(
-            status: process.terminationStatus,
-            stdout: String(decoding: stdout, as: UTF8.self),
-            stderr: String(decoding: stderr, as: UTF8.self)
-        )
+        return GitOutput(status: process.terminationStatus, stdout: try output.contents(), stderr: try errors.contents())
     }
 }
 
-private final class PipeCollector: @unchecked Sendable {
-    private let lock = NSLock()
-    private var stdout = Data()
-    private var stderr = Data()
+/// An already unlinked temporary file: the open handle keeps it alive and nothing is left behind.
+private final class CaptureFile {
+    let handle: FileHandle
 
-    func store(_ data: Data, isError: Bool) {
-        lock.lock()
-        defer { lock.unlock() }
-        if isError { stderr = data } else { stdout = data }
+    init() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("shipwatch-git-\(UUID().uuidString)")
+        guard FileManager.default.createFile(atPath: url.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {
+            throw GitError.launchFailed("could not create a temporary file in \(url.deletingLastPathComponent().path)")
+        }
+        do {
+            handle = try FileHandle(forUpdating: url)
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            throw GitError.launchFailed("could not open a temporary file: \(error.localizedDescription)")
+        }
+        try? FileManager.default.removeItem(at: url)
     }
 
-    var values: (Data, Data) {
-        lock.lock()
-        defer { lock.unlock() }
-        return (stdout, stderr)
+    func contents() throws -> String {
+        do {
+            try handle.seek(toOffset: 0)
+            return String(decoding: try handle.readToEnd() ?? Data(), as: UTF8.self)
+        } catch {
+            throw GitError.commandFailed("could not read git output: \(error.localizedDescription)")
+        }
+    }
+
+    deinit {
+        try? handle.close()
     }
 }
