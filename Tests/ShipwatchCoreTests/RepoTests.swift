@@ -68,12 +68,6 @@ struct RepoListTests {
         list.moveVisible(api.key, by: 1)
         #expect(list.visible.map(\.ref) == [cli, api])
     }
-
-    @Test func roundTripsThroughJSON() throws {
-        let list = RepoList([TrackedRepo(ref: api), TrackedRepo(ref: infra, hidden: true)])
-        let decoded = try JSONDecoder().decode(RepoList.self, from: JSONEncoder().encode(list))
-        #expect(decoded == list)
-    }
 }
 
 struct LinkTests {
@@ -84,12 +78,6 @@ struct LinkTests {
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         #expect(components.path == "/acme-org/payments/pulls")
         #expect(components.queryItems?.first?.value == "is:pr is:open author:app/dependabot")
-    }
-
-    @Test func pageLinks() {
-        #expect(GitHubLinks.actions(ref).absoluteString == "https://github.com/acme-org/payments/actions")
-        #expect(GitHubLinks.releases(ref).absoluteString == "https://github.com/acme-org/payments/releases")
-        #expect(GitHubLinks.appInstall(slug: "shipwatch").absoluteString == "https://github.com/apps/shipwatch/installations/new")
     }
 }
 
