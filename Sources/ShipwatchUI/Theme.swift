@@ -285,3 +285,42 @@ extension Int {
         "\(self) \(self == 1 ? singular : (plural ?? singular + "s"))"
     }
 }
+
+/// GitHub's pull request glyph, which SF Symbols has no close match for. Drawn in a unit square, y down.
+struct PullRequestGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
+        }
+        let radius = 0.13 * min(rect.width, rect.height)
+        var path = Path()
+        for center in [point(0.22, 0.16), point(0.22, 0.84), point(0.78, 0.84)] {
+            path.addEllipse(in: CGRect(x: center.x - radius, y: center.y - radius, width: 2 * radius, height: 2 * radius))
+        }
+        path.move(to: point(0.22, 0.30))
+        path.addLine(to: point(0.22, 0.70))
+        path.move(to: point(0.78, 0.70))
+        path.addLine(to: point(0.78, 0.38))
+        path.addQuadCurve(to: point(0.58, 0.18), control: point(0.78, 0.18))
+        path.addLine(to: point(0.44, 0.18))
+        path.move(to: point(0.57, 0.05))
+        path.addLine(to: point(0.44, 0.18))
+        path.addLine(to: point(0.57, 0.31))
+        return path
+    }
+}
+
+/// A filled button that keeps its color when the popover's window isn't key, unlike `.borderedProminent`.
+struct AccentButtonStyle: ButtonStyle {
+    var tint: Color = .accentColor
+    var cornerRadius: CGFloat = 6
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.white)
+            .background(tint.opacity(configuration.isPressed ? 0.8 : 1), in: RoundedRectangle(cornerRadius: cornerRadius))
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .opacity(isEnabled ? 1 : 0.45)
+    }
+}

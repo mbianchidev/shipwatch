@@ -198,7 +198,9 @@ struct CountsLine: View {
     var body: some View {
         HStack(spacing: 10) {
             Button { model.open(GitHubLinks.issues(status.ref)) } label: {
-                Counter(symbol: "smallcircle.filled.circle", count: status.openIssues, label: status.openIssues == 1 ? "issue" : "issues")
+                Counter(count: status.openIssues, label: status.openIssues == 1 ? "issue" : "issues") {
+                    Image(systemName: "smallcircle.filled.circle")
+                }
                     .padding(.vertical, 2)
             }
             .buttonStyle(.plain)
@@ -206,7 +208,11 @@ struct CountsLine: View {
 
             HStack(spacing: 0) {
                 Button { model.open(GitHubLinks.pullRequests(status.ref)) } label: {
-                    Counter(symbol: "arrow.triangle.pull", count: status.openPullRequests, label: status.openPullRequests == 1 ? "PR" : "PRs")
+                    Counter(count: status.openPullRequests, label: status.openPullRequests == 1 ? "PR" : "PRs") {
+                        PullRequestGlyph()
+                            .stroke(style: StrokeStyle(lineWidth: 1.15, lineCap: .round, lineJoin: .round))
+                            .frame(width: 10.5, height: 10.5)
+                    }
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2)
                 }
@@ -246,14 +252,14 @@ struct CountsLine: View {
     }
 }
 
-struct Counter: View {
-    let symbol: String
+struct Counter<Icon: View>: View {
     let count: Int
     let label: String
+    @ViewBuilder let icon: Icon
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: symbol)
+            icon
                 .foregroundStyle(.secondary)
             Text("\(count)").fontWeight(.semibold)
             Text(label).foregroundStyle(.secondary)
@@ -289,10 +295,13 @@ struct RemovalConfirmation: View {
             Spacer(minLength: 4)
             Button("Cancel", action: cancel)
                 .controlSize(.small)
-            Button("Remove", role: .destructive, action: remove)
-                .controlSize(.small)
-                .tint(Theme.failing)
-                .buttonStyle(.borderedProminent)
+            Button(role: .destructive, action: remove) {
+                Text("Remove")
+                    .font(.system(size: 11, weight: .medium))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+            }
+            .buttonStyle(AccentButtonStyle(tint: Theme.failing, cornerRadius: 5))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)

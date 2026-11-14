@@ -27,6 +27,12 @@ struct DashboardView: View {
 
     private var repos: [TrackedRepo] { model.menuRepos }
 
+    /// Grow with the list, but leave room for the header, footer and menu bar on the current screen.
+    private var maxListHeight: CGFloat {
+        let screen = NSScreen.main?.visibleFrame.height ?? 800
+        return max(240, min(screen - 260, 760))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -49,7 +55,7 @@ struct DashboardView: View {
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
                 }
                 .scrollIndicators(.automatic)
-                .frame(height: min(max(listHeight, 60), 520))
+                .frame(height: min(max(listHeight, 60), maxListHeight))
                 hiddenFooter
             }
             Divider()
@@ -124,10 +130,14 @@ struct DashboardView: View {
             Text("Pick the repositories Shipwatch should watch.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
-            Button("Add Repositories…") { model.showAddRepositories() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
-                .padding(.top, 4)
+            Button { model.showAddRepositories() } label: {
+                Text("Add Repositories…")
+                    .font(.system(size: 13, weight: .medium))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+            }
+            .buttonStyle(AccentButtonStyle())
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)

@@ -19,10 +19,19 @@ public struct GitHubCLI: Sendable {
     /// Apps launched from Finder get a minimal PATH, so look in the usual install locations first.
     public static let candidatePaths = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"]
 
+    package typealias Runner = @Sendable (URL, [String]) throws -> String
+
     private let executable: URL?
+    private let runner: Runner
 
     public init(executable: URL? = GitHubCLI.locate()) {
+        self.init(executable: executable, runner: Self.run)
+    }
+
+    /// Lets previews and tests stand in for the real `gh` process.
+    package init(executable: URL?, runner: @escaping Runner) {
         self.executable = executable
+        self.runner = runner
     }
 
     public var path: String? { executable?.path }
@@ -38,12 +47,13 @@ public struct GitHubCLI: Sendable {
 
     public func token() async throws -> String {
         guard let executable else { throw CLIError.notInstalled }
+        let runner = runner
         return try await Task.detached(priority: .utility) {
-            try Self.run(executable, arguments: ["auth", "token", "--hostname", "github.com"])
+            try runner(executable, ["auth", "token", "--hostname", "github.com"])
         }.value
     }
 
-    private static func run(_ executable: URL, arguments: [String]) throws -> String {
+    private static func run(_ executable: URL, _ arguments: [String]) throws -> String {
         let process = Process()
         process.executableURL = executable
         process.arguments = arguments

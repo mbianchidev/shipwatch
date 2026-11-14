@@ -89,6 +89,8 @@ public final class AppModel {
     public var isAddingRepositories = false
     public var launchAtLogin = false
     public var launchAtLoginError: String?
+    /// Launch at login needs the app bundle; a bare `swift run` binary cannot register.
+    public var loginItemAvailable = LoginItem.isAvailable
 
     @ObservationIgnored private let bundled: AppConfig
     @ObservationIgnored private let transport: any HTTPTransport
@@ -569,7 +571,7 @@ public final class AppModel {
 
     /// Turns launch at login on the first time Shipwatch runs from its app bundle.
     public func configureLoginItemDefault() {
-        guard LoginItem.isAvailable, !prefs.loginItemConfigured else { return }
+        guard loginItemAvailable, !prefs.loginItemConfigured else { return }
         prefs.loginItemConfigured = true
         setLaunchAtLogin(true)
     }

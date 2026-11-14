@@ -72,10 +72,9 @@ private struct PrimaryButton: View {
             }
             .font(.system(size: 13, weight: .semibold))
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        .buttonStyle(AccentButtonStyle(cornerRadius: 8))
     }
 }
 

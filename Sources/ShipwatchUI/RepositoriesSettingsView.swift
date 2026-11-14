@@ -4,6 +4,7 @@ import SwiftUI
 struct RepositoriesSettingsView: View {
     let model: AppModel
     @State private var selection = Set<TrackedRepo.ID>()
+    private static let listRowInset: CGFloat = 8
 
     private var items: [TrackedRepo] { model.prefs.repos.items }
 
@@ -38,8 +39,8 @@ struct RepositoriesSettingsView: View {
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .alternatingRowBackgrounds()
-                    .environment(\.defaultMinListRowHeight, 32)
-                    .frame(height: 300)
+                    .environment(\.defaultMinListRowHeight, RepoSettingsRow.height)
+                    .frame(height: RepoSettingsRow.height * CGFloat(min(max(items.count, 4), 11)))
                     .onDeleteCommand(perform: removeSelection)
                 }
                 Divider()
@@ -65,7 +66,9 @@ struct RepositoriesSettingsView: View {
         .font(.system(size: 11.5, weight: .medium))
         .foregroundStyle(.secondary)
         .padding(.vertical, 6)
-        .padding(.trailing, 12)
+        // Matches the horizontal inset AppKit's table view gives each List row.
+        .padding(.leading, Self.listRowInset)
+        .padding(.trailing, 12 + Self.listRowInset)
         .background(Color.white.opacity(0.03))
     }
 
@@ -102,14 +105,13 @@ struct RepositoriesSettingsView: View {
 
 struct RepoSettingsRow: View {
     static let accessWidth: CGFloat = 170
+    static let height: CGFloat = 32
     let model: AppModel
     let repo: TrackedRepo
 
     var body: some View {
         HStack(spacing: 0) {
-            Image(systemName: "circle.grid.2x3.fill")
-                .font(.system(size: 8))
-                .foregroundStyle(.tertiary)
+            GripDots()
                 .frame(width: 28)
                 .help("Drag to reorder")
             Button { model.setHidden(repo.id, !repo.hidden) } label: {
@@ -135,7 +137,7 @@ struct RepoSettingsRow: View {
                 .frame(width: Self.accessWidth, alignment: .leading)
         }
         .padding(.trailing, 12)
-        .frame(height: 32)
+        .frame(height: Self.height)
         .contentShape(Rectangle())
     }
 
@@ -168,6 +170,21 @@ struct RepoSettingsRow: View {
         }
         .font(.system(size: 12.5))
         .lineLimit(1)
+    }
+}
+
+/// The 2x3 drag handle in front of each repository row.
+private struct GripDots: View {
+    var body: some View {
+        Grid(horizontalSpacing: 2.5, verticalSpacing: 2.5) {
+            ForEach(0..<3, id: \.self) { _ in
+                GridRow {
+                    Circle().frame(width: 2.5, height: 2.5)
+                    Circle().frame(width: 2.5, height: 2.5)
+                }
+            }
+        }
+        .foregroundStyle(.tertiary)
     }
 }
 

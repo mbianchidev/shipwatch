@@ -160,10 +160,10 @@ struct GeneralSettingsView: View {
                 Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                     .labelsHidden()
                     .toggleStyle(.switch)
-                    .disabled(!LoginItem.isAvailable)
+                    .disabled(!model.loginItemAvailable)
             }
             .padding(.top, 4)
-            if !LoginItem.isAvailable {
+            if !model.loginItemAvailable {
                 caption("Available when Shipwatch runs from its app bundle.")
             } else if let error = model.launchAtLoginError {
                 caption(error, color: Theme.failing)
