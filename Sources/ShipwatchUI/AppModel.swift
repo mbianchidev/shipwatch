@@ -1,6 +1,7 @@
 import AppKit
 import Observation
 import ShipwatchCore
+import ShipwatchUpdate
 import os
 
 let uiLog = Logger(subsystem: "dev.mbianchi.shipwatch", category: "ui")
@@ -25,6 +26,20 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
         case .workspace: "folder"
         case .general: "slider.horizontal.3"
         case .account: "person.crop.circle"
+        }
+    }
+}
+
+/// What the group sheet in Settings edits.
+public enum GroupEditor: Identifiable, Hashable, Sendable {
+    /// A new group, starting with these repositories.
+    case new([TrackedRepo.ID])
+    case edit(RepoGroup.ID)
+
+    public var id: String {
+        switch self {
+        case .new: "new"
+        case .edit(let id): RepoGroup.entryID(id)
         }
     }
 }
@@ -112,6 +127,9 @@ public final class AppModel {
     public var pendingRemoval: String?
     public var settingsTab: SettingsTab = .repositories
     public var isAddingRepositories = false
+    public var groupEditor: GroupEditor?
+    /// Groups whose repositories Settings leaves out, apart from the menu's own expanded state.
+    public var collapsedSettingsGroups: Set<RepoGroup.ID> = []
     public var launchAtLogin = false
     public var launchAtLoginError: String?
     /// Launch at login needs the app bundle; a bare `swift run` binary cannot register.
@@ -122,6 +140,7 @@ public final class AppModel {
     @ObservationIgnored private let cli: GitHubCLI
     @ObservationIgnored private let vault: TokenVault
     @ObservationIgnored private let client: GitHubClient
+    @ObservationIgnored private let statusCache: StatusCache?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var refreshAgain = false
     @ObservationIgnored private var timerTask: Task<Void, Never>?
@@ -134,7 +153,8 @@ public final class AppModel {
         store: any TokenStore = KeychainTokenStore(),
         cli: GitHubCLI = GitHubCLI(),
         transport: any HTTPTransport = URLSessionTransport(),
-        git: (any GitRunning)? = ProcessGit.locate()
+        git: (any GitRunning)? = ProcessGit.locate(),
+        statusCache: StatusCache? = .standard
     ) {
         self.prefs = prefs
         updater = Updater(prefs: prefs)
@@ -145,6 +165,7 @@ public final class AppModel {
         let vault = TokenVault(store: store, cli: cli, cliEnabled: prefs.cliFallback)
         self.vault = vault
         client = GitHubClient(transport: transport) { try await vault.accessToken() }
+        self.statusCache = statusCache
     }
 
     // MARK: Derived state
@@ -218,8 +239,14 @@ public final class AppModel {
                 banner = .error(error.localizedDescription)
             }
             if authMethod != nil {
+                restoreCachedStatuses()
                 await loadAccount()
-                await refresh()
+                // A relaunch shortly after a refresh, such as for an update, waits for the next one on schedule.
+                if let age = lastUpdated.map({ Date().timeIntervalSince($0) }), age >= 0, age < refreshDelay {
+                    scheduleNextRefresh(elapsed: age)
+                } else {
+                    await refresh()
+                }
             } else {
                 await probeCLI()
             }
@@ -307,6 +334,7 @@ public final class AppModel {
             lastUpdated = Date()
             banner = nil
             rateLimitedUntil = nil
+            saveStatuses()
             let fresh = statuses
             Task { await workspace.afterRefresh(statuses: fresh) }
             if let limit = batch.rateLimit, limit.remaining < 50 {
@@ -341,6 +369,36 @@ public final class AppModel {
         return result
     }
 
+    // MARK: Status cache
+
+    /// Lists the statuses of the last refresh before this launch, so rows don't show "Loading…" until the first
+    /// refresh is done.
+    private func restoreCachedStatuses() {
+        guard let statusCache, statuses.isEmpty else { return }
+        do {
+            guard let snapshot = try statusCache.load() else { return }
+            let tracked = Set(prefs.repos.items.map(\.id))
+            var restored = snapshot.statuses.filter { tracked.contains($0.key) }
+            if !prefs.showSecurityAlerts {
+                for key in restored.keys { restored[key]?.securityAlerts = nil }
+            }
+            guard !restored.isEmpty else { return }
+            statuses = restored
+            lastUpdated = snapshot.savedAt
+        } catch {
+            uiLog.error("Cached statuses are unreadable, loading fresh ones: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func saveStatuses() {
+        guard let statusCache, let lastUpdated else { return }
+        do {
+            try statusCache.save(StatusSnapshot(savedAt: lastUpdated, statuses: statuses))
+        } catch {
+            uiLog.error("Statuses could not be cached: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     private func handleRefreshError(_ error: any Error) {
         uiLog.error("Refresh failed: \(error.localizedDescription, privacy: .public)")
         switch error {
@@ -357,20 +415,20 @@ public final class AppModel {
         }
     }
 
-    public func scheduleNextRefresh() {
+    /// Time between automatic refreshes right now.
+    private var refreshDelay: TimeInterval {
+        if let until = rateLimitedUntil, until > Date() { return until.timeIntervalSinceNow + 2 }
+        return anyRunning ? 20 : TimeInterval(prefs.refreshMinutes * 60)
+    }
+
+    /// `elapsed` is how long ago the data was fetched, when that wasn't just now.
+    public func scheduleNextRefresh(elapsed: TimeInterval = 0) {
         timerTask?.cancel()
         guard authMethod != nil else {
             nextRefresh = nil
             return
         }
-        let delay: TimeInterval
-        if let until = rateLimitedUntil, until > Date() {
-            delay = until.timeIntervalSinceNow + 2
-        } else if anyRunning {
-            delay = 20
-        } else {
-            delay = TimeInterval(prefs.refreshMinutes * 60)
-        }
+        let delay = max(refreshDelay - elapsed, 0)
         nextRefresh = Date().addingTimeInterval(delay)
         timerTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
@@ -583,6 +641,11 @@ public final class AppModel {
         rateLimitedUntil = nil
         signInStep = .welcome
         timerTask?.cancel()
+        do {
+            try statusCache?.remove()
+        } catch {
+            uiLog.error("Cached statuses could not be removed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // MARK: Repositories
@@ -622,11 +685,27 @@ public final class AppModel {
 
     // MARK: Groups
 
-    /// Creates a group with the given repositories and returns its id so Settings can focus its name.
+    /// Opens the group sheet in Settings.
+    public func showGroupEditor(_ editor: GroupEditor) {
+        groupEditor = editor
+        actions.showSettings(.repositories)
+    }
+
+    /// Applies the group sheet: creates the group when `id` is `nil`, otherwise renames it and sets its members.
+    /// Returns `nil` when the group was deleted in the meantime.
     @discardableResult
-    public func createGroup(with ids: [TrackedRepo.ID] = []) -> RepoGroup.ID {
-        let name = prefs.repos.unusedGroupName()
-        return prefs.repos.addGroup(named: name, members: ids)
+    public func saveGroup(_ id: RepoGroup.ID?, name: String, members: [TrackedRepo.ID]) -> RepoGroup.ID? {
+        var repos = prefs.repos
+        guard let id else {
+            let created = repos.addGroup(named: name, members: members)
+            prefs.repos = repos
+            return created
+        }
+        guard repos.group(id) != nil else { return nil }
+        repos.renameGroup(id, to: name)
+        repos.setMembers(of: id, to: members)
+        prefs.repos = repos
+        return id
     }
 
     public func renameGroup(_ id: RepoGroup.ID, to name: String) {
@@ -636,6 +715,7 @@ public final class AppModel {
     /// Deletes the group only; its repositories stay tracked, ungrouped.
     public func removeGroup(_ id: RepoGroup.ID) {
         prefs.repos.removeGroup(id)
+        collapsedSettingsGroups.remove(id)
     }
 
     public func setGroup(_ ids: [TrackedRepo.ID], to group: RepoGroup.ID?) {
@@ -645,6 +725,14 @@ public final class AppModel {
     public func toggleGroup(_ id: RepoGroup.ID) {
         guard let group = prefs.repos.group(id) else { return }
         prefs.repos.setGroupExpanded(id, !group.isExpanded)
+    }
+
+    public func toggleSettingsGroup(_ id: RepoGroup.ID) {
+        if collapsedSettingsGroups.remove(id) == nil { collapsedSettingsGroups.insert(id) }
+    }
+
+    public func setSettingsGroupsCollapsed(_ collapsed: Bool) {
+        collapsedSettingsGroups = collapsed ? Set(prefs.repos.groups.map(\.id)) : []
     }
 
     public func toggleExpanded(_ id: TrackedRepo.ID) {
@@ -742,5 +830,12 @@ public final class AppModel {
         guard loginItemAvailable, !prefs.loginItemConfigured else { return }
         prefs.loginItemConfigured = true
         setLaunchAtLogin(true)
+    }
+}
+
+extension StatusCache {
+    /// `StatusCache.json` next to the update state in `~/Library/Application Support/Shipwatch`.
+    public static var standard: StatusCache {
+        StatusCache(url: ShipwatchBundle.supportDirectory.appendingPathComponent("StatusCache.json"))
     }
 }

@@ -4,7 +4,7 @@ Shipwatch is a Swift package with no third-party dependencies.
 
 | Target | Role |
 | --- | --- |
-| `ShipwatchCore` | GitHub API client, device flow, token storage, models, CI evaluation, workspace scan and clone fast-forward. No UI. |
+| `ShipwatchCore` | GitHub API client, device flow, token storage, models, status cache, CI evaluation, workspace scan and clone fast-forward. No UI. |
 | `ShipwatchUpdate` | Self-update feed, download, Ed25519 signature check, staging, swap and rollback. No UI. |
 | `ShipwatchUI` | SwiftUI views hosted in AppKit, app state (`AppModel`, `WorkspaceModel`), preferences, `Updater`. |
 | `Shipwatch` | Executable entry point: starts `AppDelegate`. |
@@ -19,7 +19,9 @@ Shipwatch is a Swift package with no third-party dependencies.
 `StatusItemController` owns an `NSStatusItem` showing a sailboat template image
 plus a status dot, and an `NSPopover` hosting `PopoverView`. The app runs as an
 accessory (`LSUIElement`), so there is no Dock icon. Settings is a regular
-window (`SettingsWindowController`) forced to dark appearance.
+window (`SettingsWindowController`) forced to dark appearance. The sort button
+opens an AppKit `NSMenu`: a SwiftUI `Menu` inside the popover stops responding
+after its first pick until the popover reopens.
 
 The dot is yellow while any visible repo has a running or queued workflow, and
 hidden otherwise; failing and config/billing repos show only in the list. The number of running repos (default) or failing repos is
@@ -82,9 +84,12 @@ and the groups. Each repository has an optional group; the members of a group ar
 kept next to each other, and the group sits where its first member is, so groups
 and ungrouped repositories share one order without a separate position for
 groups. `entries` turns the list into the popover's top-level rows and `rows`
-into the Settings table's group headers and repositories. `moveRows` maps a drag
-in that table back onto the list, and `sorted(by:activity:)` applies the Name and
-Last Activity orders without changing it.
+into the Settings table's group headers and repositories, leaving out the members
+of groups collapsed in Settings (`AppModel.collapsedSettingsGroups`, kept until
+quit). `moveRows` maps a drag in that table back onto the list, translating
+offsets past collapsed members, `setMembers` applies the group sheet, and
+`sorted(by:activity:)` applies the Name and Last Activity orders without
+changing it.
 
 ## Refresh cadence
 
@@ -95,6 +100,12 @@ Last Activity orders without changing it.
 | Rate limited | at the reset time plus 2 seconds |
 | Popover opens and data is older than 60 s | immediately |
 | Mac wakes from sleep | 5 seconds after wake |
+| App launches | immediately, or on schedule when the cached statuses are newer than the interval |
+
+On launch `AppModel` lists the statuses `StatusCache` saved after the last
+successful refresh, so a relaunch (an update, logging in) shows every repository
+right away instead of "Loading…". The cache only holds tracked repositories and is
+ignored when unreadable or from another `StatusSnapshot.currentVersion`.
 
 ## Local clones
 
@@ -166,6 +177,7 @@ re-reads it. See [GitHub App setup](github-app-setup.md).
 | Tracked repos, order, groups, hidden flags, former names, settings, workspace folder, exclusions, sync opt-outs | `UserDefaults` (`dev.mbianchi.shipwatch`) |
 | `gh` token | memory only |
 | Last update result, update lock | `~/Library/Application Support/Shipwatch/` |
+| Statuses of the last refresh (`StatusCache.json`, deleted on sign-out) | `~/Library/Application Support/Shipwatch/` |
 
 ## Logs
 

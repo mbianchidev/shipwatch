@@ -122,7 +122,8 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
         store: MemoryTokenStore(),
         cli: cli,
         transport: OfflineTransport(),
-        git: OfflineGit()
+        git: OfflineGit(),
+        statusCache: nil
     )
     model.loginItemAvailable = true
     model.launchAtLogin = true
@@ -287,6 +288,12 @@ func addSheet(_ model: AppModel) -> some View {
     return sheet(model, over: .repositories, AddRepositoriesSheet(model: model, picker: picker, loadsOnAppear: false))
 }
 
+@MainActor
+func groupSheet(_ model: AppModel) -> some View {
+    guard let tools = model.prefs.repos.groups.first?.id else { fail("The mock repositories have no group") }
+    return sheet(model, over: .repositories, GroupEditorSheet(model: model, editor: .edit(tools)))
+}
+
 /// The settings window on `tab`, dimmed, with `content` shown as its sheet.
 @MainActor
 func sheet(_ model: AppModel, over tab: SettingsTab, _ content: some View) -> some View {
@@ -348,6 +355,7 @@ MainActor.assumeIsolated {
         try render(popover(model, dark: false), dark: false, name: "popover-light", into: output)
         try render(settings(model, .repositories), dark: true, name: "settings-repositories", into: output)
         try render(addSheet(model), dark: true, name: "settings-add", into: output)
+        try render(groupSheet(model), dark: true, name: "settings-group", into: output)
         try render(settings(model, .account), dark: true, name: "settings-account", into: output)
         try render(settings(model, .general), dark: true, name: "settings-general", into: output)
         configureWorkspace(model)

@@ -8,11 +8,11 @@ struct RepositoriesSettingsView: View {
     private static let listRowInset: CGFloat = 8
 
     private var repos: RepoList { model.prefs.repos }
-    private var rows: [RepoListRow] { repos.rows }
+    private var rows: [RepoListRow] { repos.rows(collapsing: model.collapsedSettingsGroups) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Repositories shown in the menu, in this order. Drag to reorder or into a group, click the eye to hide or show. Groups collapse into one row in the menu.")
+            Text("Repositories shown in the menu, in this order. Drag to reorder, pick a group in the Group column, click the eye to hide or show. Groups collapse into one row in the menu, and here with the arrow.")
                 .font(.system(size: 12.5))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -37,14 +37,16 @@ struct RepositoriesSettingsView: View {
                                 case .group(let group):
                                     GroupSettingsRow(model: model, group: group, focus: $focusedGroup) { removeGroup(group.id) }
                                 case .repo(let repo):
-                                    RepoSettingsRow(model: model, repo: repo) { targets(for: repo) } newGroup: { newGroup(with: $0) }
+                                    RepoSettingsRow(model: model, repo: repo) { targets(for: repo) }
                                 }
                             }
                             .tag(row.id)
                             .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                             .listRowSeparator(.hidden)
                         }
-                        .onMove { model.prefs.repos.moveRows(fromOffsets: $0, toOffset: $1) }
+                        .onMove {
+                            model.prefs.repos.moveRows(fromOffsets: $0, toOffset: $1, collapsing: model.collapsedSettingsGroups)
+                        }
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
@@ -52,11 +54,16 @@ struct RepositoriesSettingsView: View {
                     .environment(\.defaultMinListRowHeight, RepoSettingsRow.height)
                     .frame(height: RepoSettingsRow.height * CGFloat(min(max(rows.count, 4), 11)))
                     .onDeleteCommand(perform: removeSelection)
+                    // Rows a collapse hides can't stay selected, or "-" would remove repositories you can't see.
+                    .onChange(of: rows.map(\.id)) { _, shown in selection.formIntersection(shown) }
                 }
                 Divider()
                 footer
             }
             .settingsTable()
+            .sheet(item: Binding(get: { model.groupEditor }, set: { model.groupEditor = $0 })) { editor in
+                GroupEditorSheet(model: model, editor: editor) { selection = [RepoGroup.entryID($0)] }
+            }
         }
         .sheet(isPresented: Binding(get: { model.isAddingRepositories }, set: { model.isAddingRepositories = $0 })) {
             AddRepositoriesSheet(model: model)
@@ -69,6 +76,7 @@ struct RepositoriesSettingsView: View {
             Text("Show").frame(width: 46, alignment: .leading)
             Text("Repository")
             Spacer()
+            Text("Group").frame(width: RepoSettingsRow.groupWidth, alignment: .leading)
             Text("Access").frame(width: RepoSettingsRow.accessWidth, alignment: .leading)
         }
         .font(.system(size: 11.5, weight: .medium))
@@ -93,11 +101,13 @@ struct RepositoriesSettingsView: View {
             .disabled(selection.isEmpty)
             .help("Remove the selected repositories from Shipwatch, or ungroup the selected groups. Nothing changes on GitHub.")
             Divider().frame(height: 24)
-            Button { newGroup(with: selectedRepoIDs) } label: {
-                Image(systemName: "folder.badge.plus").frame(width: 34, height: 24)
+            Button { model.showGroupEditor(.new(selectedRepoIDs)) } label: {
+                Label("New Group…", systemImage: "folder.badge.plus")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .padding(.horizontal, 10)
+                    .frame(height: 24)
             }
-            .help(selectedRepoIDs.isEmpty ? "New group" : "New group with the selected repositories")
-            .accessibilityLabel("New group")
+            .help(selectedRepoIDs.isEmpty ? "Create a group and pick its repositories" : "Create a group with the selected repositories")
             Divider().frame(height: 24)
             Spacer()
             Text(summary)
@@ -120,15 +130,9 @@ struct RepositoriesSettingsView: View {
         repos.items.map(\.id).filter(selection.contains)
     }
 
-    /// A row's menu acts on the whole selection when the row is part of it.
+    /// A row's menus act on the whole selection when the row is part of it.
     private func targets(for repo: TrackedRepo) -> [TrackedRepo.ID] {
         selection.contains(repo.id) ? selectedRepoIDs : [repo.id]
-    }
-
-    private func newGroup(with ids: [TrackedRepo.ID]) {
-        let id = model.createGroup(with: ids)
-        selection = [RepoGroup.entryID(id)]
-        DispatchQueue.main.async { focusedGroup = id }
     }
 
     private func removeGroup(_ id: RepoGroup.ID) {
@@ -147,60 +151,90 @@ struct RepositoriesSettingsView: View {
     }
 }
 
-/// A group's header row: its name, editable in place, and how many repositories it holds.
+/// A group's header row: an arrow to collapse it, its name, editable in place, and how many repositories it holds.
 struct GroupSettingsRow: View {
     let model: AppModel
     let group: RepoGroup
     var focus: FocusState<RepoGroup.ID?>.Binding
     let ungroup: () -> Void
 
+    private var isCollapsed: Bool { model.collapsedSettingsGroups.contains(group.id) }
+
     var body: some View {
         HStack(spacing: 0) {
             GripDots()
                 .frame(width: 28)
                 .help("Drag to move the group")
-            Image(systemName: "folder")
-                .font(.system(size: 13))
+            Button(action: toggle) {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                        .frame(width: 10)
+                    Image(systemName: isCollapsed ? "folder" : "folder.fill")
+                        .font(.system(size: 13))
+                }
                 .foregroundStyle(.secondary)
-                .padding(.leading, 7)
-                .frame(width: 46, alignment: .leading)
-                .accessibilityHidden(true)
+                .frame(width: 40, height: 22, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .frame(width: 46, alignment: .leading)
+            .help(isCollapsed ? "Show the group's repositories" : "Hide the group's repositories")
+            .accessibilityLabel(isCollapsed ? "Expand \(group.displayName)" : "Collapse \(group.displayName)")
             TextField("Group name", text: Binding(get: { group.name }, set: { model.renameGroup(group.id, to: $0) }))
                 .textFieldStyle(.plain)
                 .font(.system(size: 13, weight: .semibold))
                 .focused(focus, equals: group.id)
                 .accessibilityLabel("Group name")
             Spacer(minLength: 8)
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Text(model.prefs.repos.members(of: group.id).count.counted("repository", "repositories"))
                     .foregroundStyle(.secondary)
-                Button("Ungroup", action: ungroup)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.link)
-                    .help("Delete the group. Its repositories stay in Shipwatch.")
+                Group {
+                    Button("Edit…") { model.showGroupEditor(.edit(group.id)) }
+                        .help("Rename the group and pick its repositories")
+                    Button("Ungroup", action: ungroup)
+                        .help("Delete the group. Its repositories stay in Shipwatch.")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.link)
+                Spacer(minLength: 0)
             }
             .font(.system(size: 12.5))
             .lineLimit(1)
-            .frame(width: RepoSettingsRow.accessWidth, alignment: .leading)
+            .frame(width: RepoSettingsRow.groupWidth + RepoSettingsRow.accessWidth, alignment: .leading)
         }
         .padding(.trailing, 12)
         .frame(height: RepoSettingsRow.height)
         .contentShape(Rectangle())
         .contextMenu {
+            Button("Edit…") { model.showGroupEditor(.edit(group.id)) }
             Button("Rename") { focus.wrappedValue = group.id }
+            Divider()
+            Button(isCollapsed ? "Expand" : "Collapse", action: toggle)
+            Button("Collapse All Groups") { withAnimation(Self.animation) { model.setSettingsGroupsCollapsed(true) } }
+            Button("Expand All Groups") { withAnimation(Self.animation) { model.setSettingsGroupsCollapsed(false) } }
+            Divider()
             Button("Ungroup", action: ungroup)
         }
+    }
+
+    private static let animation = Animation.easeInOut(duration: 0.15)
+
+    private func toggle() {
+        withAnimation(Self.animation) { model.toggleSettingsGroup(group.id) }
     }
 }
 
 struct RepoSettingsRow: View {
+    static let groupWidth: CGFloat = 130
     static let accessWidth: CGFloat = 170
     static let height: CGFloat = 32
     let model: AppModel
     let repo: TrackedRepo
-    /// The repositories the row's menu acts on.
+    /// The repositories the row's menus act on.
     let targets: () -> [TrackedRepo.ID]
-    let newGroup: ([TrackedRepo.ID]) -> Void
 
     var body: some View {
         HStack(spacing: 0) {
@@ -220,6 +254,7 @@ struct RepoSettingsRow: View {
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(repo.ref.name)
                     .foregroundStyle(repo.hidden ? .secondary : .primary)
+                    .layoutPriority(1)
                 Text(repo.ref.owner)
                     .foregroundStyle(.secondary)
             }
@@ -227,6 +262,8 @@ struct RepoSettingsRow: View {
             .lineLimit(1)
             .padding(.leading, repo.group == nil ? 0 : 18)
             Spacer(minLength: 8)
+            groupMenu
+                .frame(width: Self.groupWidth, alignment: .leading)
             access
                 .frame(width: Self.accessWidth, alignment: .leading)
         }
@@ -240,12 +277,46 @@ struct RepoSettingsRow: View {
                         .disabled(repo.group == group.id && targets().count == 1)
                 }
                 if !model.prefs.repos.groups.isEmpty { Divider() }
-                Button("New Group") { newGroup(targets()) }
+                Button("New Group…") { model.showGroupEditor(.new(targets())) }
             }
             if repo.group != nil {
                 Button("Remove from Group") { model.setGroup(targets(), to: nil) }
             }
         }
+    }
+
+    private var groupMenu: some View {
+        let current = repo.group.flatMap { model.prefs.repos.group($0) }
+        return Menu {
+            Picker("Group", selection: Binding(get: { repo.group }, set: { model.setGroup(targets(), to: $0) })) {
+                Text("None").tag(RepoGroup.ID?.none)
+                ForEach(model.prefs.repos.groups) { group in
+                    Text(group.displayName).tag(RepoGroup.ID?.some(group.id))
+                }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+            Divider()
+            Button("New Group…") { model.showGroupEditor(.new(targets())) }
+        } label: {
+            HStack(spacing: 4) {
+                Text(current?.displayName ?? "None")
+                    .foregroundStyle(current == nil ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .font(.system(size: 12.5))
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .frame(maxWidth: Self.groupWidth - 10, alignment: .leading)
+        .help("Pick the group of this repository, or of every selected one")
+        .accessibilityLabel("Group")
+        .accessibilityValue(current?.displayName ?? "None")
     }
 
     @ViewBuilder
@@ -292,6 +363,176 @@ private struct GripDots: View {
             }
         }
         .foregroundStyle(.tertiary)
+    }
+}
+
+// MARK: - Groups
+
+/// Creates a group or edits one: its name and which repositories it holds.
+package struct GroupEditorSheet: View {
+    let model: AppModel
+    let editor: GroupEditor
+    let saved: (RepoGroup.ID) -> Void
+    @State private var name: String
+    @State private var members: Set<TrackedRepo.ID>
+    @State private var query = ""
+    @FocusState private var nameFocused: Bool
+    @FocusState private var filterFocused: Bool
+
+    package init(model: AppModel, editor: GroupEditor, saved: @escaping (RepoGroup.ID) -> Void = { _ in }) {
+        self.model = model
+        self.editor = editor
+        self.saved = saved
+        let repos = model.prefs.repos
+        switch editor {
+        case .new(let ids):
+            _name = State(initialValue: repos.unusedGroupName())
+            _members = State(initialValue: Set(ids))
+        case .edit(let id):
+            _name = State(initialValue: repos.group(id)?.name ?? "")
+            _members = State(initialValue: Set(repos.members(of: id).map(\.id)))
+        }
+    }
+
+    private var groupID: RepoGroup.ID? {
+        if case .edit(let id) = editor { id } else { nil }
+    }
+
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private var shown: [TrackedRepo] {
+        let needle = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let items = model.prefs.repos.items
+        return needle.isEmpty ? items : items.filter { $0.ref.key.contains(needle) }
+    }
+
+    private var allShownSelected: Bool { !shown.isEmpty && shown.allSatisfy { members.contains($0.id) } }
+
+    package var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(groupID == nil ? "New Group" : "Edit Group")
+                .font(.system(size: 15, weight: .semibold))
+
+            SheetField(prompt: "Group name", text: $name, focused: $nameFocused)
+                .accessibilityLabel("Group name")
+
+            HStack(alignment: .firstTextBaseline) {
+                Text("Repositories")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("\(members.count) selected · ticking one in another group moves it here")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer()
+                Button(allShownSelected ? "Deselect All" : "Select All") {
+                    let ids = shown.map(\.id)
+                    if allShownSelected { members.subtract(ids) } else { members.formUnion(ids) }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.link)
+                .font(.system(size: 12.5))
+                .disabled(shown.isEmpty)
+            }
+
+            SheetField(prompt: "Filter repositories", text: $query, symbol: "magnifyingglass", focused: $filterFocused)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(shown) { repo in
+                        PickerRow(name: title(repo), detail: detail(repo), isAdded: false, isSelected: members.contains(repo.id)) {
+                            if members.remove(repo.id) == nil { members.insert(repo.id) }
+                        }
+                    }
+                    if shown.isEmpty {
+                        Text(model.prefs.repos.items.isEmpty ? "No repositories yet." : "No matches.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .padding(14)
+                    }
+                }
+            }
+            .frame(height: 260)
+            .settingsTable()
+
+            HStack {
+                if let groupID {
+                    Button("Delete Group") {
+                        model.removeGroup(groupID)
+                        close()
+                    }
+                    .help("Delete the group. Its repositories stay in Shipwatch, ungrouped.")
+                }
+                Spacer()
+                Button("Cancel", action: close)
+                    .keyboardShortcut(.cancelAction)
+                Button(groupID == nil ? "Create Group" : "Save", action: save)
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(trimmedName.isEmpty)
+            }
+            .controlSize(.large)
+            .font(.system(size: 13))
+        }
+        .padding(20)
+        .frame(width: 520)
+        .background(Theme.settingsContent)
+        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+        .task { nameFocused = true }
+    }
+
+    private func title(_ repo: TrackedRepo) -> AttributedString {
+        var title = AttributedString(repo.ref.name)
+        var owner = AttributedString("  \(repo.ref.owner)")
+        owner.foregroundColor = .secondary
+        title.append(owner)
+        return title
+    }
+
+    private func detail(_ repo: TrackedRepo) -> Text {
+        var parts: [String] = []
+        if let other = repo.group, other != groupID, let group = model.prefs.repos.group(other) {
+            parts.append("In \(group.displayName)")
+        }
+        if repo.hidden { parts.append("Hidden") }
+        return Text(parts.joined(separator: " · "))
+    }
+
+    private func save() {
+        let ids = model.prefs.repos.items.map(\.id).filter(members.contains)
+        if let id = model.saveGroup(groupID, name: trimmedName, members: ids) { saved(id) }
+        close()
+    }
+
+    private func close() {
+        model.groupEditor = nil
+    }
+}
+
+/// A text field styled for the Settings sheets, with an optional leading symbol.
+struct SheetField: View {
+    let prompt: String
+    @Binding var text: String
+    var symbol: String?
+    var focused: FocusState<Bool>.Binding
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let symbol {
+                Image(systemName: symbol).foregroundStyle(.secondary)
+            }
+            TextField(prompt, text: $text)
+                .textFieldStyle(.plain)
+                .focused(focused)
+        }
+        .font(.system(size: 13))
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(focused.wrappedValue ? Color.accentColor : .white.opacity(0.1), lineWidth: focused.wrappedValue ? 2 : 0.5)
+        )
     }
 }
 
@@ -387,20 +628,7 @@ package struct AddRepositoriesSheet: View {
                     .foregroundStyle(.secondary)
             }
 
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Filter, or type owner/name", text: $picker.query)
-                    .textFieldStyle(.plain)
-                    .focused($searchFocused)
-            }
-            .font(.system(size: 13))
-            .padding(.horizontal, 9)
-            .padding(.vertical, 7)
-            .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(searchFocused ? Color.accentColor : .white.opacity(0.1), lineWidth: searchFocused ? 2 : 0.5)
-            )
+            SheetField(prompt: "Filter, or type owner/name", text: $picker.query, symbol: "magnifyingglass", focused: $searchFocused)
 
             list
                 .frame(height: 290)

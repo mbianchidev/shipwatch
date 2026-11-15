@@ -89,7 +89,7 @@ Settings and the Keychain token are kept.
    <https://github.com/settings/apps/authorizations>.
 3. Quit Shipwatch (right-click the sailboat > **Quit Shipwatch**).
 4. Move `/Applications/Shipwatch.app` to the Trash.
-5. Optionally remove settings and update state:
+5. Optionally remove settings, update state and cached statuses:
 
    ```bash
    defaults delete dev.mbianchi.shipwatch

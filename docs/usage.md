@@ -96,7 +96,7 @@ inside the group. The arrows turn blue while the order isn't Custom.
 ## Groups
 
 <p align="center">
-  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a Tools group header row and its three indented repositories between ungrouped ones" width="560">
+  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a Group column, a Tools group header row with Edit and Ungroup, and its three indented repositories between ungrouped ones" width="560">
 </p>
 
 A group shows as one row: its name, how many repositories it holds, the open
@@ -113,7 +113,8 @@ attention first: failing, then config/billing, then running, then passing.
 - While a status chip filters the list, groups stay open and list only their
   matching repositories.
 - Right-click a group for **Expand** or **Collapse**, **Open Issues**,
-  **Open Pull Requests**, **Move Up**, **Move Down** and **Edit Groups…**.
+  **Open Pull Requests**, **Move Up**, **Move Down** and **Edit Group…**, which
+  opens the group sheet in Settings.
 
 Hidden repositories don't count, and a group whose repositories are all hidden
 isn't shown, until **Show** at the bottom of the list is on.
@@ -141,13 +142,29 @@ The repositories shown in the list, in order.
 - Click **+** to pick repositories your token can read. Filter the list, or type
   `owner/name` to add one that isn't listed.
 - Drag rows to reorder. Drag a group's header row to move the whole group.
-- Click the folder button at the bottom to create a group, with the selected
-  repositories if any, and type its name. Click a group's name to rename it.
-- Drag a repository into a group, or right-click it for **Move to Group** and
-  **Remove from Group**. A repository dropped right below a group's last
-  repository stays outside the group unless it was already in it.
+- Click **New Group…** at the bottom to create a group: name it and tick its
+  repositories (the selected ones are ticked already). Filter the list and use
+  **Select All** to pick many at once. Ticking a repository that is in another
+  group moves it.
+- **Edit…** on a group's row opens the same sheet to rename the group, change its
+  repositories or **Delete Group**. You can also click a group's name to rename
+  it in place.
+- The **Group** column puts a repository, or every selected one, in a group,
+  takes it out with **None**, or starts a **New Group…** with it. Dragging a
+  repository into a group, and right-clicking it for **Move to Group** and
+  **Remove from Group**, work too. A repository dropped right below a group's
+  last repository stays outside the group unless it was already in it.
+- Click the arrow in front of a group to collapse it in Settings, so the other
+  repositories are easier to see. Right-click a group for **Collapse All Groups**
+  and **Expand All Groups**. This doesn't change whether the group is open in the
+  menu.
 - **Ungroup** on a group's row, or selecting it and clicking **-**, deletes the
   group only: its repositories stay, ungrouped.
+
+<p align="center">
+  <img src="screenshots/settings-group.png" alt="Edit Group sheet with the group name, a repository filter, Select All, and checkboxes ticked for the three Tools repositories" width="560">
+</p>
+
 - Click the eye to hide or show a repository. Hidden ones stay configured and are
   counted at the bottom of the list.
 - Select rows and click **-** to remove them from Shipwatch.
@@ -240,8 +257,9 @@ source show "Development build" and can't update themselves. See
 [Updates](updates.md).
 
 Shipwatch also refreshes when you open the list and the data is older than
-60 seconds, and a few seconds after the Mac wakes. When GitHub rate limits the
-token, it waits for the reset time. Details are in
+60 seconds, and a few seconds after the Mac wakes. After a relaunch, such as an
+update, the list shows the last refresh right away and refreshes on schedule.
+When GitHub rate limits the token, it waits for the reset time. Details are in
 [Architecture](architecture.md#refresh-cadence).
 
 ### Account
@@ -263,7 +281,7 @@ token, it waits for the reset time. Details are in
 | --- | --- |
 | GitHub App token | login Keychain, service `dev.mbianchi.shipwatch` |
 | Repositories, groups and settings, including the list order, workspace folder and exclusions | `UserDefaults` domain `dev.mbianchi.shipwatch` |
-| Update state and lock | `~/Library/Application Support/Shipwatch` |
+| Update state and lock, statuses of the last refresh | `~/Library/Application Support/Shipwatch` |
 | GitHub CLI token | memory only |
 
 Shipwatch sends no analytics. It only talks to `api.github.com`, `github.com`
