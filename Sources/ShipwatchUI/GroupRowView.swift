@@ -30,6 +30,15 @@ struct GroupRowView: View {
                         Text(model.isRefreshing || model.banner == nil ? "Loading…" : "Not loaded yet")
                             .font(.system(size: 11.5))
                             .foregroundStyle(.tertiary)
+                    } else if statuses.allSatisfy({ $0.problem != nil }) {
+                        HStack(spacing: 6) {
+                            Text("Shipwatch can't read these repositories.")
+                                .foregroundStyle(.secondary)
+                            Button("Grant access…") { model.open(model.manageAccessURL) }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(Theme.link)
+                        }
+                        .font(.system(size: 11.5))
                     } else {
                         CountsLine(model: model, statuses: statuses)
                     }
