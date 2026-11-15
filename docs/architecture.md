@@ -21,9 +21,10 @@ plus a status dot, and an `NSPopover` hosting `PopoverView`. The app runs as an
 accessory (`LSUIElement`), so there is no Dock icon. Settings is a regular
 window (`SettingsWindowController`) forced to dark appearance.
 
-The dot summarizes visible repos: red if any repo is failing, else yellow if any
-is running or queued, else no dot. Optionally the number of failing repos is shown
-next to the icon (Settings > General).
+The dot summarizes visible repos: red if any repo is failing, else orange if any
+repo's latest jobs never started (config/billing), else yellow if any is running
+or queued, else no dot. The number of running repos (default) or failing repos is
+shown next to the icon, or none (Settings > General).
 
 ## Data flow
 
@@ -44,9 +45,15 @@ Per refresh, `GitHubClient.statuses(for:)`:
    use batches of 5. A repo that still fails alone shows the error on its row.
 2. Sends one REST call per repo for the 50 most recent workflow runs, with
    `If-None-Match` so unchanged repos come back as `304` and don't use rate limit.
-3. `CIEvaluator` turns runs into a state. Running beats failing, failing beats
-   passing. Only the latest completed run of each workflow on the default branch
-   decides failing vs passing, so a red run that was fixed later is ignored.
+3. For each workflow whose latest run on the default branch failed, reads that
+   run's jobs once (cached until the run changes). If every failed job ended
+   without a runner or a single step, the run never started: GitHub does this when
+   billing blocks Actions or a job's configuration is invalid. The exact message
+   is only in check run annotations, which would need the Checks permission.
+4. `CIEvaluator` turns runs into a state. Running beats failing, failing beats
+   not started (shown as config/billing, which also covers `startup_failure`),
+   not started beats passing. Only the latest completed run of each workflow on
+   the default branch decides, so a red run that was fixed later is ignored.
 
 Errors that would hit every request (offline, unauthorized, rate limited, or
 three repos in a row failing with `5xx` on their own) stop the refresh and show

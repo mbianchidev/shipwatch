@@ -32,7 +32,7 @@ struct CIEvaluatorTests {
         #expect(summary.latestOnDefault.map(\.id) == [5, 3])
     }
 
-    @Test(arguments: ["failure", "timed_out", "startup_failure"])
+    @Test(arguments: ["failure", "timed_out"])
     func failedConclusionsMeanFailing(_ conclusion: String) {
         let runs = [
             F.run(2, workflow: 1, conclusion: conclusion, created: "2026-11-14T15:00:00Z"),
@@ -41,6 +41,39 @@ struct CIEvaluatorTests {
         let summary = CIEvaluator.summarize(runs: runs, defaultBranch: "main")
         #expect(summary.state == .failing)
         #expect(summary.primaryRun?.id == 2)
+    }
+
+    @Test func runsThatNeverStartedAreNotStarted() {
+        var blocked = F.run(3, workflow: 1, conclusion: "failure", created: "2026-11-14T15:00:00Z")
+        blocked.jobsNeverStarted = true
+        let runs = [
+            blocked,
+            F.run(2, workflow: 2, conclusion: "startup_failure", created: "2026-11-14T14:00:00Z"),
+            F.run(1, workflow: 3, conclusion: "success", created: "2026-11-14T13:00:00Z"),
+        ]
+        let summary = CIEvaluator.summarize(runs: runs, defaultBranch: "main")
+        #expect(summary.state == .notStarted)
+        #expect(summary.primaryRun?.id == 3)
+    }
+
+    @Test func realFailureBeatsNotStarted() {
+        let runs = [
+            F.run(2, workflow: 1, conclusion: "startup_failure", created: "2026-11-14T15:00:00Z"),
+            F.run(1, workflow: 2, conclusion: "failure", created: "2026-11-14T14:00:00Z"),
+        ]
+        let summary = CIEvaluator.summarize(runs: runs, defaultBranch: "main")
+        #expect(summary.state == .failing)
+        #expect(summary.primaryRun?.id == 1)
+    }
+
+    @Test func jobsNeverStartedOnlyWhenEveryFailedJobLackedARunner() {
+        let blocked = WorkflowJob(conclusion: "failure", runnerId: 0, runnerName: "", steps: [])
+        let skipped = WorkflowJob(conclusion: "skipped")
+        let ran = WorkflowJob(conclusion: "failure", runnerId: 1_000_063_501, runnerName: "GitHub Actions 1000063501", steps: [.init(name: "Set up job")])
+        #expect(CIEvaluator.neverStarted([blocked, blocked, skipped]))
+        #expect(!CIEvaluator.neverStarted([blocked, ran]))
+        #expect(!CIEvaluator.neverStarted([skipped]))
+        #expect(!CIEvaluator.neverStarted([]))
     }
 
     @Test func cancelledAndSkippedAreNotFailures() {
@@ -56,12 +89,14 @@ struct CIEvaluatorTests {
         let statuses = [
             RepoStatus(ref: ref, ci: CISummary(state: .running, running: [], latestOnDefault: [])),
             RepoStatus(ref: ref, ci: CISummary(state: .failing, running: [], latestOnDefault: [])),
+            RepoStatus(ref: ref, ci: CISummary(state: .notStarted, running: [], latestOnDefault: [])),
             RepoStatus(ref: ref, ci: CISummary(state: .passing, running: [], latestOnDefault: [])),
             RepoStatus(ref: ref),
         ]
         let overall = OverallStatus(statuses)
-        #expect(overall == OverallStatus(running: 1, failing: 1, passing: 1))
+        #expect(overall == OverallStatus(running: 1, failing: 1, notStarted: 1, passing: 1))
         #expect(overall.indicator == .failing)
+        #expect(OverallStatus(running: 2, notStarted: 1).indicator == .notStarted)
         #expect(OverallStatus(running: 2).indicator == .running)
     }
 

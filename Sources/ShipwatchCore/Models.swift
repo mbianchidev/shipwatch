@@ -74,6 +74,12 @@ public struct WorkflowRun: Equatable, Sendable, Identifiable, Decodable {
     public var createdAt: Date
     public var updatedAt: Date
     public var runStartedAt: Date?
+    /// Every failed job ended without a runner or a single step. Read from the run's jobs, not decoded.
+    public var jobsNeverStarted = false
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, workflowId, runNumber, status, conclusion, headBranch, event, htmlUrl, createdAt, updatedAt, runStartedAt
+    }
 
     public init(
         id: Int, name: String?, workflowId: Int, runNumber: Int, status: String?, conclusion: String?,
@@ -96,7 +102,12 @@ public struct WorkflowRun: Equatable, Sendable, Identifiable, Decodable {
 
     public var isActive: Bool { CIEvaluator.activeStatuses.contains(status ?? "") }
     public var isQueued: Bool { isActive && status != "in_progress" }
-    public var isFailure: Bool { CIEvaluator.failedConclusions.contains(conclusion ?? "") }
+    public var isFailure: Bool { CIEvaluator.failedConclusions.contains(conclusion ?? "") && !didNotStart }
+    /// The run failed before any of its code ran: an invalid workflow file (`startup_failure`), or jobs GitHub
+    /// never handed to a runner, which is how a billing block or a job-level workflow error looks.
+    public var didNotStart: Bool {
+        conclusion == "startup_failure" || (conclusion == "failure" && jobsNeverStarted)
+    }
 
     public var displayName: String {
         if let name, !name.isEmpty { return name }
@@ -104,8 +115,33 @@ public struct WorkflowRun: Equatable, Sendable, Identifiable, Decodable {
     }
 }
 
+/// A job of a workflow run, as far as telling whether it ever started.
+public struct WorkflowJob: Equatable, Sendable, Decodable {
+    public struct Step: Equatable, Sendable, Decodable {
+        public var name: String?
+    }
+
+    public var conclusion: String?
+    public var runnerId: Int?
+    public var runnerName: String?
+    public var steps: [Step]?
+
+    public init(conclusion: String?, runnerId: Int? = nil, runnerName: String? = nil, steps: [Step]? = nil) {
+        self.conclusion = conclusion
+        self.runnerId = runnerId
+        self.runnerName = runnerName
+        self.steps = steps
+    }
+
+    public var neverStarted: Bool {
+        (steps ?? []).isEmpty && (runnerId ?? 0) == 0 && (runnerName ?? "").isEmpty
+    }
+}
+
 public enum CIState: String, Equatable, Sendable {
     case none, passing, failing, running
+    /// The latest runs failed before any job ran, usually billing or the workflow configuration.
+    case notStarted
 }
 
 public struct CISummary: Equatable, Sendable {
@@ -123,9 +159,11 @@ public struct CISummary: Equatable, Sendable {
 
     public static let empty = CISummary(state: .none, running: [], latestOnDefault: [])
 
-    /// The run the status icon links to: the newest running one, else the newest failure, else the newest result.
+    /// The run the status icon links to: the newest running one, else the newest failure, else the newest run
+    /// that never started, else the newest result.
     public var primaryRun: WorkflowRun? {
-        running.first ?? latestOnDefault.first(where: \.isFailure) ?? latestOnDefault.first
+        running.first ?? latestOnDefault.first(where: \.isFailure) ?? latestOnDefault.first(where: \.didNotStart)
+            ?? latestOnDefault.first
     }
 }
 

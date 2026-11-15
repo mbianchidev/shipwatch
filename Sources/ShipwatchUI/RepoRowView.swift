@@ -402,6 +402,7 @@ struct RunRow: View {
             let started = run.runStartedAt ?? run.createdAt
             return "#\(run.runNumber) · \(RelativeTime.duration(now.timeIntervalSince(started)))"
         }
+        if run.didNotStart { return "config/billing · \(RelativeTime.ago(run.updatedAt, now: now))" }
         return RelativeTime.ago(run.updatedAt, now: now)
     }
 }

@@ -23,9 +23,9 @@
 
 Shipwatch is a tiny macOS menu bar app for people who maintain several GitHub
 repositories. Click the sailboat and see, for every repository you pick, the
-latest release, whether Actions is passing, failing or running, the last
-activity, and how many issues and pull requests are open, with Dependabot pull
-requests counted separately. Every item links to the matching GitHub page.
+latest release, whether Actions is passing, failing, running or blocked by
+config/billing, the last activity, and how many issues and pull requests are
+open, with Dependabot pull requests counted separately. Every item links to the matching GitHub page.
 
 ## Contents
 
@@ -93,11 +93,12 @@ Tradeoffs:
 Shipwatch is a SwiftUI list in an AppKit menu bar item. On each refresh it reads
 the token from the Keychain (or `gh`), sends one GraphQL query per 10
 repositories for releases, counts and dates, and one conditional REST request per
-repository for recent workflow runs. Running beats failing and failing beats
-passing; only the latest completed run of each workflow on the default branch
-decides failing, so a red run fixed later is ignored. With clone sync on, it then
-runs `git fetch` and a fast-forward-only update in your local clones whose
-default branch is behind. A bundled helper installs
+repository for recent workflow runs, plus one for the jobs of each new failure to
+spot runs that never started (config/billing). Running beats failing, failing
+beats config/billing, config/billing beats passing; only the latest completed run
+of each workflow on the default branch decides, so a red run fixed later is
+ignored. With clone sync on, it then runs `git fetch` and a fast-forward-only
+update in your local clones whose default branch is behind. A bundled helper installs
 verified updates and rolls back on failure. Details are in
 [Architecture](docs/architecture.md).
 
@@ -110,7 +111,8 @@ Open Settings with **Manage Repositories…** at the bottom of the list (Cmd-com
 - **Workspace:** optionally keep the default branch of your local clones up to
   date, with folders to exclude from the scan.
 - **General:** refresh interval (2 minutes by default), what last activity means,
-  pre-releases, a failing count in the menu bar, launch at login and updates.
+  pre-releases, a running or failing count in the menu bar, launch at login and
+  updates.
 - **Account:** sign-in method, repository access and your own GitHub App.
 
 Every setting and its default is in [Usage](docs/usage.md). For problems, see
@@ -119,15 +121,18 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
 ## Features
 
 - Latest release tag and age per repository, or **No releases**.
-- Actions status: checkmark passing, xmark failing, dotted circle running. Expand
-  a row for the running runs and the latest run of each workflow, each linking
-  to GitHub.
+- Actions status: checkmark passing, xmark failing, exclamation mark
+  config/billing (jobs never started), dotted circle running. Expand a row for the
+  running runs and the latest run of each workflow, each linking to GitHub.
+- Status chips that filter the list to running, failing, config/billing or
+  passing repositories.
 - Last activity: last push, or any update to issues, pull requests and comments.
 - Open issue count, linking to the issue list.
 - Open pull request count with Dependabot pull requests split out, each linking
   to its list.
-- A sailboat menu bar icon with a red dot when something fails and a yellow dot
-  while workflows run, plus an optional failing count.
+- A sailboat menu bar icon with a red dot when something fails, an orange dot for
+  config/billing and a yellow dot while workflows run, plus the number of running
+  (or failing) repositories.
 - Sign-in through a read-only GitHub App device flow, or your existing `gh` login.
 - Optional: keep `main` of your local clones current. Pick a workspace folder,
   exclude folders, and Shipwatch fast-forwards each clone's default branch when
