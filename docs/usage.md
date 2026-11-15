@@ -6,11 +6,11 @@ Shipwatch shows a sailboat in the menu bar.
 
 | Icon | Meaning |
 | --- | --- |
-| Sailboat only | Nothing is running; repositories may be passing, failing or config/billing |
+| Sailboat only | Nothing is running or queued; repositories may be passing, failing or config/billing |
 | Yellow dot | A workflow is running or queued in a visible repository |
 
 By default the number of repositories with a running workflow shows next to the
-sailboat. **Show count in menu bar** switches it to failing repositories or
+sailboat; repositories that only have queued workflows don't count. **Show count in menu bar** switches it to failing repositories or
 turns it off. Left-click the sailboat to open the list. Right-click it for
 **Refresh** (Cmd-R), **Settings…** (Cmd-comma), **Check for Updates…** and
 **Quit Shipwatch** (Cmd-Q). When a newer Shipwatch is out, a line above
@@ -29,7 +29,7 @@ Each visible repository shows:
 | --- | --- |
 | `owner/name` | the repository |
 | Latest release tag and age (or **No releases**) | that release |
-| Actions status: checkmark passing, xmark failing, exclamation mark config/billing, dotted circle running | expands the row with running runs and the latest run per workflow on the default branch; each run links to GitHub |
+| Actions status: checkmark passing, xmark failing, exclamation mark config/billing, spinning ring running, dotted circle queued | expands the row with running runs, queued runs and the latest run per workflow on the default branch; each run links to GitHub |
 | Open issues | the open issues list |
 | Open pull requests | the open pull requests list |
 | `N dependabot` | open pull requests by `app/dependabot`; just the icon and number when the line is full |
@@ -38,7 +38,7 @@ Each visible repository shows:
 
 Failing means the latest completed run of any workflow on the default branch
 failed. A red run that was fixed by a later run is ignored. Running beats
-failing, failing beats config/billing, config/billing beats passing.
+queued, queued beats failing, failing beats config/billing, config/billing beats passing.
 
 **Config/billing** (orange exclamation mark) means the latest runs failed before
 any job ran: GitHub failed every job without assigning a runner, or the workflow
@@ -47,7 +47,11 @@ the Actions spending limit is reached, and also when a job's configuration (for
 example `runs-on` or a matrix) can't be evaluated. Shipwatch can't tell the two
 apart without the Checks permission, so open the run to see GitHub's message.
 
-The chips under the title count running, failing, config/billing and passing
+**Queued** (dotted yellow circle) means a run is waiting to start, for a runner,
+an approval or a concurrency slot, and none is in progress. Queued repositories
+are not counted as running.
+
+The chips under the title count running, queued, failing, config/billing and passing
 repositories, repositories with at least one open Dependabot pull request, and,
 with [security alerts](#security-alerts) on, repositories with at least one open
 alert. Click one to list only those repositories; click it again, or close the
@@ -102,9 +106,10 @@ inside the group. The arrows turn blue while the order isn't Custom.
 A group shows as one row: its name, how many repositories it holds, the open
 issues and pull requests (and Dependabot pull requests and security alerts)
 summed over them, and the most recent activity. Instead of a release, it shows how many of its
-repositories are running, failing, config/billing or unreadable, or **all green**
+repositories are running, queued, failing, config/billing or unreadable, or **all green**
 when every repository with workflows passes. The icon in front shows what needs
-attention first: failing, then config/billing, then running, then passing.
+attention first: failing, then config/billing, then running, then queued, then
+passing.
 
 - Click the row to expand it and see each repository as usual; click again to
   collapse. Shipwatch remembers which groups are open.
@@ -242,7 +247,7 @@ helper and never prompts.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| Refresh every | 2 minutes | 1, 2, 5, 10 or 15 minutes. While a workflow runs, Shipwatch refreshes every 20 seconds. |
+| Refresh every | 2 minutes | 1, 2, 5, 10 or 15 minutes. While a workflow runs or is queued, Shipwatch refreshes every 20 seconds. |
 | Last activity means | Last push | **Last push**, or **Any update** (issues, pull requests, comments). |
 | Include pre-releases | Off | Show the newest release even if it is a pre-release. |
 | Show security alerts | Off | Count open Dependabot, code scanning and secret scanning alerts. See [Security alerts](#security-alerts). |

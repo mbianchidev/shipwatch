@@ -150,7 +150,7 @@ struct GeneralSettingsView: View {
                 .labelsHidden()
                 .fixedSize()
             }
-            formCaption("Refreshes faster (every 20 s) while a workflow is running.")
+            formCaption("Refreshes faster (every 20 s) while a workflow is running or queued.")
 
             GridRow {
                 formLabel("Last activity means:")

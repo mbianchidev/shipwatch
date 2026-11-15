@@ -241,6 +241,7 @@ struct SummaryChips: View {
         let overall = model.overall
         let chips = [
             Chip(filter: .ci(.running), count: overall.running, label: "running"),
+            Chip(filter: .ci(.queued), count: overall.queued, label: "queued"),
             Chip(filter: .ci(.failing), count: overall.failing, label: "failing"),
             Chip(filter: .ci(.notStarted), count: overall.notStarted, label: "config/billing"),
             Chip(filter: .ci(.passing), count: overall.passing, label: "passing"),
@@ -271,6 +272,7 @@ struct SummaryChips: View {
     private func icon(_ filter: RepoFilter) -> some View {
         switch filter {
         case .ci(.running): CIIcon(glyph: .running, size: 11)
+        case .ci(.queued): CIIcon(glyph: .queued, size: 11)
         case .ci(.failing): CIIcon(glyph: .failing, size: 11)
         case .ci(.notStarted): CIIcon(glyph: .notStarted, size: 11)
         case .ci: CIIcon(glyph: .passing, size: 11)

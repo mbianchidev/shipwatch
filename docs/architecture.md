@@ -59,7 +59,8 @@ Per refresh, `GitHubClient.statuses(for:)`:
    without a runner or a single step, the run never started: GitHub does this when
    billing blocks Actions or a job's configuration is invalid. The exact message
    is only in check run annotations, which would need the Checks permission.
-4. `CIEvaluator` turns runs into a state. Running beats failing, failing beats
+4. `CIEvaluator` turns runs into a state. Running (`in_progress`) beats queued
+   (`queued`, `waiting`, `requested`, `pending`), queued beats failing, failing beats
    not started (shown as config/billing, which also covers `startup_failure`),
    not started beats passing. Only the latest completed run of each workflow on
    the default branch decides, so a red run that was fixed later is ignored.

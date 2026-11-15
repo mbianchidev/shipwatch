@@ -23,7 +23,7 @@
 
 Shipwatch is a tiny macOS menu bar app for people who maintain several GitHub
 repositories. Click the sailboat and see, for every repository you pick, the
-latest release, whether Actions is passing, failing, running or blocked by
+latest release, whether Actions is passing, failing, running, queued or blocked by
 config/billing, the last activity, and how many issues and pull requests are
 open, with Dependabot pull requests counted separately. Every item links to the matching GitHub page.
 
@@ -94,8 +94,8 @@ Shipwatch is a SwiftUI list in an AppKit menu bar item. On each refresh it reads
 the token from the Keychain (or `gh`), sends one GraphQL query per 10
 repositories for releases, counts and dates, and one conditional REST request per
 repository for recent workflow runs, plus one for the jobs of each new failure to
-spot runs that never started (config/billing). Running beats failing, failing
-beats config/billing, config/billing beats passing; only the latest completed run
+spot runs that never started (config/billing). Running beats queued, queued beats
+failing, failing beats config/billing, config/billing beats passing; only the latest completed run
 of each workflow on the default branch decides, so a red run fixed later is
 ignored. With clone sync on, it then runs `git fetch` and a fast-forward-only
 update in your local clones whose default branch is behind. A bundled helper installs
@@ -122,22 +122,23 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
 
 - Latest release tag and age per repository, or **No releases**.
 - Actions status: checkmark passing, xmark failing, exclamation mark
-  config/billing (jobs never started), dotted circle running. Expand a row for the
-  running runs and the latest run of each workflow, each linking to GitHub.
-- Status chips that filter the list to running, failing, config/billing or
+  config/billing (jobs never started), spinning ring running, dotted circle queued.
+  Expand a row for the running and queued runs and the latest run of each
+  workflow, each linking to GitHub.
+- Status chips that filter the list to running, queued, failing, config/billing or
   passing repositories, or to those with open Dependabot pull requests.
 - Optional: open Dependabot, code scanning and secret scanning alerts per
   repository, with a chip that lists the repositories that have any.
 - Sort the list by your custom order, name or last activity.
 - Collapsible groups that sum their repositories' issues and pull requests and
-  show whether any CI is running or failing.
+  show whether any CI is running, queued or failing.
 - Renamed and transferred repositories are followed automatically.
 - Last activity: last push, or any update to issues, pull requests and comments.
 - Open issue count, linking to the issue list.
 - Open pull request count with Dependabot pull requests split out, each linking
   to its list.
-- A sailboat menu bar icon with a yellow dot while workflows run, plus the number
-  of running (or failing) repositories.
+- A sailboat menu bar icon with a yellow dot while workflows run or wait in the
+  queue, plus the number of running (or failing) repositories.
 - Sign-in through a read-only GitHub App device flow, or your existing `gh` login.
 - Optional: keep `main` of your local clones current. Pick a workspace folder,
   exclude folders, and Shipwatch fast-forwards each clone's default branch when

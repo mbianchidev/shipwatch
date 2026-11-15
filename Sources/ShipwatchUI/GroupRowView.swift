@@ -124,6 +124,7 @@ struct GroupCIBreakdown: View {
         let unreadable = statuses.count { $0.problem != nil }
         let parts: [(glyph: CIGlyph, count: Int, label: String)] = [
             (.running, overall.running, "running"),
+            (.queued, overall.queued, "queued"),
             (.failing, overall.failing, "failing"),
             (.notStarted, overall.notStarted, "config/billing"),
             (.noAccess, unreadable, "can't read"),
@@ -164,20 +165,21 @@ struct GroupCIBreakdown: View {
 }
 
 extension CIGlyph {
-    /// What needs attention first: failing, then config/billing, then running, then passing.
+    /// What needs attention first: failing, then config/billing, then running, then queued, then passing.
     init(group statuses: [RepoStatus], members: Int) {
         guard !statuses.isEmpty else {
             self = members == 0 ? .none : .loading
             return
         }
         let overall = OverallStatus(statuses)
-        let running = statuses.compactMap { $0.ci }.filter { $0.state == .running }
         if overall.failing > 0 {
             self = .failing
         } else if overall.notStarted > 0 {
             self = .notStarted
         } else if overall.running > 0 {
-            self = running.allSatisfy { $0.running.allSatisfy(\.isQueued) } ? .queued : .running
+            self = .running
+        } else if overall.queued > 0 {
+            self = .queued
         } else if overall.passing > 0 {
             self = .passing
         } else if statuses.allSatisfy({ $0.problem != nil }) {
