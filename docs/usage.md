@@ -49,12 +49,52 @@ example `runs-on` or a matrix) can't be evaluated. Shipwatch can't tell the two
 apart without the Checks permission, so open the run to see GitHub's message.
 
 The chips under the title count running, failing, config/billing and passing
-repositories. Click one to list only those repositories; click it again, or
-close the list, to show all of them.
+repositories, and repositories with at least one open Dependabot pull request.
+Click one to list only those repositories; click it again, or close the list, to
+show all of them. When the chips don't fit, they show only icons and numbers;
+hover for the label.
+
+The arrows at the end of the chips sort the list:
+
+| Order | Lists |
+| --- | --- |
+| Custom (default) | the order from Settings > Repositories |
+| Name | groups and repositories alphabetically |
+| Last Activity | most recent first, as set in **Last activity means**; a group counts its most recent repository |
+
+Groups keep their repositories together in every order, sorted the same way
+inside the group. The arrows turn blue while the order isn't Custom.
+
+## Groups
+
+<p align="center">
+  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a Tools group header row and its three indented repositories between ungrouped ones" width="560">
+</p>
+
+A group shows as one row: its name, how many repositories it holds, the open
+issues and pull requests (and Dependabot pull requests) summed over them, and
+the most recent activity. Instead of a release, it shows how many of its
+repositories are running, failing, config/billing or unreadable, or **all green**
+when every repository with workflows passes. The icon in front shows what needs
+attention first: failing, then config/billing, then running, then passing.
+
+- Click the row to expand it and see each repository as usual; click again to
+  collapse. Shipwatch remembers which groups are open.
+- The issue and pull request counts open a GitHub search across the group's
+  repositories.
+- While a status chip filters the list, groups stay open and list only their
+  matching repositories.
+- Right-click a group for **Expand** or **Collapse**, **Open Issues**,
+  **Open Pull Requests**, **Move Up**, **Move Down** and **Edit Groups…**.
+
+Hidden repositories don't count, and a group whose repositories are all hidden
+isn't shown, until **Show** at the bottom of the list is on.
 
 Right-click a row for **Open Repository**, **Open Actions**, **Open Releases**,
 **Copy Latest Tag**, **Move Up**, **Move Down**, **Hide** and
-**Remove from Shipwatch…**. Removing or hiding never changes anything on GitHub.
+**Remove from Shipwatch…**. **Move Up** and **Move Down** change the custom
+order, so they only work while the list is sorted by Custom, and move a grouped
+repository within its group. Removing or hiding never changes anything on GitHub.
 When the repository has clones in your [workspace](#workspace), the menu also
 offers **Update Local Clone Now** and **Show Local Clone in Finder**.
 
@@ -72,12 +112,31 @@ The repositories shown in the list, in order.
 
 - Click **+** to pick repositories your token can read. Filter the list, or type
   `owner/name` to add one that isn't listed.
-- Drag rows to reorder.
+- Drag rows to reorder. Drag a group's header row to move the whole group.
+- Click the folder button at the bottom to create a group, with the selected
+  repositories if any, and type its name. Click a group's name to rename it.
+- Drag a repository into a group, or right-click it for **Move to Group** and
+  **Remove from Group**. A repository dropped right below a group's last
+  repository stays outside the group unless it was already in it.
+- **Ungroup** on a group's row, or selecting it and clicking **-**, deletes the
+  group only: its repositories stay, ungrouped.
 - Click the eye to hide or show a repository. Hidden ones stay configured and are
   counted at the bottom of the list.
 - Select rows and click **-** to remove them from Shipwatch.
 - The **Access** column shows whether the current sign-in can read each
   repository. **Grant…** opens the GitHub App installation page.
+
+#### Renamed and transferred repositories
+
+GitHub still answers for a repository's old name after it is renamed or moved to
+another owner. When it reports a new name, Shipwatch switches the entry to it on
+its own, keeping its place, group, hidden state and clone sync setting, and
+refreshes once more so the Dependabot count uses the new name. Local clones whose
+remote still uses the old name keep matching it.
+
+This only works while your sign-in can still read the repository. If it moved to
+an owner where the GitHub App isn't installed, the row says Shipwatch can't read
+it: click **Grant access…** and add it to the installation there.
 
 ### Workspace
 
@@ -173,7 +232,7 @@ token, it waits for the reset time. Details are in
 | What | Where |
 | --- | --- |
 | GitHub App token | login Keychain, service `dev.mbianchi.shipwatch` |
-| Repositories and settings, including the workspace folder and exclusions | `UserDefaults` domain `dev.mbianchi.shipwatch` |
+| Repositories, groups and settings, including the list order, workspace folder and exclusions | `UserDefaults` domain `dev.mbianchi.shipwatch` |
 | Update state and lock | `~/Library/Application Support/Shipwatch` |
 | GitHub CLI token | memory only |
 

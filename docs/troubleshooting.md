@@ -29,8 +29,10 @@ address Shipwatch shows, signed in as the GitHub user you want to use.
 
 The GitHub App is not installed on that repository, or the CLI token can't see
 it. Click **Grant access…** on the row (or **Manage Repository Access…** in
-Settings > Account) and add the repository to the installation. Renamed or
-deleted repositories show the same message: remove and add them again.
+Settings > Account) and add the repository to the installation. A repository
+that moved to another owner needs the app installed there too; once Shipwatch
+can read it again, it switches to the new name on its own. Deleted repositories
+show the same message: remove them.
 
 ## The GitHub CLI option is unavailable
 

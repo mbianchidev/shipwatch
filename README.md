@@ -106,8 +106,8 @@ verified updates and rolls back on failure. Details are in
 
 Open Settings with **Manage Repositories…** at the bottom of the list (Cmd-comma).
 
-- **Repositories:** add, reorder, hide, show and remove repositories, and check
-  which ones your sign-in can read.
+- **Repositories:** add, reorder, group, hide, show and remove repositories, and
+  check which ones your sign-in can read.
 - **Workspace:** optionally keep the default branch of your local clones up to
   date, with folders to exclude from the scan.
 - **General:** refresh interval (2 minutes by default), what last activity means,
@@ -125,7 +125,11 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
   config/billing (jobs never started), dotted circle running. Expand a row for the
   running runs and the latest run of each workflow, each linking to GitHub.
 - Status chips that filter the list to running, failing, config/billing or
-  passing repositories.
+  passing repositories, or to those with open Dependabot pull requests.
+- Sort the list by your custom order, name or last activity.
+- Collapsible groups that sum their repositories' issues and pull requests and
+  show whether any CI is running or failing.
+- Renamed and transferred repositories are followed automatically.
 - Last activity: last push, or any update to issues, pull requests and comments.
 - Open issue count, linking to the issue list.
 - Open pull request count with Dependabot pull requests split out, each linking

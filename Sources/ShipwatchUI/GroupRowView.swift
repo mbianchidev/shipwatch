@@ -119,27 +119,35 @@ struct GroupCIBreakdown: View {
             (.notStarted, overall.notStarted, "config/billing"),
             (.noAccess, unreadable, "can't read"),
         ].filter { $0.count > 0 }
-        HStack(spacing: 8) {
-            if parts.isEmpty, overall.passing > 0 {
-                item(.passing, text: "all green")
-            } else {
-                ForEach(parts, id: \.label) { part in
-                    item(part.glyph, text: "\(part.count)")
-                        .help("\(part.count) \(part.label)")
-                        .accessibilityLabel("\(part.count) \(part.label)")
-                }
+        if parts.isEmpty, overall.passing > 0 {
+            item(.passing, text: "all green")
+        } else if !parts.isEmpty {
+            ViewThatFits(in: .horizontal) {
+                row(parts, labeled: true)
+                row(parts, labeled: false)
             }
         }
-        .font(.system(size: 11.5))
-        .lineLimit(1)
+    }
+
+    private func row(_ parts: [(glyph: CIGlyph, count: Int, label: String)], labeled: Bool) -> some View {
+        HStack(spacing: 6) {
+            ForEach(parts, id: \.label) { part in
+                item(part.glyph, text: labeled ? "\(part.count) \(part.label)" : "\(part.count)")
+                    .help("\(part.count) \(part.label)")
+                    .accessibilityLabel("\(part.count) \(part.label)")
+            }
+        }
         .fixedSize()
     }
 
     private func item(_ glyph: CIGlyph, text: String) -> some View {
         HStack(spacing: 4) {
             CIIcon(glyph: glyph, size: 11)
-            Text(text).fontWeight(.semibold)
+            Text(text).fontWeight(.medium)
         }
+        .font(.system(size: 11.5))
+        .lineLimit(1)
+        .fixedSize()
         .padding(.horizontal, 7)
         .padding(.vertical, 2)
         .background(Theme.fill, in: RoundedRectangle(cornerRadius: 6))
