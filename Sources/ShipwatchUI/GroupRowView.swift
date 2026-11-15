@@ -164,7 +164,7 @@ struct GroupCIBreakdown: View {
 }
 
 extension CIGlyph {
-    /// What needs attention first, as the menu bar dot: failing, then config/billing, then running, then passing.
+    /// What needs attention first: failing, then config/billing, then running, then passing.
     init(group statuses: [RepoStatus], members: Int) {
         guard !statuses.isEmpty else {
             self = members == 0 ? .none : .loading

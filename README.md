@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/popover-dark.png" alt="Shipwatch list showing, per repository, the latest release, Actions status, last activity, open issues and open pull requests with Dependabot pull requests counted separately" width="420">
+  <img src="docs/screenshots/popover-dark.png" alt="Shipwatch list showing, per repository, the latest release, Actions status, last activity, open issues, open pull requests with Dependabot pull requests counted separately, and open security alerts" width="420">
 </p>
 
 Shipwatch is a tiny macOS menu bar app for people who maintain several GitHub
@@ -111,8 +111,8 @@ Open Settings with **Manage Repositories…** at the bottom of the list (Cmd-com
 - **Workspace:** optionally keep the default branch of your local clones up to
   date, with folders to exclude from the scan.
 - **General:** refresh interval (2 minutes by default), what last activity means,
-  pre-releases, a running or failing count in the menu bar, launch at login and
-  updates.
+  pre-releases, security alerts, a running or failing count in the menu bar,
+  launch at login and updates.
 - **Account:** sign-in method, repository access and your own GitHub App.
 
 Every setting and its default is in [Usage](docs/usage.md). For problems, see
@@ -126,6 +126,8 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
   running runs and the latest run of each workflow, each linking to GitHub.
 - Status chips that filter the list to running, failing, config/billing or
   passing repositories, or to those with open Dependabot pull requests.
+- Optional: open Dependabot, code scanning and secret scanning alerts per
+  repository, with a chip that lists the repositories that have any.
 - Sort the list by your custom order, name or last activity.
 - Collapsible groups that sum their repositories' issues and pull requests and
   show whether any CI is running or failing.
@@ -134,9 +136,8 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
 - Open issue count, linking to the issue list.
 - Open pull request count with Dependabot pull requests split out, each linking
   to its list.
-- A sailboat menu bar icon with a red dot when something fails, an orange dot for
-  config/billing and a yellow dot while workflows run, plus the number of running
-  (or failing) repositories.
+- A sailboat menu bar icon with a yellow dot while workflows run, plus the number
+  of running (or failing) repositories.
 - Sign-in through a read-only GitHub App device flow, or your existing `gh` login.
 - Optional: keep `main` of your local clones current. Pick a workspace folder,
   exclude folders, and Shipwatch fast-forwards each clone's default branch when

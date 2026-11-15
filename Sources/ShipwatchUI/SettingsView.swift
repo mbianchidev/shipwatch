@@ -174,6 +174,15 @@ struct GeneralSettingsView: View {
             .padding(.top, 8)
 
             GridRow {
+                formLabel("Show security alerts:")
+                Toggle("Show security alerts", isOn: Binding(get: { prefs.showSecurityAlerts }, set: { model.setShowSecurityAlerts($0) }))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
+            .padding(.top, 4)
+            formCaption("Open Dependabot, code scanning and secret scanning alerts. Needs write access, admin for secret scanning.")
+
+            GridRow {
                 formLabel("Show count in menu bar:")
                 Picker("Show count in menu bar", selection: $prefs.menuBarCount) {
                     ForEach(MenuBarCount.allCases, id: \.self) { count in
@@ -340,11 +349,17 @@ struct AccountSettingsView: View {
     let model: AppModel
     @State private var showsAppConfig = false
 
-    private let permissionRows: [(symbol: String, title: String, keys: [String])] = [
-        ("play.circle", "Actions", ["actions"]),
-        ("tag", "Contents (releases)", ["contents"]),
-        ("smallcircle.filled.circle", "Issues · Pull requests · Metadata", ["issues", "pull_requests", "metadata"]),
-    ]
+    private var permissionRows: [(symbol: String, title: String, keys: [String])] {
+        var rows: [(symbol: String, title: String, keys: [String])] = [
+            ("play.circle", "Actions", ["actions"]),
+            ("tag", "Contents (releases)", ["contents"]),
+            ("smallcircle.filled.circle", "Issues · Pull requests · Metadata", ["issues", "pull_requests", "metadata"]),
+        ]
+        if model.prefs.showSecurityAlerts {
+            rows.append(("exclamationmark.shield", "Security alerts", ["vulnerability_alerts", "security_events", "secret_scanning_alerts"]))
+        }
+        return rows
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {

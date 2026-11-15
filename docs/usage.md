@@ -6,10 +6,8 @@ Shipwatch shows a sailboat in the menu bar.
 
 | Icon | Meaning |
 | --- | --- |
-| Sailboat only | Every visible repository is passing or has no runs |
-| Yellow dot | A workflow is running or queued somewhere |
-| Orange dot | A repository's latest jobs never started (config/billing), nothing is failing |
-| Red dot | At least one repository is failing on its default branch |
+| Sailboat only | Nothing is running; repositories may be passing, failing or config/billing |
+| Yellow dot | A workflow is running or queued in a visible repository |
 
 By default the number of repositories with a running workflow shows next to the
 sailboat. **Show count in menu bar** switches it to failing repositories or
@@ -22,7 +20,7 @@ The same shortcuts work while the list is open.
 ## Repository rows
 
 <p align="center">
-  <img src="screenshots/popover-dark.png" alt="Shipwatch list with release, Actions status, activity, issue and pull request counts per repository" width="420">
+  <img src="screenshots/popover-dark.png" alt="Shipwatch list with release, Actions status, activity, issue, pull request and security alert counts per repository" width="420">
 </p>
 
 Each visible repository shows:
@@ -34,7 +32,8 @@ Each visible repository shows:
 | Actions status: checkmark passing, xmark failing, exclamation mark config/billing, dotted circle running | expands the row with running runs and the latest run per workflow on the default branch; each run links to GitHub |
 | Open issues | the open issues list |
 | Open pull requests | the open pull requests list |
-| `N dependabot` | open pull requests by `app/dependabot` |
+| `N dependabot` | open pull requests by `app/dependabot`; just the icon and number when the line is full |
+| Shield, with [security alerts](#security-alerts) on | the repository's Security tab |
 | Last activity | (hover for the exact date) |
 
 Failing means the latest completed run of any workflow on the default branch
@@ -49,10 +48,39 @@ example `runs-on` or a matrix) can't be evaluated. Shipwatch can't tell the two
 apart without the Checks permission, so open the run to see GitHub's message.
 
 The chips under the title count running, failing, config/billing and passing
-repositories, and repositories with at least one open Dependabot pull request.
-Click one to list only those repositories; click it again, or close the list, to
-show all of them. When the chips don't fit, they show only icons and numbers;
-hover for the label.
+repositories, repositories with at least one open Dependabot pull request, and,
+with [security alerts](#security-alerts) on, repositories with at least one open
+alert. Click one to list only those repositories; click it again, or close the
+list, to show all of them. When the chips don't fit, they show only icons and
+numbers; hover for the label.
+
+### Security alerts
+
+Off by default. Turn on **Show security alerts** in Settings > General to count
+open Dependabot, code scanning and secret scanning alerts. Each row then shows a
+shield:
+
+| Shield | Meaning |
+| --- | --- |
+| Red, with a number | open alerts; hover for the count per kind |
+| `?` | none of the kinds Shipwatch could read has an open alert, but at least one kind couldn't be read |
+| Dimmed `0` | every kind was read and none has an open alert |
+
+Click the shield to open the repository's Security tab. The **with alerts** chip
+lists only repositories with open alerts; repositories showing `?` don't count.
+Code and secret scanning counts stop at 100, shown as `100+`.
+
+Dependabot and code scanning alerts need write access to the repository, secret
+scanning alerts need admin access (organization owners and security managers can
+read all of them), private repositories need GitHub Advanced Security for code and
+secret scanning, and each kind has to be turned on for the repository. When one of these
+is missing, that kind is unknown, never 0. With the GitHub App, the app also needs
+the [alert permissions](github-app-setup.md#security-alert-permissions).
+
+Each refresh then sends two more requests per repository, for code and secret
+scanning; unchanged results come back as `304 Not Modified` and don't use rate
+limit. Kinds GitHub refuses to show are asked again only every 15 minutes, or
+right away when you turn the setting off and on.
 
 The arrows at the end of the chips sort the list:
 
@@ -72,8 +100,8 @@ inside the group. The arrows turn blue while the order isn't Custom.
 </p>
 
 A group shows as one row: its name, how many repositories it holds, the open
-issues and pull requests (and Dependabot pull requests) summed over them, and
-the most recent activity. Instead of a release, it shows how many of its
+issues and pull requests (and Dependabot pull requests and security alerts)
+summed over them, and the most recent activity. Instead of a release, it shows how many of its
 repositories are running, failing, config/billing or unreadable, or **all green**
 when every repository with workflows passes. The icon in front shows what needs
 attention first: failing, then config/billing, then running, then passing.
@@ -91,7 +119,7 @@ Hidden repositories don't count, and a group whose repositories are all hidden
 isn't shown, until **Show** at the bottom of the list is on.
 
 Right-click a row for **Open Repository**, **Open Actions**, **Open Releases**,
-**Copy Latest Tag**, **Move Up**, **Move Down**, **Hide** and
+**Open Security** (with security alerts on), **Copy Latest Tag**, **Move Up**, **Move Down**, **Hide** and
 **Remove from Shipwatch…**. **Move Up** and **Move Down** change the custom
 order, so they only work while the list is sorted by Custom, and move a grouped
 repository within its group. Removing or hiding never changes anything on GitHub.
@@ -200,6 +228,7 @@ helper and never prompts.
 | Refresh every | 2 minutes | 1, 2, 5, 10 or 15 minutes. While a workflow runs, Shipwatch refreshes every 20 seconds. |
 | Last activity means | Last push | **Last push**, or **Any update** (issues, pull requests, comments). |
 | Include pre-releases | Off | Show the newest release even if it is a pre-release. |
+| Show security alerts | Off | Count open Dependabot, code scanning and secret scanning alerts. See [Security alerts](#security-alerts). |
 | Show count in menu bar | Running | Show the number of **Running** or **Failing** repositories next to the sailboat, or **None**. |
 | Launch at login | On after the first launch from Applications | Start Shipwatch when you log in. Only available for the app bundle. |
 | Check automatically | On, every 6 hours | Check GitHub Releases for a newer Shipwatch every hour, 6 hours, 12 hours or day. |
@@ -217,7 +246,8 @@ token, it waits for the reset time. Details are in
 
 ### Account
 
-- The signed-in user, the sign-in method and the GitHub App permissions granted.
+- The signed-in user, the sign-in method and the GitHub App permissions granted,
+  including the alert permissions while security alerts are on.
 - **Manage Repository Access…** opens the app installation, where you choose
   which repositories Shipwatch can read.
 - **Sign In…** and **Sign Out**. Signing out deletes the Keychain token.

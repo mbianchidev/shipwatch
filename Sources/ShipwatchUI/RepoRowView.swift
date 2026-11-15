@@ -172,6 +172,9 @@ struct RepoRowView: View {
         Button("Open Repository") { model.open(GitHubLinks.repo(ref)) }
         Button("Open Actions") { model.open(GitHubLinks.actions(ref)) }
         Button("Open Releases") { model.open(GitHubLinks.releases(ref)) }
+        if model.prefs.showSecurityAlerts {
+            Button("Open Security") { model.open(GitHubLinks.security(ref)) }
+        }
         if let tag = status?.latestRelease?.tagName {
             Button("Copy Latest Tag (\(tag))") { model.copyToPasteboard(tag) }
         }
@@ -197,7 +200,7 @@ struct RepoRowView: View {
     }
 }
 
-/// "⊙ 4 issues  [⇅ 11 PRs | ⧉ 5 dependabot]      ◷ 4m ago", for one repository or the sum of a group.
+/// "⊙ 4 issues  [⇅ 11 PRs | ⧉ 5 dependabot]  ⛨ 3      ◷ 4m ago", for one repository or the sum of a group.
 struct CountsLine: View {
     let model: AppModel
     let issues: Int
@@ -207,6 +210,8 @@ struct CountsLine: View {
     let issuesURL: URL
     let pullRequestsURL: URL
     let dependabotURL: URL
+    /// `nil` while security alerts are off or not loaded yet.
+    let alerts: SecurityAlertsBadge?
 
     init(model: AppModel, status: RepoStatus) {
         self.model = model
@@ -217,6 +222,9 @@ struct CountsLine: View {
         issuesURL = GitHubLinks.issues(status.ref)
         pullRequestsURL = GitHubLinks.pullRequests(status.ref)
         dependabotURL = GitHubLinks.dependabotPullRequests(status.ref)
+        alerts = model.prefs.showSecurityAlerts
+            ? status.securityAlerts.map { SecurityAlertsBadge(model: model, ref: status.ref, alerts: $0) }
+            : nil
     }
 
     /// Readable repositories only; links search across all of them.
@@ -231,9 +239,36 @@ struct CountsLine: View {
         issuesURL = GitHubLinks.issues(refs)
         pullRequestsURL = GitHubLinks.pullRequests(refs)
         dependabotURL = GitHubLinks.dependabotPullRequests(refs)
+        let memberAlerts = readable.compactMap(\.securityAlerts)
+        alerts = model.prefs.showSecurityAlerts && !memberAlerts.isEmpty
+            ? SecurityAlertsBadge(model: model, group: memberAlerts)
+            : nil
     }
 
     var body: some View {
+        HStack(spacing: 10) {
+            // Drops the "dependabot" word before anything gets truncated.
+            ViewThatFits(in: .horizontal) {
+                counts(labelsDependabot: true).fixedSize()
+                counts(labelsDependabot: false)
+            }
+
+            Spacer(minLength: 4)
+
+            if let activity {
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                    Text(RelativeTime.ago(activity))
+                }
+                .foregroundStyle(.secondary)
+                .help("\(model.prefs.activityMode.label): \(activity.formatted(date: .abbreviated, time: .shortened))")
+            }
+        }
+        .font(.system(size: 11.5))
+        .lineLimit(1)
+    }
+
+    private func counts(labelsDependabot: Bool) -> some View {
         HStack(spacing: 10) {
             Button { model.open(issuesURL) } label: {
                 Counter(count: issues, label: issues == 1 ? "issue" : "issues") {
@@ -262,7 +297,9 @@ struct CountsLine: View {
                         HStack(spacing: 4) {
                             Image(systemName: "shippingbox")
                             Text("\(dependabot)").fontWeight(.semibold)
-                            Text("dependabot")
+                            if labelsDependabot {
+                                Text("dependabot")
+                            }
                         }
                         .foregroundStyle(Theme.link)
                         .padding(.horizontal, 7)
@@ -270,23 +307,89 @@ struct CountsLine: View {
                     }
                     .buttonStyle(.plain)
                     .help("Open Dependabot pull requests")
+                    .accessibilityLabel("\(dependabot) dependabot")
                 }
             }
             .background(Theme.fill, in: RoundedRectangle(cornerRadius: 6))
 
-            Spacer(minLength: 4)
-
-            if let activity {
-                HStack(spacing: 4) {
-                    Image(systemName: "clock")
-                    Text(RelativeTime.ago(activity))
-                }
-                .foregroundStyle(.secondary)
-                .help("\(model.prefs.activityMode.label): \(activity.formatted(date: .abbreviated, time: .shortened))")
-            }
+            if let alerts { alerts }
         }
-        .font(.system(size: 11.5))
-        .lineLimit(1)
+    }
+}
+
+/// "⛨ 3": open alerts of the kinds that could be read, or "⛨ ?" when none are open but some kinds couldn't be read,
+/// so missing access never reads as zero. A dimmed "⛨ 0" means every kind was read and nothing is open.
+struct SecurityAlertsBadge: View {
+    let model: AppModel
+    let total: Int
+    let isCapped: Bool
+    let isComplete: Bool
+    let help: String
+    /// The Security tab; groups have no page across repositories.
+    let url: URL?
+
+    private static let unknownNote =
+        " Unknown counts need write access (admin for secret scanning) and the feature turned on for the repository."
+
+    init(model: AppModel, ref: RepoRef, alerts: SecurityAlerts) {
+        self.model = model
+        total = alerts.total
+        isCapped = alerts.isCapped
+        isComplete = alerts.isComplete
+        func describe(_ count: Int?, capped: Bool = false) -> String {
+            guard let count else { return "unknown" }
+            return capped && count == SecurityAlerts.pageLimit ? "\(count)+" : "\(count)"
+        }
+        let kinds = [
+            "Dependabot \(describe(alerts.dependabot))",
+            "code scanning \(describe(alerts.codeScanning, capped: true))",
+            "secret scanning \(describe(alerts.secretScanning, capped: true))",
+        ]
+        help = "Open security alerts: \(kinds.joined(separator: ", "))." + (isComplete ? "" : Self.unknownNote)
+        url = GitHubLinks.security(ref)
+    }
+
+    init(model: AppModel, group alerts: [SecurityAlerts]) {
+        self.model = model
+        total = alerts.reduce(0) { $0 + $1.total }
+        isCapped = alerts.contains(where: \.isCapped)
+        isComplete = alerts.allSatisfy(\.isComplete)
+        let repos = alerts.count(where: \.hasAlerts).counted("repository", "repositories")
+        let count = Self.text(total: total, isCapped: isCapped, isComplete: isComplete)
+        help = "\(count) open security alerts in \(repos)." + (isComplete ? "" : Self.unknownNote)
+        url = nil
+    }
+
+    private var text: String { Self.text(total: total, isCapped: isCapped, isComplete: isComplete) }
+
+    private static func text(total: Int, isCapped: Bool, isComplete: Bool) -> String {
+        if total > 0 { return isCapped ? "\(total)+" : "\(total)" }
+        return isComplete ? "0" : "?"
+    }
+
+    var body: some View {
+        if let url {
+            Button { model.open(url) } label: { label }
+                .buttonStyle(.plain)
+                .help(help)
+        } else {
+            label.help(help)
+        }
+    }
+
+    private var label: some View {
+        HStack(spacing: 4) {
+            Image(systemName: total > 0 ? "exclamationmark.shield" : "shield")
+            Text(text).fontWeight(.semibold)
+        }
+        .foregroundStyle(total > 0 ? AnyShapeStyle(Theme.failing) : AnyShapeStyle(.secondary))
+        .opacity(total == 0 && isComplete ? 0.6 : 1)
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            total > 0 ? "\(text) open security alerts" : isComplete ? "No open security alerts" : "Security alerts unknown"
+        )
     }
 }
 

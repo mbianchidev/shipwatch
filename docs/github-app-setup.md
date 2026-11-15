@@ -36,6 +36,24 @@ Repository permissions, all **Read-only**:
 No organization or account permissions are needed. Pick who can install it
 (only your account, or any account), then **Create GitHub App**.
 
+### Security alert permissions
+
+Only needed for **Show security alerts** in Settings > General. Add these
+repository permissions, also **Read-only**:
+
+| Permission | Used for |
+| --- | --- |
+| Dependabot alerts | open Dependabot alert count |
+| Code scanning alerts | open code scanning alert count |
+| Secret scanning alerts | open secret scanning alert count |
+
+Adding permissions to an existing app asks every installation to approve them:
+accept the request under **Settings > Applications > Installed GitHub Apps** on
+GitHub (an organization owner does it for organization installs). Until then,
+those counts show as unknown. GitHub also needs your own access to allow it:
+write access for Dependabot and code scanning alerts, admin for secret scanning
+alerts (organization owners and security managers can read all of them).
+
 ## 2. Note the Client ID and slug
 
 On the app's page:
@@ -77,8 +95,9 @@ needs a token and keeps it in memory only. It looks for `gh` in
 `/opt/homebrew/bin`, `/usr/local/bin` and `/usr/bin`, since apps launched from
 Finder don't inherit your shell `PATH`.
 
-Note that `gh` tokens usually carry broad scopes such as `repo`. Shipwatch only
-issues read requests, but the GitHub App is the least-privilege option.
+Note that `gh` tokens usually carry broad scopes such as `repo`, which already
+covers security alerts. Shipwatch only issues read requests, but the GitHub App is
+the least-privilege option.
 
 ## Sign out
 

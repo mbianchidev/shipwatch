@@ -27,6 +27,7 @@ public final class Preferences {
         static let refreshMinutes = "refreshMinutes"
         static let activityMode = "activityMode"
         static let includePrereleases = "includePrereleases"
+        static let showSecurityAlerts = "showSecurityAlerts"
         static let menuBarCount = "menuBarCount"
         static let menuSort = "menuSort"
         static let cliFallback = "cliFallback"
@@ -55,6 +56,11 @@ public final class Preferences {
     }
     public var includePrereleases: Bool {
         didSet { defaults.set(includePrereleases, forKey: Key.includePrereleases) }
+    }
+    /// Count open Dependabot, code scanning and secret scanning alerts. Off by default: it needs extra permissions
+    /// and two more requests per repository on each refresh.
+    public var showSecurityAlerts: Bool {
+        didSet { defaults.set(showSecurityAlerts, forKey: Key.showSecurityAlerts) }
     }
     public var menuBarCount: MenuBarCount {
         didSet { defaults.set(menuBarCount.rawValue, forKey: Key.menuBarCount) }
@@ -109,6 +115,7 @@ public final class Preferences {
         refreshMinutes = Self.refreshChoices.contains(minutes) ? minutes : 2
         activityMode = defaults.string(forKey: Key.activityMode).flatMap(ActivityMode.init(rawValue:)) ?? .lastPush
         includePrereleases = defaults.bool(forKey: Key.includePrereleases)
+        showSecurityAlerts = defaults.bool(forKey: Key.showSecurityAlerts)
         menuBarCount = defaults.string(forKey: Key.menuBarCount).flatMap(MenuBarCount.init(rawValue:)) ?? .running
         menuSort = defaults.string(forKey: Key.menuSort).flatMap(RepoSort.init(rawValue:)) ?? .custom
         cliFallback = defaults.bool(forKey: Key.cliFallback)

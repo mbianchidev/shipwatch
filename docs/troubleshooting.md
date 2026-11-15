@@ -56,6 +56,20 @@ limit was reached (fix it under **Settings > Billing and plans** on GitHub), or
 which part of the workflow file is invalid. Re-run or push again afterwards;
 Shipwatch picks up the new run on the next refresh.
 
+## The security alerts shield shows "?"
+
+Shipwatch couldn't read at least one kind of alert and found none open in the
+others. Hover the shield to see which kind is unknown. Dependabot and code
+scanning alerts need write access to the repository and secret scanning alerts
+need admin access (organization owners and security managers can read all of
+them); code and secret scanning on private repositories need GitHub Advanced
+Security; and each kind must
+be turned on under the repository's **Settings > Advanced Security** (or
+**Code security**). With the GitHub App, approve the
+[alert permissions](github-app-setup.md#security-alert-permissions). Shipwatch
+asks again every 15 minutes, or right away when you turn **Show security alerts**
+off and on.
+
 ## Counts look stale or a banner says "GitHub rate limit reached"
 
 Shipwatch waits for the rate limit reset and retries on its own. Use

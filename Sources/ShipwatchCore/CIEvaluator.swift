@@ -69,12 +69,4 @@ public struct OverallStatus: Equatable, Sendable {
             }
         }
     }
-
-    /// Red beats orange beats yellow: failures and blocked runs need attention, a running workflow only needs patience.
-    public var indicator: CIState {
-        if failing > 0 { return .failing }
-        if notStarted > 0 { return .notStarted }
-        if running > 0 { return .running }
-        return .passing
-    }
 }

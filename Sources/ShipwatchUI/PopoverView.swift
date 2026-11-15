@@ -222,8 +222,9 @@ struct StatusLine: View {
     }
 }
 
-/// Counts per CI state and of repositories with Dependabot pull requests. Clicking one lists only those
-/// repositories; clicking it again lists all. Labels drop to just icons and numbers when they don't fit.
+/// Counts per CI state and of repositories with Dependabot pull requests or, when turned on, security alerts.
+/// Clicking one lists only those repositories; clicking it again lists all. Labels drop to just icons and numbers
+/// when they don't fit.
 struct SummaryChips: View {
     let model: AppModel
 
@@ -231,6 +232,9 @@ struct SummaryChips: View {
         var filter: RepoFilter
         var count: Int
         var label: String
+        var subject: String? = nil
+
+        var repositories: String { subject ?? "\(label) repositories" }
     }
 
     var body: some View {
@@ -240,7 +244,11 @@ struct SummaryChips: View {
             Chip(filter: .ci(.failing), count: overall.failing, label: "failing"),
             Chip(filter: .ci(.notStarted), count: overall.notStarted, label: "config/billing"),
             Chip(filter: .ci(.passing), count: overall.passing, label: "passing"),
-            Chip(filter: .dependabot, count: model.dependabotCount, label: "dependabot"),
+            Chip(filter: .dependabot, count: model.visibleCount(.dependabot), label: "dependabot"),
+            Chip(
+                filter: .securityAlerts, count: model.visibleCount(.securityAlerts), label: "with alerts",
+                subject: "repositories with security alerts"
+            ),
         ].filter { $0.count > 0 || $0.filter == model.filter }
         if !chips.isEmpty {
             ViewThatFits(in: .horizontal) {
@@ -271,6 +279,11 @@ struct SummaryChips: View {
                 .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(Theme.link)
                 .frame(width: 13, height: 13)
+        case .securityAlerts:
+            Image(systemName: "exclamationmark.shield")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(Theme.failing)
+                .frame(width: 13, height: 13)
         }
     }
 
@@ -291,9 +304,9 @@ struct SummaryChips: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .help(selected ? "Show all repositories" : "Show only \(chip.label) repositories")
+        .help(selected ? "Show all repositories" : "Show only \(chip.repositories)")
         .accessibilityLabel("\(chip.count) \(chip.label)")
-        .accessibilityHint(selected ? "Shows all repositories" : "Shows only \(chip.label) repositories")
+        .accessibilityHint(selected ? "Shows all repositories" : "Shows only \(chip.repositories)")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

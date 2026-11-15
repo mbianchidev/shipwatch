@@ -63,6 +63,7 @@ func mockStatuses() -> [RepoStatus] {
     let infra = ref("acme-org/infra")
     var terraformPlan = run(6400, "Terraform plan", number: 640, status: "completed", conclusion: "failure", startedAgo: 26 * hour, repo: infra)
     terraformPlan.jobsNeverStarted = true
+    let noAlerts = SecurityAlerts(dependabot: 0, codeScanning: 0, secretScanning: 0)
     return [
         RepoStatus(
             ref: api, isPrivate: true, defaultBranch: "main", latestRelease: release("v2.4.1", api, daysAgo: 3),
@@ -71,30 +72,34 @@ func mockStatuses() -> [RepoStatus] {
                 apiCI,
                 run(3010, "CodeQL", number: 300, status: "completed", conclusion: "success", startedAgo: 5 * hour, repo: api),
                 run(5710, "Release", number: 57, status: "completed", conclusion: "success", event: "release", startedAgo: 3 * day + hour, repo: api),
-            ])
+            ]),
+            securityAlerts: SecurityAlerts(dependabot: 3, codeScanning: 1, secretScanning: 0)
         ),
         RepoStatus(
             ref: website, defaultBranch: "main", latestRelease: release("v1.8.0", website, daysAgo: 14),
             openIssues: 2, openPullRequests: 3, dependabotPullRequests: 2, pushedAt: ago(2 * day),
             ci: CISummary(state: .passing, running: [], latestOnDefault: [
                 run(1200, "Deploy", number: 120, status: "completed", conclusion: "success", startedAgo: 2 * day, repo: website),
-            ])
+            ]),
+            securityAlerts: SecurityAlerts(dependabot: 0, codeScanning: 0, secretScanning: 0)
         ),
         RepoStatus(
             ref: cli, defaultBranch: "main", latestRelease: release("v0.9.3-beta.2", cli, daysAgo: 1, pre: true),
             openIssues: 12, openPullRequests: 1, pushedAt: ago(5 * hour),
             ci: CISummary(state: .failing, running: [], latestOnDefault: [
                 run(9050, "Test", number: 905, status: "completed", conclusion: "failure", startedAgo: 5 * hour, repo: cli),
-            ])
+            ]),
+            securityAlerts: SecurityAlerts(dependabot: 0, codeScanning: nil, secretScanning: 0)
         ),
         RepoStatus(
             ref: infra, isPrivate: true, defaultBranch: "main", openIssues: 7, openPullRequests: 4,
             dependabotPullRequests: 1, pushedAt: ago(26 * hour),
-            ci: CISummary(state: .notStarted, running: [], latestOnDefault: [terraformPlan])
+            ci: CISummary(state: .notStarted, running: [], latestOnDefault: [terraformPlan]),
+            securityAlerts: SecurityAlerts(dependabot: 1, codeScanning: nil, secretScanning: nil)
         ),
-        RepoStatus(ref: ref("octocat/dotfiles"), defaultBranch: "main", pushedAt: ago(41 * day), ci: .empty),
-        RepoStatus(ref: ref("octocat/old-blog"), isArchived: true, defaultBranch: "main", latestRelease: release("v1.0.0", ref("octocat/old-blog"), daysAgo: 700), pushedAt: ago(620 * day), ci: .empty),
-        RepoStatus(ref: ref("octocat/experiments"), defaultBranch: "main", openIssues: 1, pushedAt: ago(9 * day), ci: .empty),
+        RepoStatus(ref: ref("octocat/dotfiles"), defaultBranch: "main", pushedAt: ago(41 * day), ci: .empty, securityAlerts: noAlerts),
+        RepoStatus(ref: ref("octocat/old-blog"), isArchived: true, defaultBranch: "main", latestRelease: release("v1.0.0", ref("octocat/old-blog"), daysAgo: 700), pushedAt: ago(620 * day), ci: .empty, securityAlerts: noAlerts),
+        RepoStatus(ref: ref("octocat/experiments"), defaultBranch: "main", openIssues: 1, pushedAt: ago(9 * day), ci: .empty, securityAlerts: noAlerts),
         RepoStatus(ref: ref("acme-org/legacy-api"), problem: .noAccess),
     ]
 }
@@ -108,6 +113,7 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     repos.addGroup(named: "Tools", members: ["octocat/cli-tool", "octocat/dotfiles", "octocat/experiments"])
     prefs.repos = repos
     prefs.cliFallback = true
+    prefs.showSecurityAlerts = true
 
     let cli = GitHubCLI(executable: URL(fileURLWithPath: "/opt/homebrew/bin/gh")) { _, _ in "gho_snapshot_mock" }
     let model = AppModel(
@@ -128,9 +134,11 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     model.installations = [
         AppInstallation(id: 1, appSlug: "shipwatch", account: "octocat", repositorySelection: "selected", permissions: [
             "actions": "read", "contents": "read", "issues": "read", "metadata": "read", "pull_requests": "read",
+            "vulnerability_alerts": "read", "security_events": "read", "secret_scanning_alerts": "read",
         ]),
         AppInstallation(id: 2, appSlug: "shipwatch", account: "acme-org", repositorySelection: "all", permissions: [
             "actions": "read", "contents": "read", "issues": "read", "metadata": "read", "pull_requests": "read",
+            "vulnerability_alerts": "read", "security_events": "read", "secret_scanning_alerts": "read",
         ]),
     ]
     model.installationRepoCounts = [1: 6, 2: 14]

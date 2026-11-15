@@ -30,6 +30,11 @@ public enum GitHubLinks {
         repo(ref).appending(path: "releases")
     }
 
+    /// The Security tab, with Dependabot, code scanning and secret scanning alerts.
+    public static func security(_ ref: RepoRef) -> URL {
+        repo(ref).appending(path: "security")
+    }
+
     /// Open issues across several repositories, as a GitHub search.
     public static func issues(_ refs: [RepoRef]) -> URL {
         search("is:issue is:open", in: refs, type: "issues")

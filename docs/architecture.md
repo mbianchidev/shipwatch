@@ -21,9 +21,8 @@ plus a status dot, and an `NSPopover` hosting `PopoverView`. The app runs as an
 accessory (`LSUIElement`), so there is no Dock icon. Settings is a regular
 window (`SettingsWindowController`) forced to dark appearance.
 
-The dot summarizes visible repos: red if any repo is failing, else orange if any
-repo's latest jobs never started (config/billing), else yellow if any is running
-or queued, else no dot. The number of running repos (default) or failing repos is
+The dot is yellow while any visible repo has a running or queued workflow, and
+hidden otherwise; failing and config/billing repos show only in the list. The number of running repos (default) or failing repos is
 shown next to the icon, or none (Settings > General).
 
 ## Data flow
@@ -43,8 +42,16 @@ Per refresh, `GitHubClient.statuses(for:)`:
    GitHub answers `5xx` (usually `502`) when a query runs too long, so a failed
    query is split in half and retried until it goes through, and later refreshes
    use batches of 5. A repo that still fails alone shows the error on its row.
+   With security alerts on, the query also counts open `vulnerabilityAlerts`
+   (Dependabot); a `FORBIDDEN` error on that field leaves only that count unknown.
 2. Sends one REST call per repo for the 50 most recent workflow runs, with
    `If-None-Match` so unchanged repos come back as `304` and don't use rate limit.
+   With security alerts on, it also lists open code scanning and secret scanning
+   alerts (first page of 100, secrets hidden), the same way, in the same task per
+   repo. `403` and `404` mean the token can't read them (not enough access to
+   the repo, no GitHub Advanced Security, feature off, or a missing app
+   permission): the count is unknown, not 0, and since those answers use rate
+   limit the list is only asked for again after 15 minutes.
 3. For each workflow whose latest run on the default branch failed, reads that
    run's jobs once (cached until the run changes). If every failed job ended
    without a runner or a single step, the run never started: GitHub does this when

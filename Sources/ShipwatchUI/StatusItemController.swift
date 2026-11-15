@@ -66,14 +66,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let offline: Bool = if case .offline = model.banner { true } else { false }
         button.appearsDisabled = signedOut || offline
 
-        let color: NSColor? = switch overall.indicator {
-        case .failing: Theme.failingNS
-        case .notStarted: Theme.warningNS
-        case .running: Theme.runningNS
-        default: nil
-        }
-        dot.isHidden = color == nil || signedOut
-        dot.layer?.backgroundColor = color?.cgColor
+        // Only a running or queued workflow gets the dot; failures show in the list and the optional count.
+        dot.isHidden = overall.running == 0 || signedOut
+        dot.layer?.backgroundColor = Theme.runningNS.cgColor
         dot.layer?.borderColor = NSColor.windowBackgroundColor.withAlphaComponent(0.9).cgColor
 
         let count = switch model.prefs.menuBarCount {
