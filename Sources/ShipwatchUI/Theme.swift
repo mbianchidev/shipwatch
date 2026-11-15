@@ -35,7 +35,8 @@ enum CIGlyph: Equatable {
             return
         }
         switch ci.state {
-        case .running: self = ci.running.allSatisfy(\.isQueued) ? .queued : .running
+        case .running: self = .running
+        case .queued: self = .queued
         case .failing: self = .failing
         case .notStarted: self = .notStarted
         case .passing: self = .passing

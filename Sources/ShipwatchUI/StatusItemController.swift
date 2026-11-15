@@ -67,7 +67,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         button.appearsDisabled = signedOut || offline
 
         // Only a running or queued workflow gets the dot; failures show in the list and the optional count.
-        dot.isHidden = overall.running == 0 || signedOut
+        dot.isHidden = overall.running + overall.queued == 0 || signedOut
         dot.layer?.backgroundColor = Theme.runningNS.cgColor
         dot.layer?.borderColor = NSColor.windowBackgroundColor.withAlphaComponent(0.9).cgColor
 
@@ -86,6 +86,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         if signedOut { return "Shipwatch · not signed in" }
         var parts: [String] = []
         if overall.running > 0 { parts.append("\(overall.running) running") }
+        if overall.queued > 0 { parts.append("\(overall.queued) queued") }
         if overall.failing > 0 { parts.append("\(overall.failing) failing") }
         if overall.notStarted > 0 { parts.append("\(overall.notStarted) config/billing") }
         if overall.passing > 0 { parts.append("\(overall.passing) passing") }

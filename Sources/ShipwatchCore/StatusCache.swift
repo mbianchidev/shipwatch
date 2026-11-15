@@ -3,7 +3,7 @@ import Foundation
 /// The statuses of the last successful refresh.
 public struct StatusSnapshot: Codable, Equatable, Sendable {
     /// Bump when `RepoStatus` changes in a way older snapshots can't express; other versions are ignored.
-    public static let currentVersion = 1
+    public static let currentVersion = 2
 
     public var version: Int
     public var savedAt: Date

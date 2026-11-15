@@ -213,8 +213,8 @@ public final class AppModel {
         OverallStatus(prefs.repos.visible.compactMap { statuses[$0.id] })
     }
 
-    var anyRunning: Bool {
-        prefs.repos.items.contains { statuses[$0.id]?.ciState == .running }
+    var anyActive: Bool {
+        prefs.repos.items.contains { [CIState.running, .queued].contains(statuses[$0.id]?.ciState ?? .none) }
     }
 
     /// Where the user picks which repositories the GitHub App may read.
@@ -418,7 +418,7 @@ public final class AppModel {
     /// Time between automatic refreshes right now.
     private var refreshDelay: TimeInterval {
         if let until = rateLimitedUntil, until > Date() { return until.timeIntervalSinceNow + 2 }
-        return anyRunning ? 20 : TimeInterval(prefs.refreshMinutes * 60)
+        return anyActive ? 20 : TimeInterval(prefs.refreshMinutes * 60)
     }
 
     /// `elapsed` is how long ago the data was fetched, when that wasn't just now.

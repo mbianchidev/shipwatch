@@ -60,6 +60,7 @@ func mockStatuses() -> [RepoStatus] {
     let codeQL = run(3011, "CodeQL", number: 301, status: "queued", branch: "dependabot/npm_and_yarn/express-4.21.2", event: "pull_request", startedAgo: 20, repo: api)
     let website = ref("octocat/website")
     let cli = ref("octocat/cli-tool")
+    let dotfiles = ref("octocat/dotfiles")
     let infra = ref("acme-org/infra")
     var terraformPlan = run(6400, "Terraform plan", number: 640, status: "completed", conclusion: "failure", startedAgo: 26 * hour, repo: infra)
     terraformPlan.jobsNeverStarted = true
@@ -68,7 +69,7 @@ func mockStatuses() -> [RepoStatus] {
         RepoStatus(
             ref: api, isPrivate: true, defaultBranch: "main", latestRelease: release("v2.4.1", api, daysAgo: 3),
             openIssues: 4, openPullRequests: 11, dependabotPullRequests: 5, pushedAt: ago(12 * minute),
-            ci: CISummary(state: .running, running: [apiCI, codeQL], latestOnDefault: [
+            ci: CISummary(state: .running, running: [apiCI], queued: [codeQL], latestOnDefault: [
                 apiCI,
                 run(3010, "CodeQL", number: 300, status: "completed", conclusion: "success", startedAgo: 5 * hour, repo: api),
                 run(5710, "Release", number: 57, status: "completed", conclusion: "success", event: "release", startedAgo: 3 * day + hour, repo: api),
@@ -78,7 +79,7 @@ func mockStatuses() -> [RepoStatus] {
         RepoStatus(
             ref: website, defaultBranch: "main", latestRelease: release("v1.8.0", website, daysAgo: 14),
             openIssues: 2, openPullRequests: 3, dependabotPullRequests: 2, pushedAt: ago(2 * day),
-            ci: CISummary(state: .passing, running: [], latestOnDefault: [
+            ci: CISummary(state: .passing, latestOnDefault: [
                 run(1200, "Deploy", number: 120, status: "completed", conclusion: "success", startedAgo: 2 * day, repo: website),
             ]),
             securityAlerts: SecurityAlerts(dependabot: 0, codeScanning: 0, secretScanning: 0)
@@ -97,7 +98,15 @@ func mockStatuses() -> [RepoStatus] {
             ci: CISummary(state: .notStarted, running: [], latestOnDefault: [terraformPlan]),
             securityAlerts: SecurityAlerts(dependabot: 1, codeScanning: nil, secretScanning: nil)
         ),
-        RepoStatus(ref: ref("octocat/dotfiles"), defaultBranch: "main", pushedAt: ago(41 * day), ci: .empty, securityAlerts: noAlerts),
+        RepoStatus(
+            ref: dotfiles, defaultBranch: "main", pushedAt: ago(41 * day),
+            ci: CISummary(state: .queued, queued: [
+                run(2210, "Lint", number: 221, status: "queued", startedAgo: 45, repo: dotfiles),
+            ], latestOnDefault: [
+                run(2200, "Lint", number: 220, status: "completed", conclusion: "success", startedAgo: 41 * day, repo: dotfiles),
+            ]),
+            securityAlerts: noAlerts
+        ),
         RepoStatus(ref: ref("octocat/old-blog"), isArchived: true, defaultBranch: "main", latestRelease: release("v1.0.0", ref("octocat/old-blog"), daysAgo: 700), pushedAt: ago(620 * day), ci: .empty, securityAlerts: noAlerts),
         RepoStatus(ref: ref("octocat/experiments"), defaultBranch: "main", openIssues: 1, pushedAt: ago(9 * day), ci: .empty, securityAlerts: noAlerts),
         RepoStatus(ref: ref("acme-org/legacy-api"), problem: .noAccess),

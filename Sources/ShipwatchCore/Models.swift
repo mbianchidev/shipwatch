@@ -159,30 +159,35 @@ public struct WorkflowJob: Equatable, Sendable, Decodable {
 
 public enum CIState: String, Codable, Equatable, Sendable {
     case none, passing, failing, running
+    /// Runs are waiting to start (for a runner, an approval or a concurrency slot) and none is in progress.
+    case queued
     /// The latest runs failed before any job ran, usually billing or the workflow configuration.
     case notStarted
 }
 
 public struct CISummary: Codable, Equatable, Sendable {
     public var state: CIState
-    /// Active runs on any branch, newest first.
+    /// In-progress runs on any branch, newest first.
     public var running: [WorkflowRun]
+    /// Runs on any branch that are active but not in progress yet, newest first.
+    public var queued: [WorkflowRun]
     /// The latest completed run of each workflow on the default branch, newest first.
     public var latestOnDefault: [WorkflowRun]
 
-    public init(state: CIState, running: [WorkflowRun], latestOnDefault: [WorkflowRun]) {
+    public init(state: CIState, running: [WorkflowRun] = [], queued: [WorkflowRun] = [], latestOnDefault: [WorkflowRun] = []) {
         self.state = state
         self.running = running
+        self.queued = queued
         self.latestOnDefault = latestOnDefault
     }
 
-    public static let empty = CISummary(state: .none, running: [], latestOnDefault: [])
+    public static let empty = CISummary(state: .none)
 
-    /// The run the status icon links to: the newest running one, else the newest failure, else the newest run
-    /// that never started, else the newest result.
+    /// The run the status icon links to: the newest running one, else the newest queued one, else the newest
+    /// failure, else the newest run that never started, else the newest result.
     public var primaryRun: WorkflowRun? {
-        running.first ?? latestOnDefault.first(where: \.isFailure) ?? latestOnDefault.first(where: \.didNotStart)
-            ?? latestOnDefault.first
+        running.first ?? queued.first ?? latestOnDefault.first(where: \.isFailure)
+            ?? latestOnDefault.first(where: \.didNotStart) ?? latestOnDefault.first
     }
 }
 

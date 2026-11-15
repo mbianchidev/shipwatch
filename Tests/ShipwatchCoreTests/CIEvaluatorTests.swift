@@ -9,15 +9,34 @@ struct CIEvaluatorTests {
         #expect(CIEvaluator.summarize(runs: [], defaultBranch: "main").state == .none)
     }
 
-    @Test func activeRunOnAnyBranchMeansRunning() {
+    @Test func queuedRunOnAnyBranchMeansQueued() {
         let runs = [
             F.run(3, workflow: 1, status: "queued", conclusion: nil, branch: "dependabot/npm/vite-6.1", created: "2026-11-14T15:39:00Z"),
             F.run(2, workflow: 1, conclusion: "failure", created: "2026-11-14T15:00:00Z"),
         ]
         let summary = CIEvaluator.summarize(runs: runs, defaultBranch: "main")
-        #expect(summary.state == .running)
-        #expect(summary.running.map(\.id) == [3])
+        #expect(summary.state == .queued)
+        #expect(summary.running.isEmpty)
+        #expect(summary.queued.map(\.id) == [3])
         #expect(summary.primaryRun?.id == 3)
+    }
+
+    @Test(arguments: ["waiting", "requested", "pending"])
+    func runsNotYetInProgressAreQueued(_ status: String) {
+        let runs = [F.run(1, workflow: 1, status: status, conclusion: nil, created: "2026-11-14T15:00:00Z")]
+        #expect(CIEvaluator.summarize(runs: runs, defaultBranch: "main").state == .queued)
+    }
+
+    @Test func inProgressRunMeansRunningAndKeepsQueuedApart() {
+        let runs = [
+            F.run(3, workflow: 2, status: "queued", conclusion: nil, created: "2026-11-14T15:39:00Z"),
+            F.run(2, workflow: 1, status: "in_progress", conclusion: nil, created: "2026-11-14T15:30:00Z"),
+        ]
+        let summary = CIEvaluator.summarize(runs: runs, defaultBranch: "main")
+        #expect(summary.state == .running)
+        #expect(summary.running.map(\.id) == [2])
+        #expect(summary.queued.map(\.id) == [3])
+        #expect(summary.primaryRun?.id == 2)
     }
 
     @Test func onlyLatestRunPerWorkflowOnDefaultBranchCounts() {
@@ -87,14 +106,15 @@ struct CIEvaluatorTests {
     @Test func overallCountsEachCIState() {
         let ref = RepoRef(owner: "mbianchidev", name: "api-server")
         let statuses = [
-            RepoStatus(ref: ref, ci: CISummary(state: .running, running: [], latestOnDefault: [])),
-            RepoStatus(ref: ref, ci: CISummary(state: .failing, running: [], latestOnDefault: [])),
-            RepoStatus(ref: ref, ci: CISummary(state: .notStarted, running: [], latestOnDefault: [])),
-            RepoStatus(ref: ref, ci: CISummary(state: .passing, running: [], latestOnDefault: [])),
+            RepoStatus(ref: ref, ci: CISummary(state: .running)),
+            RepoStatus(ref: ref, ci: CISummary(state: .queued)),
+            RepoStatus(ref: ref, ci: CISummary(state: .failing)),
+            RepoStatus(ref: ref, ci: CISummary(state: .notStarted)),
+            RepoStatus(ref: ref, ci: CISummary(state: .passing)),
             RepoStatus(ref: ref),
         ]
         let overall = OverallStatus(statuses)
-        #expect(overall == OverallStatus(running: 1, failing: 1, notStarted: 1, passing: 1))
+        #expect(overall == OverallStatus(running: 1, queued: 1, failing: 1, notStarted: 1, passing: 1))
     }
 
     @Test func activityModes() {

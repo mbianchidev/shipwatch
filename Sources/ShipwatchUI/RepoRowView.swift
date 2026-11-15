@@ -450,7 +450,7 @@ struct RemovalConfirmation: View {
     }
 }
 
-/// Expanded part of a row: running runs, then the latest result per workflow on the default branch.
+/// Expanded part of a row: running runs, queued runs, then the latest result per workflow on the default branch.
 struct RunsPanel: View {
     let model: AppModel
     let ref: RepoRef
@@ -458,24 +458,21 @@ struct RunsPanel: View {
     let defaultBranch: String?
 
     var body: some View {
+        let sections = [
+            ("Running now", Array(ci.running.prefix(6))),
+            ("Queued", Array(ci.queued.prefix(6))),
+            ("Latest on \(defaultBranch ?? "default branch")", Array(ci.latestOnDefault.prefix(8))),
+        ].filter { !$0.1.isEmpty }
         VStack(alignment: .leading, spacing: 2) {
-            if !ci.running.isEmpty {
-                SectionLabel("Running now")
+            ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
+                SectionLabel(section.0)
                     .padding(.horizontal, 8)
-                    .padding(.top, 4)
-                ForEach(ci.running.prefix(6)) { run in
+                    .padding(.top, index == 0 ? 4 : 8)
+                ForEach(section.1) { run in
                     RunRow(model: model, run: run)
                 }
             }
-            if !ci.latestOnDefault.isEmpty {
-                SectionLabel("Latest on \(defaultBranch ?? "default branch")")
-                    .padding(.horizontal, 8)
-                    .padding(.top, ci.running.isEmpty ? 4 : 8)
-                ForEach(ci.latestOnDefault.prefix(8)) { run in
-                    RunRow(model: model, run: run)
-                }
-            }
-            if ci.running.isEmpty && ci.latestOnDefault.isEmpty {
+            if sections.isEmpty {
                 Text("No workflow runs yet.")
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
