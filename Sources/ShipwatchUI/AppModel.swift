@@ -35,6 +35,21 @@ public enum Banner: Equatable, Sendable {
     case error(String)
 }
 
+/// What the summary chips narrow the list to.
+public enum RepoFilter: Hashable, Sendable {
+    case ci(CIState)
+    /// Repositories with at least one open Dependabot pull request.
+    case dependabot
+
+    func matches(_ status: RepoStatus?) -> Bool {
+        guard let status, status.problem == nil else { return false }
+        switch self {
+        case .ci(let state): return status.ciState == state
+        case .dependabot: return status.dependabotPullRequests > 0
+        }
+    }
+}
+
 public enum CLIStatus: Equatable, Sendable {
     case unknown
     case notInstalled
@@ -89,8 +104,8 @@ public final class AppModel {
     // UI state
     public var expanded: Set<String> = []
     public var showHiddenInMenu = false
-    /// Set by the summary chips: only repositories in this CI state are listed.
-    public var ciFilter: CIState?
+    /// Set by the summary chips: only matching repositories are listed.
+    public var filter: RepoFilter?
     public var pendingRemoval: String?
     public var settingsTab: SettingsTab = .repositories
     public var isAddingRepositories = false
@@ -141,11 +156,33 @@ public final class AppModel {
         authMethod == nil || signInStep == .install
     }
 
-    /// Rows in the popover: visible repos, plus hidden ones while "Show" is on, narrowed by the CI filter.
+    /// Rows in the popover: visible repos, plus hidden ones while "Show" is on, narrowed by the filter.
     public var menuRepos: [TrackedRepo] {
-        let repos = showHiddenInMenu ? prefs.repos.items : prefs.repos.visible
-        guard let ciFilter else { return repos }
-        return repos.filter { statuses[$0.id]?.ciState == ciFilter }
+        let repos = prefs.repos.items.filter(isShownInMenu)
+        guard let filter else { return repos }
+        return repos.filter { filter.matches(statuses[$0.id]) }
+    }
+
+    /// `menuRepos` as top-level popover rows, grouped and in the chosen order.
+    public var menuEntries: [RepoListEntry] {
+        let shown = Set(menuRepos.map(\.id))
+        let mode = prefs.activityMode
+        return prefs.repos.entries { shown.contains($0.id) }
+            .sorted(by: prefs.menuSort) { statuses[$0.id]?.lastActivity(mode) }
+    }
+
+    func isShownInMenu(_ repo: TrackedRepo) -> Bool {
+        showHiddenInMenu || !repo.hidden
+    }
+
+    /// Visible repositories with at least one open Dependabot pull request.
+    public var dependabotCount: Int {
+        prefs.repos.visible.count { RepoFilter.dependabot.matches(statuses[$0.id]) }
+    }
+
+    /// While a filter is on, groups list their matching members.
+    public func isExpanded(_ group: RepoGroup) -> Bool {
+        filter != nil || group.isExpanded
     }
 
     public var overall: OverallStatus {
@@ -197,12 +234,12 @@ public final class AppModel {
 
     public func popoverDidClose() {
         pendingRemoval = nil
-        ciFilter = nil
+        filter = nil
     }
 
-    /// Lists only repositories in `state`, or everything again when that filter is already on.
-    public func toggleFilter(_ state: CIState) {
-        ciFilter = ciFilter == state ? nil : state
+    /// Lists only matching repositories, or everything again when that filter is already on.
+    public func toggleFilter(_ filter: RepoFilter) {
+        self.filter = self.filter == filter ? nil : filter
     }
 
     private func observeWake() {
@@ -260,11 +297,11 @@ public final class AppModel {
         do {
             let includePrereleases = prefs.includePrereleases
             let batch = try await authorized { try await $0.statuses(for: refs, includePrereleases: includePrereleases) }
-            statuses = batch.statuses
+            statuses = followRenames(batch.statuses)
             lastUpdated = Date()
             banner = nil
             rateLimitedUntil = nil
-            let fresh = batch.statuses
+            let fresh = statuses
             Task { await workspace.afterRefresh(statuses: fresh) }
             if let limit = batch.rateLimit, limit.remaining < 50 {
                 uiLog.notice("GitHub rate limit low: \(limit.remaining) left")
@@ -272,6 +309,30 @@ public final class AppModel {
         } catch {
             handleRefreshError(error)
         }
+    }
+
+    /// Points tracked repositories that GitHub now reports under another name or owner at that name, keeping their
+    /// place, group, visibility and clone settings, and rekeys `fresh` to match. GitHub's search doesn't follow
+    /// renames, so a renamed repository gets one more pass to count its Dependabot pull requests.
+    private func followRenames(_ fresh: [String: RepoStatus]) -> [String: RepoStatus] {
+        var result = fresh
+        var repos = prefs.repos
+        for item in prefs.repos.items {
+            guard let status = fresh[item.id], status.problem == nil, status.ref != item.ref,
+                  repos.rename(item.id, to: status.ref)
+            else { continue }
+            let old = item.id, new = status.ref.key
+            uiLog.notice("\(item.ref.fullName, privacy: .private) is now \(status.ref.fullName, privacy: .private) on GitHub")
+            guard old != new else { continue }
+            result[old] = nil
+            if result[new] == nil { result[new] = status }
+            if expanded.remove(old) != nil { expanded.insert(new) }
+            if pendingRemoval == old { pendingRemoval = nil }
+            if prefs.cloneSyncOptOut.remove(old) != nil { prefs.cloneSyncOptOut.insert(new) }
+            refreshAgain = true
+        }
+        if repos != prefs.repos { prefs.repos = repos }
+        return result
     }
 
     private func handleRefreshError(_ error: any Error) {
@@ -543,8 +604,41 @@ public final class AppModel {
         if hidden { expanded.remove(id) }
     }
 
-    public func move(_ id: TrackedRepo.ID, by offset: Int) {
-        prefs.repos.moveVisible(id, by: offset)
+    /// "Move Up" and "Move Down" for a repository key or a `RepoGroup.entryID`. Only the custom order can change.
+    public func canMove(_ id: String, by offset: Int) -> Bool {
+        prefs.menuSort == .custom && prefs.repos.canMove(id, by: offset, including: isShownInMenu)
+    }
+
+    public func move(_ id: String, by offset: Int) {
+        guard canMove(id, by: offset) else { return }
+        prefs.repos.move(id, by: offset, including: isShownInMenu)
+    }
+
+    // MARK: Groups
+
+    /// Creates a group with the given repositories and returns its id so Settings can focus its name.
+    @discardableResult
+    public func createGroup(with ids: [TrackedRepo.ID] = []) -> RepoGroup.ID {
+        let name = prefs.repos.unusedGroupName()
+        return prefs.repos.addGroup(named: name, members: ids)
+    }
+
+    public func renameGroup(_ id: RepoGroup.ID, to name: String) {
+        prefs.repos.renameGroup(id, to: name)
+    }
+
+    /// Deletes the group only; its repositories stay tracked, ungrouped.
+    public func removeGroup(_ id: RepoGroup.ID) {
+        prefs.repos.removeGroup(id)
+    }
+
+    public func setGroup(_ ids: [TrackedRepo.ID], to group: RepoGroup.ID?) {
+        prefs.repos.setGroup(ids, to: group)
+    }
+
+    public func toggleGroup(_ id: RepoGroup.ID) {
+        guard let group = prefs.repos.group(id) else { return }
+        prefs.repos.setGroupExpanded(id, !group.isExpanded)
     }
 
     public func toggleExpanded(_ id: TrackedRepo.ID) {

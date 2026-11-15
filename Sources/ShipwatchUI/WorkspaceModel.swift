@@ -171,7 +171,8 @@ public final class WorkspaceModel {
         }
         let scanner = WorkspaceScanner(root: root, excluded: prefs.excludedFolders.map { URL(fileURLWithPath: $0, isDirectory: true) })
         let tracked = Set(prefs.repos.items.map(\.id))
-        let found = await Task.detached(priority: .utility) { scanner.scan(tracked: tracked) }.value
+        let aliases = prefs.repos.aliases
+        let found = await Task.detached(priority: .utility) { scanner.scan(tracked: tracked, aliases: aliases) }.value
         guard root == self.root else { return }
         scannedTracked = tracked
         for folder in found.unreadable {
