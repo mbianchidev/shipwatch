@@ -160,7 +160,7 @@ struct RepoRowView: View {
                 CountsLine(model: model, status: status)
             }
         } else {
-            Text("Loading…")
+            Text(model.isRefreshing || model.banner == nil ? "Loading…" : "Not loaded yet")
                 .font(.system(size: 11.5))
                 .foregroundStyle(.tertiary)
         }

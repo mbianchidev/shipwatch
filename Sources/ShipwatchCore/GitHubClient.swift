@@ -14,6 +14,9 @@ public actor GitHubClient {
     private let token: TokenProvider
     private var etagCache: [URL: (etag: String, data: Data)] = [:]
     private let maxConcurrentRunRequests = 6
+    private var chunkSize = RepoQuery.chunkSize
+    /// Repos in a row that failed even when queried alone: past this, GitHub is down rather than slow on one repo.
+    private let maxConsecutiveRepoFailures = 3
 
     public init(
         transport: any HTTPTransport = URLSessionTransport(),
@@ -58,21 +61,20 @@ public actor GitHubClient {
 
     // MARK: Status
 
-    /// Fetches release, counts, activity and CI for every repo: one GraphQL call per chunk of 20,
+    /// Fetches release, counts, activity and CI for every repo: one GraphQL call per chunk of repos,
     /// plus one conditional REST call per repo for workflow runs.
     public func statuses(for refs: [RepoRef], includePrereleases: Bool) async throws -> StatusBatch {
         var result: [String: RepoStatus] = [:]
-        var rateLimit: RateLimit?
+        var progress = ChunkProgress()
 
-        for start in stride(from: 0, to: refs.count, by: RepoQuery.chunkSize) {
-            let chunk = Array(refs[start..<min(start + RepoQuery.chunkSize, refs.count)])
-            let (query, variables) = RepoQuery.build(chunk)
-            let data = try await graphQL(query: query, variables: variables)
-            let parsed = try RepoQuery.parse(data, refs: chunk, includePrereleases: includePrereleases)
-            for (ref, status) in zip(chunk, parsed.statuses) {
+        var remaining = refs[...]
+        while !remaining.isEmpty {
+            let chunk = Array(remaining.prefix(chunkSize))
+            remaining = remaining.dropFirst(chunk.count)
+            let statuses = try await repoStatuses(chunk, includePrereleases: includePrereleases, progress: &progress)
+            for (ref, status) in zip(chunk, statuses) {
                 result[ref.key] = status
             }
-            rateLimit = parsed.rateLimit ?? rateLimit
         }
 
         let readable = refs.compactMap { ref -> (key: String, ref: RepoRef, defaultBranch: String?)? in
@@ -83,7 +85,38 @@ public actor GitHubClient {
         for (key, summary) in summaries {
             result[key]?.ci = summary
         }
-        return StatusBatch(statuses: result, rateLimit: rateLimit)
+        return StatusBatch(statuses: result, rateLimit: progress.rateLimit)
+    }
+
+    private struct ChunkProgress {
+        var rateLimit: RateLimit?
+        var consecutiveRepoFailures = 0
+    }
+
+    /// Splits a chunk in half when GitHub times out on it, so one slow batch or repo doesn't fail the whole refresh.
+    /// A repo that still fails on its own shows the error on its row.
+    private func repoStatuses(_ chunk: [RepoRef], includePrereleases: Bool, progress: inout ChunkProgress) async throws -> [RepoStatus] {
+        do {
+            let (query, variables) = RepoQuery.build(chunk)
+            let data = try await graphQL(query: query, variables: variables)
+            let parsed = try RepoQuery.parse(data, refs: chunk, includePrereleases: includePrereleases)
+            progress.rateLimit = parsed.rateLimit ?? progress.rateLimit
+            progress.consecutiveRepoFailures = 0
+            return parsed.statuses
+        } catch let error as GitHubError where error.isServerError {
+            if chunk.count > 1 {
+                log.notice("GraphQL query for \(chunk.count) repos failed, splitting it: \(error.localizedDescription, privacy: .public)")
+                chunkSize = min(chunkSize, RepoQuery.smallChunkSize)
+                let half = chunk.count / 2
+                let first = try await repoStatuses(Array(chunk[..<half]), includePrereleases: includePrereleases, progress: &progress)
+                let second = try await repoStatuses(Array(chunk[half...]), includePrereleases: includePrereleases, progress: &progress)
+                return first + second
+            }
+            progress.consecutiveRepoFailures += 1
+            if progress.consecutiveRepoFailures >= maxConsecutiveRepoFailures { throw error }
+            log.error("GraphQL query for \(chunk[0].fullName, privacy: .private) failed: \(error.localizedDescription, privacy: .public)")
+            return [RepoStatus(ref: chunk[0], problem: .error(error.localizedDescription))]
+        }
     }
 
     private func ciSummaries(for repos: [(key: String, ref: RepoRef, defaultBranch: String?)]) async throws -> [String: CISummary] {

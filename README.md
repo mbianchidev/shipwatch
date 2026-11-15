@@ -73,7 +73,7 @@ use the GitHub CLI option. To build from source, see
   review work, and each count opens the matching list.
 - **Read-only.** The GitHub App only asks for read permissions, and Shipwatch
   never changes anything on GitHub.
-- **Light on rate limits.** One GraphQL query per 20 repositories, and workflow
+- **Light on rate limits.** One GraphQL query per 10 repositories, and workflow
   run requests that come back as `304 Not Modified` when nothing changed.
 - **No server, no analytics.** Shipwatch talks to GitHub directly and keeps the
   token in your login Keychain.
@@ -91,7 +91,7 @@ Tradeoffs:
 ## How it works
 
 Shipwatch is a SwiftUI list in an AppKit menu bar item. On each refresh it reads
-the token from the Keychain (or `gh`), sends one GraphQL query per 20
+the token from the Keychain (or `gh`), sends one GraphQL query per 10
 repositories for releases, counts and dates, and one conditional REST request per
 repository for recent workflow runs. Running beats failing and failing beats
 passing; only the latest completed run of each workflow on the default branch
