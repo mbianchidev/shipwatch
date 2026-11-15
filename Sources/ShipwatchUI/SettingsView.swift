@@ -180,7 +180,7 @@ struct GeneralSettingsView: View {
                     .toggleStyle(.switch)
             }
             .padding(.top, 4)
-            formCaption("Open Dependabot, code scanning and secret scanning alerts. Needs admin or security manager access.")
+            formCaption("Open Dependabot, code scanning and secret scanning alerts. Needs write access, admin for secret scanning.")
 
             GridRow {
                 formLabel("Show count in menu bar:")

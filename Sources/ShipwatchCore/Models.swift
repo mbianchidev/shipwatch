@@ -167,8 +167,8 @@ public struct CISummary: Equatable, Sendable {
     }
 }
 
-/// Open security alerts of one repository. A count is `nil` when it couldn't be read: only admins and security
-/// managers can read alerts, private repositories need GitHub Advanced Security, and the feature may be off.
+/// Open security alerts of one repository. A count is `nil` when it couldn't be read: alerts need write access
+/// (admin for secret scanning), private repositories need GitHub Advanced Security, and the feature may be off.
 public struct SecurityAlerts: Equatable, Sendable {
     /// Code and secret scanning are counted from one page of REST results, so this many means at least this many.
     public static let pageLimit = 100

@@ -268,7 +268,7 @@ public actor GitHubClient {
     }
 
     /// Open alerts of one kind, counted up to `SecurityAlerts.pageLimit`, or `nil` when the token can't read them.
-    /// GitHub answers 403 or 404 without admin or security manager access, without GitHub Advanced Security on a
+    /// GitHub answers 403 or 404 without enough access to the repo, without GitHub Advanced Security on a
     /// private repo, or while the feature is off. Shipwatch then asks again only after `alertRetryInterval`.
     public func openAlertCount(_ ref: RepoRef, _ kind: ScanningAlertKind) async throws -> Int? {
         var query = [

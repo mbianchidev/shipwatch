@@ -247,6 +247,29 @@ struct CountsLine: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            // Drops the "dependabot" word before anything gets truncated.
+            ViewThatFits(in: .horizontal) {
+                counts(labelsDependabot: true).fixedSize()
+                counts(labelsDependabot: false)
+            }
+
+            Spacer(minLength: 4)
+
+            if let activity {
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                    Text(RelativeTime.ago(activity))
+                }
+                .foregroundStyle(.secondary)
+                .help("\(model.prefs.activityMode.label): \(activity.formatted(date: .abbreviated, time: .shortened))")
+            }
+        }
+        .font(.system(size: 11.5))
+        .lineLimit(1)
+    }
+
+    private func counts(labelsDependabot: Bool) -> some View {
+        HStack(spacing: 10) {
             Button { model.open(issuesURL) } label: {
                 Counter(count: issues, label: issues == 1 ? "issue" : "issues") {
                     Image(systemName: "smallcircle.filled.circle")
@@ -274,7 +297,9 @@ struct CountsLine: View {
                         HStack(spacing: 4) {
                             Image(systemName: "shippingbox")
                             Text("\(dependabot)").fontWeight(.semibold)
-                            Text("dependabot")
+                            if labelsDependabot {
+                                Text("dependabot")
+                            }
                         }
                         .foregroundStyle(Theme.link)
                         .padding(.horizontal, 7)
@@ -282,25 +307,13 @@ struct CountsLine: View {
                     }
                     .buttonStyle(.plain)
                     .help("Open Dependabot pull requests")
+                    .accessibilityLabel("\(dependabot) dependabot")
                 }
             }
             .background(Theme.fill, in: RoundedRectangle(cornerRadius: 6))
 
             if let alerts { alerts }
-
-            Spacer(minLength: 4)
-
-            if let activity {
-                HStack(spacing: 4) {
-                    Image(systemName: "clock")
-                    Text(RelativeTime.ago(activity))
-                }
-                .foregroundStyle(.secondary)
-                .help("\(model.prefs.activityMode.label): \(activity.formatted(date: .abbreviated, time: .shortened))")
-            }
         }
-        .font(.system(size: 11.5))
-        .lineLimit(1)
     }
 }
 
@@ -316,7 +329,7 @@ struct SecurityAlertsBadge: View {
     let url: URL?
 
     private static let unknownNote =
-        " Unknown counts need admin or security manager access, and the feature turned on for the repository."
+        " Unknown counts need write access (admin for secret scanning) and the feature turned on for the repository."
 
     init(model: AppModel, ref: RepoRef, alerts: SecurityAlerts) {
         self.model = model
