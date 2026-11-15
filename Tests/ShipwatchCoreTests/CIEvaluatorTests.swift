@@ -84,7 +84,7 @@ struct CIEvaluatorTests {
         #expect(CIEvaluator.summarize(runs: runs, defaultBranch: "main").state == .passing)
     }
 
-    @Test func overallIndicatorPrefersFailingOverRunning() {
+    @Test func overallCountsEachCIState() {
         let ref = RepoRef(owner: "mbianchidev", name: "api-server")
         let statuses = [
             RepoStatus(ref: ref, ci: CISummary(state: .running, running: [], latestOnDefault: [])),
@@ -95,9 +95,6 @@ struct CIEvaluatorTests {
         ]
         let overall = OverallStatus(statuses)
         #expect(overall == OverallStatus(running: 1, failing: 1, notStarted: 1, passing: 1))
-        #expect(overall.indicator == .failing)
-        #expect(OverallStatus(running: 2, notStarted: 1).indicator == .notStarted)
-        #expect(OverallStatus(running: 2).indicator == .running)
     }
 
     @Test func activityModes() {

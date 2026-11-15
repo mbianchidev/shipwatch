@@ -15,8 +15,6 @@ enum Theme {
     static let settingsCard = Color(white: 0.09)
 
     static let runningNS = NSColor(red: 0.98, green: 0.80, blue: 0.10, alpha: 1)
-    static let failingNS = NSColor(red: 1.00, green: 0.27, blue: 0.23, alpha: 1)
-    static let warningNS = NSColor(red: 1.00, green: 0.62, blue: 0.04, alpha: 1)
 }
 
 /// What the CI icon shows for a repo or a run.

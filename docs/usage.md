@@ -6,10 +6,8 @@ Shipwatch shows a sailboat in the menu bar.
 
 | Icon | Meaning |
 | --- | --- |
-| Sailboat only | Every visible repository is passing or has no runs |
-| Yellow dot | A workflow is running or queued somewhere |
-| Orange dot | A repository's latest jobs never started (config/billing), nothing is failing |
-| Red dot | At least one repository is failing on its default branch |
+| Sailboat only | Nothing is running; repositories may be passing, failing or config/billing |
+| Yellow dot | A workflow is running or queued in a visible repository |
 
 By default the number of repositories with a running workflow shows next to the
 sailboat. **Show count in menu bar** switches it to failing repositories or

@@ -21,9 +21,8 @@ plus a status dot, and an `NSPopover` hosting `PopoverView`. The app runs as an
 accessory (`LSUIElement`), so there is no Dock icon. Settings is a regular
 window (`SettingsWindowController`) forced to dark appearance.
 
-The dot summarizes visible repos: red if any repo is failing, else orange if any
-repo's latest jobs never started (config/billing), else yellow if any is running
-or queued, else no dot. The number of running repos (default) or failing repos is
+The dot is yellow while any visible repo has a running or queued workflow, and
+hidden otherwise; failing and config/billing repos show only in the list. The number of running repos (default) or failing repos is
 shown next to the icon, or none (Settings > General).
 
 ## Data flow
