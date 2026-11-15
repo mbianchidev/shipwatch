@@ -46,6 +46,14 @@ GitHub can't answer shows the error. A banner means GitHub kept failing: rows
 that never loaded say "Not loaded yet" and the rest keep their last data. Check
 [githubstatus.com](https://www.githubstatus.com) and click **Retry** later.
 
+## A repository shows config/billing
+
+Its latest runs on the default branch failed before any job ran. Open the run
+from the row: GitHub's message says whether a payment failed or the spending
+limit was reached (fix it under **Settings > Billing and plans** on GitHub), or
+which part of the workflow file is invalid. Re-run or push again afterwards;
+Shipwatch picks up the new run on the next refresh.
+
 ## Counts look stale or a banner says "GitHub rate limit reached"
 
 Shipwatch waits for the rate limit reset and retries on its own. Use

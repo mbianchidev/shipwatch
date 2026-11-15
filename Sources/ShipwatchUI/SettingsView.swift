@@ -174,12 +174,17 @@ struct GeneralSettingsView: View {
             .padding(.top, 8)
 
             GridRow {
-                formLabel("Show failing count in menu bar:")
-                Toggle("Show failing count in menu bar", isOn: $prefs.showFailingCount)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
+                formLabel("Show count in menu bar:")
+                Picker("Show count in menu bar", selection: $prefs.menuBarCount) {
+                    ForEach(MenuBarCount.allCases, id: \.self) { count in
+                        Text(count.label).tag(count)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
             }
             .padding(.top, 4)
+            formCaption("Number of running or failing repositories next to the sailboat.")
 
             GridRow {
                 formLabel("Launch at login:")
@@ -188,7 +193,7 @@ struct GeneralSettingsView: View {
                     .toggleStyle(.switch)
                     .disabled(!model.loginItemAvailable)
             }
-            .padding(.top, 4)
+            .padding(.top, 8)
             if !model.loginItemAvailable {
                 formCaption("Available when Shipwatch runs from its app bundle.")
             } else if let error = model.launchAtLoginError {

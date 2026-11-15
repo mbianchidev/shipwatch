@@ -8,10 +8,12 @@ Shipwatch shows a sailboat in the menu bar.
 | --- | --- |
 | Sailboat only | Every visible repository is passing or has no runs |
 | Yellow dot | A workflow is running or queued somewhere |
+| Orange dot | A repository's latest jobs never started (config/billing), nothing is failing |
 | Red dot | At least one repository is failing on its default branch |
 
-Turn on **Show failing count in menu bar** to also show how many repositories
-are failing. Left-click the sailboat to open the list. Right-click it for
+By default the number of repositories with a running workflow shows next to the
+sailboat. **Show count in menu bar** switches it to failing repositories or
+turns it off. Left-click the sailboat to open the list. Right-click it for
 **Refresh** (Cmd-R), **Settings…** (Cmd-comma), **Check for Updates…** and
 **Quit Shipwatch** (Cmd-Q). When a newer Shipwatch is out, a line above
 **Manage Repositories…** offers **Install**; see [Updates](updates.md).
@@ -29,7 +31,7 @@ Each visible repository shows:
 | --- | --- |
 | `owner/name` | the repository |
 | Latest release tag and age (or **No releases**) | that release |
-| Actions status: checkmark passing, xmark failing, dotted circle running | expands the row with running runs and the latest run per workflow on the default branch; each run links to GitHub |
+| Actions status: checkmark passing, xmark failing, exclamation mark config/billing, dotted circle running | expands the row with running runs and the latest run per workflow on the default branch; each run links to GitHub |
 | Open issues | the open issues list |
 | Open pull requests | the open pull requests list |
 | `N dependabot` | open pull requests by `app/dependabot` |
@@ -37,7 +39,18 @@ Each visible repository shows:
 
 Failing means the latest completed run of any workflow on the default branch
 failed. A red run that was fixed by a later run is ignored. Running beats
-failing, failing beats passing.
+failing, failing beats config/billing, config/billing beats passing.
+
+**Config/billing** (orange exclamation mark) means the latest runs failed before
+any job ran: GitHub failed every job without assigning a runner, or the workflow
+file is invalid (`startup_failure`). That is what happens when a payment failed or
+the Actions spending limit is reached, and also when a job's configuration (for
+example `runs-on` or a matrix) can't be evaluated. Shipwatch can't tell the two
+apart without the Checks permission, so open the run to see GitHub's message.
+
+The chips under the title count running, failing, config/billing and passing
+repositories. Click one to list only those repositories; click it again, or
+close the list, to show all of them.
 
 Right-click a row for **Open Repository**, **Open Actions**, **Open Releases**,
 **Copy Latest Tag**, **Move Up**, **Move Down**, **Hide** and
@@ -128,7 +141,7 @@ helper and never prompts.
 | Refresh every | 2 minutes | 1, 2, 5, 10 or 15 minutes. While a workflow runs, Shipwatch refreshes every 20 seconds. |
 | Last activity means | Last push | **Last push**, or **Any update** (issues, pull requests, comments). |
 | Include pre-releases | Off | Show the newest release even if it is a pre-release. |
-| Show failing count in menu bar | Off | Add the number of failing repositories next to the sailboat. |
+| Show count in menu bar | Running | Show the number of **Running** or **Failing** repositories next to the sailboat, or **None**. |
 | Launch at login | On after the first launch from Applications | Start Shipwatch when you log in. Only available for the app bundle. |
 | Check automatically | On, every 6 hours | Check GitHub Releases for a newer Shipwatch every hour, 6 hours, 12 hours or day. |
 | Install automatically | Off | Install a verified update found by a scheduled check, then restart. |

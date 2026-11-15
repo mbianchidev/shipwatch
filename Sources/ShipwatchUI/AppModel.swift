@@ -89,6 +89,8 @@ public final class AppModel {
     // UI state
     public var expanded: Set<String> = []
     public var showHiddenInMenu = false
+    /// Set by the summary chips: only repositories in this CI state are listed.
+    public var ciFilter: CIState?
     public var pendingRemoval: String?
     public var settingsTab: SettingsTab = .repositories
     public var isAddingRepositories = false
@@ -139,9 +141,11 @@ public final class AppModel {
         authMethod == nil || signInStep == .install
     }
 
-    /// Rows in the popover: visible repos, plus hidden ones while "Show" is on.
+    /// Rows in the popover: visible repos, plus hidden ones while "Show" is on, narrowed by the CI filter.
     public var menuRepos: [TrackedRepo] {
-        showHiddenInMenu ? prefs.repos.items : prefs.repos.visible
+        let repos = showHiddenInMenu ? prefs.repos.items : prefs.repos.visible
+        guard let ciFilter else { return repos }
+        return repos.filter { statuses[$0.id]?.ciState == ciFilter }
     }
 
     public var overall: OverallStatus {
@@ -193,6 +197,12 @@ public final class AppModel {
 
     public func popoverDidClose() {
         pendingRemoval = nil
+        ciFilter = nil
+    }
+
+    /// Lists only repositories in `state`, or everything again when that filter is already on.
+    public func toggleFilter(_ state: CIState) {
+        ciFilter = ciFilter == state ? nil : state
     }
 
     private func observeWake() {

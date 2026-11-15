@@ -11,8 +11,8 @@ audit.
   rows, status dots and count chips need accessible labels and values, not
   only tooltips or color.
 - Every status must be readable without color: CI uses distinct symbols
-  (check mark, cross, dotted circle) as well as green, red and yellow, and the
-  same text is exposed to VoiceOver.
+  (check mark, cross, exclamation mark, dotted circle) as well as green, red,
+  orange and yellow, and the same text is exposed to VoiceOver.
 - Keep the popover and Settings usable from the keyboard. Preserve visible
   focus, a predictable focus order, and the existing shortcuts (Command-R
   refresh, Command-comma Settings, Command-Q quit).

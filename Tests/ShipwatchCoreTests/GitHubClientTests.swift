@@ -171,6 +171,44 @@ struct GitHubClientTests {
         #expect(transport.requests.last?.value(forHTTPHeaderField: "If-None-Match") == "\"abc\"")
     }
 
+    static let failedRuns = Fixtures.runsJSON([
+        (id: 490, workflow: 1, status: "completed", conclusion: "failure", branch: "main", created: "2026-11-14T15:30:00Z"),
+        (id: 489, workflow: 2, status: "completed", conclusion: "failure", branch: "feature", created: "2026-11-14T15:20:00Z"),
+    ])
+
+    @Test func failedRunWhoseJobsNeverStartedIsNotStartedAndReadOnce() async throws {
+        let transport = MockTransport { request in
+            switch request.url!.path {
+            case "/graphql": return Self.graphQLReply(["mbianchidev/api-server"])
+            case "/repos/mbianchidev/api-server/actions/runs": return .json(Self.failedRuns)
+            case "/repos/mbianchidev/api-server/actions/runs/490/jobs": return .json(Fixtures.jobsNeverStartedJSON)
+            default: return .json(#"{"message":"Not Found"}"#, status: 404)
+            }
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        for _ in 0..<2 {
+            let batch = try await client.statuses(for: [Self.api], includePrereleases: false)
+            let ci = try #require(batch.statuses[Self.api.key]?.ci)
+            #expect(ci.state == .notStarted)
+            #expect(ci.primaryRun?.didNotStart == true)
+        }
+        let jobRequests = transport.requests.filter { $0.url!.path.hasSuffix("/jobs") }
+        #expect(jobRequests.map { $0.url!.path } == ["/repos/mbianchidev/api-server/actions/runs/490/jobs"])
+    }
+
+    @Test func unreadableJobsLeaveTheRunFailing() async throws {
+        let transport = MockTransport { request in
+            switch request.url!.path {
+            case "/graphql": return Self.graphQLReply(["mbianchidev/api-server"])
+            case "/repos/mbianchidev/api-server/actions/runs": return .json(Self.failedRuns)
+            default: return Self.gatewayTimeout
+            }
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let batch = try await client.statuses(for: [Self.api], includePrereleases: false)
+        #expect(batch.statuses[Self.api.key]?.ci?.state == .failing)
+    }
+
     @Test func missingActionsAccessIsUnknownCI() async throws {
         let transport = MockTransport { _ in .json(#"{"message":"Not Found"}"#, status: 404) }
         let client = GitHubClient(transport: transport, token: { "test-token" })

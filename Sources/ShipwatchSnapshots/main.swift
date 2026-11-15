@@ -61,6 +61,8 @@ func mockStatuses() -> [RepoStatus] {
     let website = ref("octocat/website")
     let cli = ref("octocat/cli-tool")
     let infra = ref("acme-org/infra")
+    var terraformPlan = run(6400, "Terraform plan", number: 640, status: "completed", conclusion: "failure", startedAgo: 26 * hour, repo: infra)
+    terraformPlan.jobsNeverStarted = true
     return [
         RepoStatus(
             ref: api, isPrivate: true, defaultBranch: "main", latestRelease: release("v2.4.1", api, daysAgo: 3),
@@ -88,9 +90,7 @@ func mockStatuses() -> [RepoStatus] {
         RepoStatus(
             ref: infra, isPrivate: true, defaultBranch: "main", openIssues: 7, openPullRequests: 4,
             dependabotPullRequests: 1, pushedAt: ago(26 * hour),
-            ci: CISummary(state: .passing, running: [], latestOnDefault: [
-                run(6400, "Terraform plan", number: 640, status: "completed", conclusion: "success", startedAgo: 26 * hour, repo: infra),
-            ])
+            ci: CISummary(state: .notStarted, running: [], latestOnDefault: [terraformPlan])
         ),
         RepoStatus(ref: ref("octocat/dotfiles"), defaultBranch: "main", pushedAt: ago(41 * day), ci: .empty),
         RepoStatus(ref: ref("octocat/old-blog"), isArchived: true, defaultBranch: "main", latestRelease: release("v1.0.0", ref("octocat/old-blog"), daysAgo: 700), pushedAt: ago(620 * day), ci: .empty),

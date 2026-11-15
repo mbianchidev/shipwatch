@@ -16,11 +16,12 @@ enum Theme {
 
     static let runningNS = NSColor(red: 0.98, green: 0.80, blue: 0.10, alpha: 1)
     static let failingNS = NSColor(red: 1.00, green: 0.27, blue: 0.23, alpha: 1)
+    static let warningNS = NSColor(red: 1.00, green: 0.62, blue: 0.04, alpha: 1)
 }
 
 /// What the CI icon shows for a repo or a run.
 enum CIGlyph: Equatable {
-    case loading, running, queued, passing, failing, neutral, none, unreadable, noAccess
+    case loading, running, queued, passing, failing, notStarted, neutral, none, unreadable, noAccess
 
     init(repo status: RepoStatus?) {
         guard let status else {
@@ -38,6 +39,7 @@ enum CIGlyph: Equatable {
         switch ci.state {
         case .running: self = ci.running.allSatisfy(\.isQueued) ? .queued : .running
         case .failing: self = .failing
+        case .notStarted: self = .notStarted
         case .passing: self = .passing
         case .none: self = .none
         }
@@ -46,6 +48,8 @@ enum CIGlyph: Equatable {
     init(run: WorkflowRun) {
         if run.isActive {
             self = run.isQueued ? .queued : .running
+        } else if run.didNotStart {
+            self = .notStarted
         } else if run.isFailure {
             self = .failing
         } else if run.conclusion == "success" {
@@ -62,6 +66,7 @@ enum CIGlyph: Equatable {
         case .queued: "Workflow queued"
         case .passing: "Passing on the default branch"
         case .failing: "Failing on the default branch"
+        case .notStarted: "Config/billing: jobs never started, check billing or the workflow file"
         case .neutral: "Cancelled or skipped"
         case .none: "No workflow runs"
         case .unreadable: "Shipwatch can't read Actions for this repository"
@@ -85,6 +90,8 @@ struct CIIcon: View {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.white, Theme.passing)
             case .failing:
                 Image(systemName: "xmark.circle.fill").foregroundStyle(.white, Theme.failing)
+            case .notStarted:
+                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.white, Theme.warning)
             case .neutral, .none:
                 Image(systemName: "minus.circle").foregroundStyle(.secondary)
             case .unreadable:

@@ -50,6 +50,9 @@ struct DashboardView: View {
                         ForEach(repos) { repo in
                             RepoRowView(model: model, repo: repo)
                         }
+                        if repos.isEmpty, model.ciFilter != nil {
+                            filterEmptyNote
+                        }
                     }
                     .padding(6)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
@@ -94,7 +97,7 @@ struct DashboardView: View {
                     model.actions.showSettings(.general)
                 }
             }
-            SummaryChips(overall: model.overall)
+            SummaryChips(model: model)
         }
         .padding(.horizontal, 14)
         .padding(.top, 12)
@@ -142,6 +145,21 @@ struct DashboardView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
+    }
+
+    /// A refresh can empty the filtered list, for example when the last running workflow finishes.
+    private var filterEmptyNote: some View {
+        HStack(spacing: 5) {
+            Text("No repositories match this filter ·")
+            Button("Show All") { model.ciFilter = nil }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.link)
+            Spacer()
+        }
+        .font(.system(size: 11.5))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 12)
     }
 
     private var emptyState: some View {
@@ -193,30 +211,53 @@ struct StatusLine: View {
     }
 }
 
+/// Counts per CI state. Clicking one lists only those repositories; clicking it again lists all.
 struct SummaryChips: View {
-    let overall: OverallStatus
+    let model: AppModel
+
+    private struct Chip {
+        var state: CIState
+        var glyph: CIGlyph
+        var count: Int
+        var label: String
+    }
 
     var body: some View {
-        let chips: [(CIGlyph, Int, String)] = [
-            (.running, overall.running, "running"),
-            (.failing, overall.failing, "failing"),
-            (.passing, overall.passing, "passing"),
-        ].filter { $0.1 > 0 }
+        let overall = model.overall
+        let chips = [
+            Chip(state: .running, glyph: .running, count: overall.running, label: "running"),
+            Chip(state: .failing, glyph: .failing, count: overall.failing, label: "failing"),
+            Chip(state: .notStarted, glyph: .notStarted, count: overall.notStarted, label: "config/billing"),
+            Chip(state: .passing, glyph: .passing, count: overall.passing, label: "passing"),
+        ].filter { $0.count > 0 || $0.state == model.ciFilter }
         if !chips.isEmpty {
             HStack(spacing: 6) {
-                ForEach(chips, id: \.2) { glyph, count, label in
-                    HStack(spacing: 5) {
-                        CIIcon(glyph: glyph, size: 11)
-                        Text("\(count)").fontWeight(.semibold)
-                        Text(label).foregroundStyle(.secondary)
-                    }
-                    .font(.system(size: 11.5))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Theme.fill, in: Capsule())
+                ForEach(chips, id: \.label) { chip in
+                    chipButton(chip, selected: model.ciFilter == chip.state)
                 }
             }
         }
+    }
+
+    private func chipButton(_ chip: Chip, selected: Bool) -> some View {
+        Button { model.toggleFilter(chip.state) } label: {
+            HStack(spacing: 5) {
+                CIIcon(glyph: chip.glyph, size: 11)
+                Text("\(chip.count)").fontWeight(.semibold)
+                Text(chip.label).foregroundStyle(selected ? .primary : .secondary)
+            }
+            .font(.system(size: 11.5))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(selected ? Theme.link.opacity(0.2) : Theme.fill, in: Capsule())
+            .overlay(Capsule().strokeBorder(Theme.link.opacity(selected ? 0.8 : 0), lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(selected ? "Show all repositories" : "Show only \(chip.label) repositories")
+        .accessibilityLabel("\(chip.count) \(chip.label)")
+        .accessibilityHint(selected ? "Shows all repositories" : "Shows only \(chip.label) repositories")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

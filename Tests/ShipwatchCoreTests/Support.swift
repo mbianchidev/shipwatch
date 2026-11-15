@@ -126,4 +126,11 @@ enum Fixtures {
         }
         return #"{"total_count":\#(runs.count),"workflow_runs":[\#(items.joined(separator: ","))]}"#
     }
+
+    /// Jobs of a run that GitHub failed without a runner, as it does when billing blocks Actions.
+    static let jobsNeverStartedJSON = """
+    {"total_count":2,"jobs":[
+     {"id":1,"name":"test","status":"completed","conclusion":"failure","runner_id":0,"runner_name":"","steps":[]},
+     {"id":2,"name":"deploy","status":"completed","conclusion":"skipped","runner_id":null,"runner_name":null,"steps":[]}]}
+    """
 }

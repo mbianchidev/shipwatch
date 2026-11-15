@@ -13,6 +13,7 @@ public actor GitHubClient {
     private let api: URL
     private let token: TokenProvider
     private var etagCache: [URL: (etag: String, data: Data)] = [:]
+    private var neverStartedCache: [Int: (updatedAt: Date, neverStarted: Bool)] = [:]
     private let maxConcurrentRunRequests = 6
     private var chunkSize = RepoQuery.chunkSize
     /// Repos in a row that failed even when queried alone: past this, GitHub is down rather than slow on one repo.
@@ -62,7 +63,7 @@ public actor GitHubClient {
     // MARK: Status
 
     /// Fetches release, counts, activity and CI for every repo: one GraphQL call per chunk of repos,
-    /// plus one conditional REST call per repo for workflow runs.
+    /// plus one conditional REST call per repo for workflow runs and one for the jobs of each new failure.
     public func statuses(for refs: [RepoRef], includePrereleases: Bool) async throws -> StatusBatch {
         var result: [String: RepoStatus] = [:]
         var progress = ChunkProgress()
@@ -129,7 +130,8 @@ public actor GitHubClient {
                 group.addTask {
                     do {
                         guard let runs = try await self.workflowRuns(repo.ref) else { return (repo.key, nil) }
-                        return (repo.key, CIEvaluator.summarize(runs: runs, defaultBranch: repo.defaultBranch))
+                        let marked = try await self.markRunsThatNeverStarted(runs, ref: repo.ref, defaultBranch: repo.defaultBranch)
+                        return (repo.key, CIEvaluator.summarize(runs: marked, defaultBranch: repo.defaultBranch))
                     } catch let error as GitHubError where error.affectsEveryRequest {
                         throw error
                     } catch {
@@ -161,6 +163,54 @@ public actor GitHubClient {
         } catch GitHubError.http(let status, _) where status == 403 {
             return nil
         }
+    }
+
+    /// Reads the jobs of each workflow's latest failed run on the default branch, the runs that decide the state,
+    /// and flags the runs whose jobs never started.
+    private func markRunsThatNeverStarted(_ runs: [WorkflowRun], ref: RepoRef, defaultBranch: String?) async throws -> [WorkflowRun] {
+        let candidates = CIEvaluator.summarize(runs: runs, defaultBranch: defaultBranch).latestOnDefault
+            .filter { $0.conclusion == "failure" }
+        var neverStarted = Set<Int>()
+        for run in candidates {
+            if try await jobsNeverStarted(run, ref: ref) { neverStarted.insert(run.id) }
+        }
+        guard !neverStarted.isEmpty else { return runs }
+        return runs.map { run in
+            var run = run
+            run.jobsNeverStarted = neverStarted.contains(run.id)
+            return run
+        }
+    }
+
+    /// Cached per run until the run changes, for example when it is re-run, so each failure costs one request.
+    private func jobsNeverStarted(_ run: WorkflowRun, ref: RepoRef) async throws -> Bool {
+        if let cached = neverStartedCache[run.id], cached.updatedAt == run.updatedAt {
+            return cached.neverStarted
+        }
+        do {
+            let verdict = try await workflowJobs(ref, runID: run.id).map(CIEvaluator.neverStarted) ?? false
+            neverStartedCache[run.id] = (run.updatedAt, verdict)
+            return verdict
+        } catch let error as GitHubError where error.affectsEveryRequest {
+            throw error
+        } catch {
+            // The run then counts as a plain failure, which is what it showed before jobs were read.
+            log.error("Jobs of workflow run \(run.id) could not be read: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+    }
+
+    /// The jobs of the run's latest attempt, or `nil` when they don't fit on one page.
+    public func workflowJobs(_ ref: RepoRef, runID: Int) async throws -> [WorkflowJob]? {
+        struct Page: Decodable {
+            var totalCount: Int
+            var jobs: [WorkflowJob]
+        }
+        let url = api.appending(path: "repos/\(ref.owner)/\(ref.name)/actions/runs/\(runID)/jobs")
+            .appending(queryItems: [URLQueryItem(name: "per_page", value: "100")])
+        let (data, _) = try await get(url)
+        let page = try JSON.decode(Page.self, from: data)
+        return page.totalCount > page.jobs.count ? nil : page.jobs
     }
 
     // MARK: Transport

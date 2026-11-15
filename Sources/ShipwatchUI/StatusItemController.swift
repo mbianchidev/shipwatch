@@ -68,6 +68,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
         let color: NSColor? = switch overall.indicator {
         case .failing: Theme.failingNS
+        case .notStarted: Theme.warningNS
         case .running: Theme.runningNS
         default: nil
         }
@@ -75,8 +76,12 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         dot.layer?.backgroundColor = color?.cgColor
         dot.layer?.borderColor = NSColor.windowBackgroundColor.withAlphaComponent(0.9).cgColor
 
-        let showCount = model.prefs.showFailingCount && overall.failing > 0 && !signedOut
-        button.title = showCount ? " \(overall.failing)" : ""
+        let count = switch model.prefs.menuBarCount {
+        case .running: overall.running
+        case .failing: overall.failing
+        case .none: 0
+        }
+        button.title = count > 0 && !signedOut ? " \(count)" : ""
         button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .medium)
         button.toolTip = tooltip(overall: overall, signedOut: signedOut)
         layoutDot()
@@ -87,6 +92,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         var parts: [String] = []
         if overall.running > 0 { parts.append("\(overall.running) running") }
         if overall.failing > 0 { parts.append("\(overall.failing) failing") }
+        if overall.notStarted > 0 { parts.append("\(overall.notStarted) config/billing") }
         if overall.passing > 0 { parts.append("\(overall.passing) passing") }
         return parts.isEmpty ? "Shipwatch" : "Shipwatch · " + parts.joined(separator: ", ")
     }

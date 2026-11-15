@@ -2,6 +2,19 @@ import Foundation
 import Observation
 import ShipwatchCore
 
+/// Which number sits next to the sailboat in the menu bar.
+public enum MenuBarCount: String, CaseIterable, Sendable {
+    case running, failing, none
+
+    public var label: String {
+        switch self {
+        case .running: "Running"
+        case .failing: "Failing"
+        case .none: "None"
+        }
+    }
+}
+
 /// User settings, saved to UserDefaults on every change.
 @MainActor
 @Observable
@@ -14,7 +27,7 @@ public final class Preferences {
         static let refreshMinutes = "refreshMinutes"
         static let activityMode = "activityMode"
         static let includePrereleases = "includePrereleases"
-        static let showFailingCount = "showFailingCount"
+        static let menuBarCount = "menuBarCount"
         static let cliFallback = "cliFallback"
         static let clientIDOverride = "clientIDOverride"
         static let appSlugOverride = "appSlugOverride"
@@ -42,8 +55,8 @@ public final class Preferences {
     public var includePrereleases: Bool {
         didSet { defaults.set(includePrereleases, forKey: Key.includePrereleases) }
     }
-    public var showFailingCount: Bool {
-        didSet { defaults.set(showFailingCount, forKey: Key.showFailingCount) }
+    public var menuBarCount: MenuBarCount {
+        didSet { defaults.set(menuBarCount.rawValue, forKey: Key.menuBarCount) }
     }
     public var cliFallback: Bool {
         didSet { defaults.set(cliFallback, forKey: Key.cliFallback) }
@@ -91,7 +104,7 @@ public final class Preferences {
         refreshMinutes = Self.refreshChoices.contains(minutes) ? minutes : 2
         activityMode = defaults.string(forKey: Key.activityMode).flatMap(ActivityMode.init(rawValue:)) ?? .lastPush
         includePrereleases = defaults.bool(forKey: Key.includePrereleases)
-        showFailingCount = defaults.bool(forKey: Key.showFailingCount)
+        menuBarCount = defaults.string(forKey: Key.menuBarCount).flatMap(MenuBarCount.init(rawValue:)) ?? .running
         cliFallback = defaults.bool(forKey: Key.cliFallback)
         clientIDOverride = defaults.string(forKey: Key.clientIDOverride) ?? ""
         appSlugOverride = defaults.string(forKey: Key.appSlugOverride) ?? ""
