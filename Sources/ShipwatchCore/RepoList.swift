@@ -311,20 +311,25 @@ public struct RepoList: Codable, Equatable, Sendable {
     }
 
     /// `moveRows` for a table showing `rows(collapsing:)`. Dropping right below a collapsed group lands after
-    /// its hidden members, outside the group.
+    /// its hidden members, outside the group, even when it has none.
     public mutating func moveRows(fromOffsets source: IndexSet, toOffset destination: Int, collapsing collapsed: Set<RepoGroup.ID>) {
         let all = rows.map(\.id)
         let shown = rows(collapsing: collapsed).map(\.id)
         let offsets = shown.compactMap { all.firstIndex(of: $0) }
         guard offsets.count == shown.count else { return }
         let mapped = IndexSet(source.compactMap { offsets.indices.contains($0) ? offsets[$0] : nil })
-        moveRows(fromOffsets: mapped, toOffset: offsets.indices.contains(destination) ? offsets[destination] : all.count)
+        moveRows(fromOffsets: mapped, toOffset: offsets.indices.contains(destination) ? offsets[destination] : all.count, closed: collapsed)
     }
 
     /// Applies a drag in the Settings table, offsets as in SwiftUI's `move(fromOffsets:toOffset:)` over `rows`.
     /// A dragged group takes its members along and lands between top-level entries. Dragged repositories join
     /// the group they are dropped into; dropped right after a group's last member, only its own members stay in.
     public mutating func moveRows(fromOffsets source: IndexSet, toOffset destination: Int) {
+        moveRows(fromOffsets: source, toOffset: destination, closed: [])
+    }
+
+    /// Repositories dropped right below the header of a `closed` group stay out of it.
+    private mutating func moveRows(fromOffsets source: IndexSet, toOffset destination: Int, closed: Set<RepoGroup.ID>) {
         let rows = rows
         let source = IndexSet(source.filter { rows.indices.contains($0) })
         if let headerIndex = source.first(where: { if case .group = rows[$0] { true } else { false } }),
@@ -344,7 +349,7 @@ public struct RepoList: Codable, Equatable, Sendable {
 
         func target(for repo: TrackedRepo) -> RepoGroup.ID? {
             if case .repo(let neighbor)? = next, let group = neighbor.group { return group }
-            if case .group(let group)? = previous { return group.id }
+            if case .group(let group)? = previous, !closed.contains(group.id) { return group.id }
             if case .repo(let neighbor)? = previous, let group = neighbor.group, repo.group == group { return group }
             return nil
         }

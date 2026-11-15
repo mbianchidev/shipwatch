@@ -150,6 +150,11 @@ struct RepoListTests {
         list.moveRows(fromOffsets: [0], toOffset: 3, collapsing: collapsed)
         #expect(list.items.map(\.ref) == [infra, web, api, cli])
         #expect(list.members(of: tools).map(\.ref) == [api, cli])
+
+        let empty = list.addGroup(named: "Empty")
+        list.moveRows(fromOffsets: [0], toOffset: 4, collapsing: [tools, empty])
+        #expect(list.members(of: empty).isEmpty)
+        #expect(list.rows(collapsing: [tools, empty]).map(\.id).contains(infra.key))
     }
 
     @Test func setMembersMakesTheGroupExactlyThoseRepositories() {
