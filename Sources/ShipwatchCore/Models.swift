@@ -47,7 +47,7 @@ public struct RepoRef: Hashable, Codable, Sendable, CustomStringConvertible {
     }
 }
 
-public struct Release: Equatable, Sendable {
+public struct Release: Codable, Equatable, Sendable {
     public var tagName: String
     public var url: URL
     public var publishedAt: Date?
@@ -61,7 +61,7 @@ public struct Release: Equatable, Sendable {
     }
 }
 
-public struct WorkflowRun: Equatable, Sendable, Identifiable, Decodable {
+public struct WorkflowRun: Codable, Equatable, Sendable, Identifiable {
     public var id: Int
     public var name: String?
     public var workflowId: Int
@@ -74,11 +74,30 @@ public struct WorkflowRun: Equatable, Sendable, Identifiable, Decodable {
     public var createdAt: Date
     public var updatedAt: Date
     public var runStartedAt: Date?
-    /// Every failed job ended without a runner or a single step. Read from the run's jobs, not decoded.
+    /// Every failed job ended without a runner or a single step. Read from the run's jobs; GitHub's run JSON
+    /// doesn't have it, only the status cache does.
     public var jobsNeverStarted = false
 
     enum CodingKeys: String, CodingKey {
         case id, name, workflowId, runNumber, status, conclusion, headBranch, event, htmlUrl, createdAt, updatedAt, runStartedAt
+        case jobsNeverStarted
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        workflowId = try container.decode(Int.self, forKey: .workflowId)
+        runNumber = try container.decode(Int.self, forKey: .runNumber)
+        status = try container.decodeIfPresent(String.self, forKey: .status)
+        conclusion = try container.decodeIfPresent(String.self, forKey: .conclusion)
+        headBranch = try container.decodeIfPresent(String.self, forKey: .headBranch)
+        event = try container.decodeIfPresent(String.self, forKey: .event)
+        htmlUrl = try container.decode(URL.self, forKey: .htmlUrl)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        runStartedAt = try container.decodeIfPresent(Date.self, forKey: .runStartedAt)
+        jobsNeverStarted = try container.decodeIfPresent(Bool.self, forKey: .jobsNeverStarted) ?? false
     }
 
     public init(
@@ -138,13 +157,13 @@ public struct WorkflowJob: Equatable, Sendable, Decodable {
     }
 }
 
-public enum CIState: String, Equatable, Sendable {
+public enum CIState: String, Codable, Equatable, Sendable {
     case none, passing, failing, running
     /// The latest runs failed before any job ran, usually billing or the workflow configuration.
     case notStarted
 }
 
-public struct CISummary: Equatable, Sendable {
+public struct CISummary: Codable, Equatable, Sendable {
     public var state: CIState
     /// Active runs on any branch, newest first.
     public var running: [WorkflowRun]
@@ -169,7 +188,7 @@ public struct CISummary: Equatable, Sendable {
 
 /// Open security alerts of one repository. A count is `nil` when it couldn't be read: alerts need write access
 /// (admin for secret scanning), private repositories need GitHub Advanced Security, and the feature may be off.
-public struct SecurityAlerts: Equatable, Sendable {
+public struct SecurityAlerts: Codable, Equatable, Sendable {
     /// Code and secret scanning are counted from one page of REST results, so this many means at least this many.
     public static let pageLimit = 100
 
@@ -192,14 +211,14 @@ public struct SecurityAlerts: Equatable, Sendable {
     public var isCapped: Bool { codeScanning == Self.pageLimit || secretScanning == Self.pageLimit }
 }
 
-public enum RepoProblem: Equatable, Sendable {
+public enum RepoProblem: Codable, Equatable, Sendable {
     /// The token can't see the repo (not installed, private, moved to an owner without access, or deleted).
     case noAccess
     case error(String)
 }
 
 /// Everything Shipwatch shows for a single repository.
-public struct RepoStatus: Equatable, Sendable {
+public struct RepoStatus: Codable, Equatable, Sendable {
     public var ref: RepoRef
     public var url: URL
     public var isPrivate: Bool

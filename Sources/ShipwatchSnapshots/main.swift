@@ -122,7 +122,8 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
         store: MemoryTokenStore(),
         cli: cli,
         transport: OfflineTransport(),
-        git: OfflineGit()
+        git: OfflineGit(),
+        statusCache: nil
     )
     model.loginItemAvailable = true
     model.launchAtLogin = true

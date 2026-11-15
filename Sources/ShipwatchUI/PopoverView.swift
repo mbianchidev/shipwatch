@@ -311,20 +311,15 @@ struct SummaryChips: View {
     }
 }
 
-/// Picks the list order: the custom one from Settings, by name, or most recent activity first.
+/// Picks the list order: the custom one from Settings, by name, or most recent activity first. Opens an AppKit
+/// menu: a SwiftUI `Menu` in the popover stops responding after its first pick until the popover reopens.
 struct SortMenu: View {
     let model: AppModel
+    @State private var anchor = ViewAnchor()
 
     var body: some View {
         let sort = model.prefs.menuSort
-        Menu {
-            Picker("Sort By", selection: Binding(get: { model.prefs.menuSort }, set: { model.prefs.menuSort = $0 })) {
-                ForEach(RepoSort.allCases, id: \.self) { option in
-                    Text(option == .activity ? "\(option.label) (\(model.prefs.activityMode.label))" : option.label).tag(option)
-                }
-            }
-            .pickerStyle(.inline)
-        } label: {
+        Button(action: showMenu) {
             Image(systemName: "arrow.up.arrow.down")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(sort == .custom ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.link))
@@ -332,13 +327,74 @@ struct SortMenu: View {
                 .background(sort == .custom ? Theme.fill : Theme.link.opacity(0.2), in: Capsule())
                 .contentShape(Capsule())
         }
-        .menuStyle(.button)
         .buttonStyle(.plain)
-        .menuIndicator(.hidden)
+        .background(ViewAnchor.Reader(anchor: anchor))
         .fixedSize()
         .help("Sort: \(sort.label)")
         .accessibilityLabel("Sort repositories")
         .accessibilityValue(sort.label)
+    }
+
+    private func showMenu() {
+        guard let view = anchor.view else { return }
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.addItem(.sectionHeader(title: "Sort By"))
+        let actions = MenuActions()
+        for option in RepoSort.allCases {
+            let title = option == .activity ? "\(option.label) (\(model.prefs.activityMode.label))" : option.label
+            let item = actions.item(title) { [model] in model.prefs.menuSort = option }
+            item.state = option == model.prefs.menuSort ? .on : .off
+            menu.addItem(item)
+        }
+        // Drops down from the button's bottom-left corner, like a pop-up button.
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.isFlipped ? view.bounds.maxY + 4 : -4), in: view)
+    }
+}
+
+/// The AppKit view behind a SwiftUI control, to open an `NSMenu` from.
+@MainActor
+private final class ViewAnchor {
+    weak var view: NSView?
+
+    struct Reader: NSViewRepresentable {
+        let anchor: ViewAnchor
+
+        func makeNSView(context: Context) -> NSView {
+            let view = PassthroughView()
+            anchor.view = view
+            return view
+        }
+
+        func updateNSView(_ nsView: NSView, context: Context) {
+            anchor.view = nsView
+        }
+    }
+
+    /// Leaves clicks to the SwiftUI control in front of it.
+    private final class PassthroughView: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
+}
+
+/// Targets for menu items that run closures.
+@MainActor
+private final class MenuActions: NSObject {
+    private var handlers: [@MainActor () -> Void] = []
+
+    func item(_ title: String, handler: @escaping @MainActor () -> Void) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: #selector(run(_:)), keyEquivalent: "")
+        item.target = self
+        // `target` is weak; the item keeps its target alive for as long as the menu lives.
+        item.representedObject = self
+        item.tag = handlers.count
+        handlers.append(handler)
+        return item
+    }
+
+    @objc private func run(_ sender: NSMenuItem) {
+        guard handlers.indices.contains(sender.tag) else { return }
+        handlers[sender.tag]()
     }
 }
 

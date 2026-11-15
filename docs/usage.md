@@ -240,8 +240,9 @@ source show "Development build" and can't update themselves. See
 [Updates](updates.md).
 
 Shipwatch also refreshes when you open the list and the data is older than
-60 seconds, and a few seconds after the Mac wakes. When GitHub rate limits the
-token, it waits for the reset time. Details are in
+60 seconds, and a few seconds after the Mac wakes. After a relaunch, such as an
+update, the list shows the last refresh right away and refreshes on schedule.
+When GitHub rate limits the token, it waits for the reset time. Details are in
 [Architecture](architecture.md#refresh-cadence).
 
 ### Account
@@ -263,7 +264,7 @@ token, it waits for the reset time. Details are in
 | --- | --- |
 | GitHub App token | login Keychain, service `dev.mbianchi.shipwatch` |
 | Repositories, groups and settings, including the list order, workspace folder and exclusions | `UserDefaults` domain `dev.mbianchi.shipwatch` |
-| Update state and lock | `~/Library/Application Support/Shipwatch` |
+| Update state and lock, statuses of the last refresh | `~/Library/Application Support/Shipwatch` |
 | GitHub CLI token | memory only |
 
 Shipwatch sends no analytics. It only talks to `api.github.com`, `github.com`

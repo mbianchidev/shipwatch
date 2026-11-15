@@ -9,8 +9,8 @@ existing user changes.
 - `Package.swift`: SwiftPM package, macOS 14+, Swift tools 6.0, no third-party
   Swift package dependencies.
 - `Sources/ShipwatchCore`: GitHub API client, device flow, token storage, models,
-  CI evaluation, workspace scan (`Workspace.swift`) and clone fast-forward
-  (`CloneSyncer.swift`, git via `GitRunning` in `Git.swift`). No UI.
+  status cache, CI evaluation, workspace scan (`Workspace.swift`) and clone
+  fast-forward (`CloneSyncer.swift`, git via `GitRunning` in `Git.swift`). No UI.
 - `Sources/ShipwatchUI`: SwiftUI views hosted in AppKit, `AppModel`,
   `WorkspaceModel`, preferences and the `Updater`. `Sources/Shipwatch` is only
   the entry point.
