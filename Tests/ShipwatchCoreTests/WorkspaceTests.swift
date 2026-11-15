@@ -105,6 +105,16 @@ import Testing
         #expect(WorkspaceScanner(root: root.base).scan(tracked: tracked).clones.count == 1)
     }
 
+    @Test func remoteWithFormerNameCountsAsTheRenamedRepo() throws {
+        let root = try TempDirectory()
+        defer { root.remove() }
+        try root.fakeClone("infra", remotes: ["origin": "git@github.com:octocat/infra.git"])
+        let scan = WorkspaceScanner(root: root.base).scan(tracked: tracked, aliases: ["octocat/infra": RepoRef(owner: "acme-org", name: "infra")])
+        #expect(scan.clones.map(\.ref.fullName) == ["acme-org/infra"])
+        #expect(scan.clones.first?.remote == "origin")
+        #expect(scan.untracked.isEmpty)
+    }
+
     @Test func exclusionMatchesWholeFolderNames() {
         #expect(WorkspaceScanner.isExcluded("/w/forks", by: ["/w/forks"]))
         #expect(WorkspaceScanner.isExcluded("/w/forks/a", by: ["/w/forks"]))

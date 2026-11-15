@@ -168,7 +168,7 @@ public struct CISummary: Equatable, Sendable {
 }
 
 public enum RepoProblem: Equatable, Sendable {
-    /// The token can't see the repo (not installed, private, renamed or deleted).
+    /// The token can't see the repo (not installed, private, moved to an owner without access, or deleted).
     case noAccess
     case error(String)
 }

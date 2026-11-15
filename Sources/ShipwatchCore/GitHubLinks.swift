@@ -30,6 +30,28 @@ public enum GitHubLinks {
         repo(ref).appending(path: "releases")
     }
 
+    /// Open issues across several repositories, as a GitHub search.
+    public static func issues(_ refs: [RepoRef]) -> URL {
+        search("is:issue is:open", in: refs, type: "issues")
+    }
+
+    /// Open pull requests across several repositories, as a GitHub search.
+    public static func pullRequests(_ refs: [RepoRef]) -> URL {
+        search("is:pr is:open", in: refs, type: "pullrequests")
+    }
+
+    /// Open Dependabot pull requests across several repositories, as a GitHub search.
+    public static func dependabotPullRequests(_ refs: [RepoRef]) -> URL {
+        search("is:pr is:open author:app/dependabot", in: refs, type: "pullrequests")
+    }
+
+    private static func search(_ qualifiers: String, in refs: [RepoRef], type: String) -> URL {
+        var components = URLComponents(url: web.appending(path: "search"), resolvingAgainstBaseURL: false)!
+        let repos = refs.map { "repo:\($0.fullName)" }.joined(separator: " ")
+        components.queryItems = [URLQueryItem(name: "q", value: "\(qualifiers) \(repos)"), URLQueryItem(name: "type", value: type)]
+        return components.url!
+    }
+
     public static func appInstall(slug: String) -> URL {
         web.appending(path: "apps").appending(path: slug).appending(path: "installations").appending(path: "new")
     }

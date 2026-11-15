@@ -57,8 +57,27 @@ Per refresh, `GitHubClient.statuses(for:)`:
 
 Errors that would hit every request (offline, unauthorized, rate limited, or
 three repos in a row failing with `5xx` on their own) stop the refresh and show
-a banner; the previous data stays. Per-repo problems (no access, renamed,
-deleted, a query GitHub can't answer) are shown on that row only.
+a banner; the previous data stays. Per-repo problems (no access, deleted, a
+query GitHub can't answer) are shown on that row only.
+
+GraphQL's `repository(owner:, name:)` follows renames and transfers, and its
+`nameWithOwner` is the current name. Statuses stay keyed by the requested name;
+when they differ, `AppModel` points the tracked entry at the new name
+(`RepoList.rename`), keeping its place, group, visibility and clone sync opt-out,
+and records the old name in `formerRefs`. Search doesn't follow renames, so the
+Dependabot count is only right after one more refresh, which runs right away.
+`WorkspaceScanner` resolves remotes that still use a former name to the current one.
+
+## Repository list
+
+`RepoList` (in `ShipwatchCore`) holds the tracked repositories in custom order
+and the groups. Each repository has an optional group; the members of a group are
+kept next to each other, and the group sits where its first member is, so groups
+and ungrouped repositories share one order without a separate position for
+groups. `entries` turns the list into the popover's top-level rows and `rows`
+into the Settings table's group headers and repositories. `moveRows` maps a drag
+in that table back onto the list, and `sorted(by:activity:)` applies the Name and
+Last Activity orders without changing it.
 
 ## Refresh cadence
 
@@ -137,7 +156,7 @@ re-reads it. See [GitHub App setup](github-app-setup.md).
 | What | Where |
 | --- | --- |
 | App token | login Keychain, service `dev.mbianchi.shipwatch` |
-| Tracked repos, order, hidden flags, settings, workspace folder, exclusions, sync opt-outs | `UserDefaults` (`dev.mbianchi.shipwatch`) |
+| Tracked repos, order, groups, hidden flags, former names, settings, workspace folder, exclusions, sync opt-outs | `UserDefaults` (`dev.mbianchi.shipwatch`) |
 | `gh` token | memory only |
 | Last update result, update lock | `~/Library/Application Support/Shipwatch/` |
 

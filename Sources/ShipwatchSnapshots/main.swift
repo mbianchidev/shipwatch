@@ -104,7 +104,9 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     let prefs = Preferences(defaults: defaults)
     let hidden: Set = ["octocat/old-blog", "octocat/experiments"]
     let statuses = mockStatuses()
-    prefs.repos = RepoList(statuses.map { TrackedRepo(ref: $0.ref, hidden: hidden.contains($0.ref.fullName)) })
+    var repos = RepoList(statuses.map { TrackedRepo(ref: $0.ref, hidden: hidden.contains($0.ref.fullName)) })
+    repos.addGroup(named: "Tools", members: ["octocat/cli-tool", "octocat/dotfiles", "octocat/experiments"])
+    prefs.repos = repos
     prefs.cliFallback = true
 
     let cli = GitHubCLI(executable: URL(fileURLWithPath: "/opt/homebrew/bin/gh")) { _, _ in "gho_snapshot_mock" }

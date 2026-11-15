@@ -49,24 +49,125 @@ struct RepoListTests {
         #expect(list.items.map(\.ref) == [web, cli])
     }
 
-    @Test func moveMatchesSwiftUISemantics() {
-        var list = RepoList([api, web, cli, infra].map { TrackedRepo(ref: $0) })
-        list.move(fromOffsets: [0], toOffset: 3)
-        #expect(list.items.map(\.ref) == [web, cli, api, infra])
-        list.move(fromOffsets: [3], toOffset: 0)
-        #expect(list.items.map(\.ref) == [infra, web, cli, api])
-        list.move(fromOffsets: [0, 2], toOffset: 4)
-        #expect(list.items.map(\.ref) == [web, api, infra, cli])
+    @Test func decodesListsSavedBeforeGroups() throws {
+        let json = #"{"items":[{"ref":{"owner":"mbianchidev","name":"api-server"},"hidden":true}]}"#
+        let list = try JSONDecoder().decode(RepoList.self, from: Data(json.utf8))
+        #expect(list.items == [TrackedRepo(ref: api, hidden: true)])
+        #expect(list.groups.isEmpty)
     }
 
-    @Test func moveVisibleSkipsHiddenRepos() {
-        var list = RepoList([TrackedRepo(ref: api), TrackedRepo(ref: web, hidden: true), TrackedRepo(ref: cli)])
-        list.moveVisible(cli.key, by: -1)
-        #expect(list.visible.map(\.ref) == [cli, api])
-        list.moveVisible(cli.key, by: -1)
-        #expect(list.visible.map(\.ref) == [cli, api])
-        list.moveVisible(api.key, by: 1)
-        #expect(list.visible.map(\.ref) == [cli, api])
+    @Test func renameKeepsPlaceAndRemembersTheFormerName() {
+        var list = RepoList([TrackedRepo(ref: api, hidden: true), TrackedRepo(ref: web)])
+        let moved = RepoRef(owner: "acme-org", name: "api")
+        let renamed = list.rename(api.key, to: moved)
+        #expect(renamed)
+        #expect(list.items.map(\.ref) == [moved, web])
+        #expect(list.items[0].hidden)
+        #expect(list.aliases == [api.key: moved])
+        let again = list.rename(moved.key, to: moved)
+        #expect(!again)
+    }
+
+    @Test func renameOntoATrackedRepoMergesThem() {
+        var list = RepoList([TrackedRepo(ref: api), TrackedRepo(ref: web, hidden: true)])
+        let merged = list.rename(api.key, to: RepoRef(owner: "MBianchiDev", name: "Website"))
+        #expect(merged)
+        #expect(list.items.map(\.ref) == [web])
+        #expect(list.items[0].hidden)
+        #expect(list.aliases == [api.key: web])
+    }
+
+    @Test func groupMembersStayTogetherWhereTheFirstOneIs() throws {
+        var list = RepoList([api, web, cli, infra].map { TrackedRepo(ref: $0) })
+        let tools = list.addGroup(named: "Tools", members: [cli.key, api.key])
+        let group = try #require(list.group(tools))
+        #expect(list.items.map(\.ref) == [api, cli, web, infra])
+        #expect(list.entries() == [.group(group, members: list.members(of: tools)), .repo(list.items[2]), .repo(list.items[3])])
+        #expect(list.rows.map(\.id) == [group.entryID, api.key, cli.key, web.key, infra.key])
+
+        list.setGroup([infra.key], to: tools)
+        #expect(list.items.map(\.ref) == [api, cli, infra, web])
+        list.setGroup([api.key], to: nil)
+        #expect(list.items.map(\.ref) == [api, cli, infra, web])
+        #expect(list.members(of: tools).map(\.ref) == [cli, infra])
+
+        list.removeGroup(tools)
+        #expect(list.groups.isEmpty)
+        #expect(list.entries().map(\.id) == [api.key, cli.key, infra.key, web.key])
+    }
+
+    @Test func emptyGroupsOnlyShowInSettings() {
+        var list = RepoList([TrackedRepo(ref: api)])
+        let empty = list.addGroup(named: list.unusedGroupName())
+        #expect(list.group(empty)?.name == "New Group")
+        #expect(list.unusedGroupName() == "New Group 2")
+        #expect(list.entries().map(\.id) == [api.key])
+        #expect(list.rows.map(\.id) == [api.key, RepoGroup.entryID(empty)])
+    }
+
+    /// Rows: [Tools] api cli | web infra
+    func toolsList() -> (RepoList, RepoGroup.ID) {
+        var list = RepoList([api, cli, web, infra].map { TrackedRepo(ref: $0) })
+        let tools = list.addGroup(named: "Tools", members: [api.key, cli.key])
+        return (list, tools)
+    }
+
+    @Test func draggingARepoIntoAGroupJoinsIt() {
+        var (list, tools) = toolsList()
+        list.moveRows(fromOffsets: [3], toOffset: 2)
+        #expect(list.items.map(\.ref) == [api, web, cli, infra])
+        #expect(list.members(of: tools).map(\.ref) == [api, web, cli])
+    }
+
+    @Test func droppingAfterTheLastMemberKeepsOnlyMembersInside() {
+        var (list, tools) = toolsList()
+        list.moveRows(fromOffsets: [1], toOffset: 3)
+        #expect(list.members(of: tools).map(\.ref) == [cli, api])
+        list.moveRows(fromOffsets: [4], toOffset: 3)
+        #expect(list.members(of: tools).map(\.ref) == [cli, api])
+        #expect(list.items.map(\.ref) == [cli, api, infra, web])
+        list.moveRows(fromOffsets: [1], toOffset: 0)
+        #expect(list.members(of: tools).map(\.ref) == [api])
+        #expect(list.rows.map(\.id).first == cli.key)
+    }
+
+    @Test func draggingAGroupMovesItsMembersBetweenEntries() {
+        var (list, tools) = toolsList()
+        list.moveRows(fromOffsets: [0], toOffset: 5)
+        #expect(list.items.map(\.ref) == [web, infra, api, cli])
+        list.moveRows(fromOffsets: [2], toOffset: 1)
+        #expect(list.items.map(\.ref) == [web, api, cli, infra])
+        #expect(list.members(of: tools).map(\.ref) == [api, cli])
+    }
+
+    @Test func moveSkipsHiddenReposAndPassesWholeGroups() {
+        var (list, tools) = toolsList()
+        list.setHidden(web.key, true)
+        let shown: (TrackedRepo) -> Bool = { !$0.hidden }
+        #expect(list.siblings(of: cli.key, including: shown) == [api.key, cli.key])
+        #expect(!list.canMove(cli.key, by: 1, including: shown))
+        list.move(infra.key, by: -1, including: shown)
+        #expect(list.items.map(\.ref) == [infra, api, cli, web])
+        list.move(RepoGroup.entryID(tools), by: -1, including: shown)
+        #expect(list.items.map(\.ref) == [api, cli, infra, web])
+        list.move(cli.key, by: -1, including: shown)
+        #expect(list.items.map(\.ref) == [cli, api, infra, web])
+    }
+
+    @Test func sortsEntriesAndGroupMembers() throws {
+        var list = RepoList([web, api, infra, cli].map { TrackedRepo(ref: $0) })
+        let zeta = list.addGroup(named: "zeta", members: [infra.key, cli.key])
+        let entries = list.entries()
+        let byName = entries.sorted(by: .name) { _ in nil }
+        #expect(byName.map(\.id) == [api.key, web.key, RepoGroup.entryID(zeta)])
+        #expect(byName.last?.repos.map(\.ref) == [cli, infra])
+
+        let now = Fixtures.now
+        let activity: [String: Date] = [web.key: now.addingTimeInterval(-60), cli.key: now, infra.key: now.addingTimeInterval(-600)]
+        let byActivity = entries.sorted(by: .activity) { activity[$0.id] }
+        #expect(byActivity.map(\.id) == [RepoGroup.entryID(zeta), web.key, api.key])
+        #expect(byActivity.first?.repos.map(\.ref) == [cli, infra])
+        #expect(entries.sorted(by: .custom) { _ in nil } == entries)
     }
 }
 
@@ -78,6 +179,16 @@ struct LinkTests {
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         #expect(components.path == "/acme-org/payments/pulls")
         #expect(components.queryItems?.first?.value == "is:pr is:open author:app/dependabot")
+    }
+
+    @Test func groupLinksSearchAcrossRepositories() throws {
+        let url = GitHubLinks.pullRequests([ref, RepoRef(owner: "octocat", name: "website")])
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        #expect(components.path == "/search")
+        #expect(components.queryItems == [
+            URLQueryItem(name: "q", value: "is:pr is:open repo:acme-org/payments repo:octocat/website"),
+            URLQueryItem(name: "type", value: "pullrequests"),
+        ])
     }
 }
 

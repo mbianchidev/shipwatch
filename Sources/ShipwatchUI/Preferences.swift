@@ -28,6 +28,7 @@ public final class Preferences {
         static let activityMode = "activityMode"
         static let includePrereleases = "includePrereleases"
         static let menuBarCount = "menuBarCount"
+        static let menuSort = "menuSort"
         static let cliFallback = "cliFallback"
         static let clientIDOverride = "clientIDOverride"
         static let appSlugOverride = "appSlugOverride"
@@ -57,6 +58,10 @@ public final class Preferences {
     }
     public var menuBarCount: MenuBarCount {
         didSet { defaults.set(menuBarCount.rawValue, forKey: Key.menuBarCount) }
+    }
+    /// Order of the popover list. Groups keep their members together in every order.
+    public var menuSort: RepoSort {
+        didSet { defaults.set(menuSort.rawValue, forKey: Key.menuSort) }
     }
     public var cliFallback: Bool {
         didSet { defaults.set(cliFallback, forKey: Key.cliFallback) }
@@ -105,6 +110,7 @@ public final class Preferences {
         activityMode = defaults.string(forKey: Key.activityMode).flatMap(ActivityMode.init(rawValue:)) ?? .lastPush
         includePrereleases = defaults.bool(forKey: Key.includePrereleases)
         menuBarCount = defaults.string(forKey: Key.menuBarCount).flatMap(MenuBarCount.init(rawValue:)) ?? .running
+        menuSort = defaults.string(forKey: Key.menuSort).flatMap(RepoSort.init(rawValue:)) ?? .custom
         cliFallback = defaults.bool(forKey: Key.cliFallback)
         clientIDOverride = defaults.string(forKey: Key.clientIDOverride) ?? ""
         appSlugOverride = defaults.string(forKey: Key.appSlugOverride) ?? ""

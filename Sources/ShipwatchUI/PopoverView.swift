@@ -25,7 +25,7 @@ struct DashboardView: View {
     let model: AppModel
     @State private var listHeight: CGFloat = 0
 
-    private var repos: [TrackedRepo] { model.menuRepos }
+    private var entries: [RepoListEntry] { model.menuEntries }
 
     /// Grow with the list, but leave room for the header, footer and menu bar on the current screen.
     private var maxListHeight: CGFloat {
@@ -47,10 +47,15 @@ struct DashboardView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 2) {
-                        ForEach(repos) { repo in
-                            RepoRowView(model: model, repo: repo)
+                        ForEach(entries) { entry in
+                            switch entry {
+                            case .repo(let repo):
+                                RepoRowView(model: model, repo: repo)
+                            case .group(let group, let members):
+                                GroupRowView(model: model, group: group, members: members)
+                            }
                         }
-                        if repos.isEmpty, model.ciFilter != nil {
+                        if entries.isEmpty, model.filter != nil {
                             filterEmptyNote
                         }
                     }
@@ -97,7 +102,13 @@ struct DashboardView: View {
                     model.actions.showSettings(.general)
                 }
             }
-            SummaryChips(model: model)
+            if !model.prefs.repos.items.isEmpty {
+                HStack(spacing: 6) {
+                    SummaryChips(model: model)
+                    Spacer(minLength: 0)
+                    SortMenu(model: model)
+                }
+            }
         }
         .padding(.horizontal, 14)
         .padding(.top, 12)
@@ -151,7 +162,7 @@ struct DashboardView: View {
     private var filterEmptyNote: some View {
         HStack(spacing: 5) {
             Text("No repositories match this filter ·")
-            Button("Show All") { model.ciFilter = nil }
+            Button("Show All") { model.filter = nil }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.link)
             Spacer()
@@ -211,13 +222,13 @@ struct StatusLine: View {
     }
 }
 
-/// Counts per CI state. Clicking one lists only those repositories; clicking it again lists all.
+/// Counts per CI state and of repositories with Dependabot pull requests. Clicking one lists only those
+/// repositories; clicking it again lists all. Labels drop to just icons and numbers when they don't fit.
 struct SummaryChips: View {
     let model: AppModel
 
     private struct Chip {
-        var state: CIState
-        var glyph: CIGlyph
+        var filter: RepoFilter
         var count: Int
         var label: String
     }
@@ -225,26 +236,52 @@ struct SummaryChips: View {
     var body: some View {
         let overall = model.overall
         let chips = [
-            Chip(state: .running, glyph: .running, count: overall.running, label: "running"),
-            Chip(state: .failing, glyph: .failing, count: overall.failing, label: "failing"),
-            Chip(state: .notStarted, glyph: .notStarted, count: overall.notStarted, label: "config/billing"),
-            Chip(state: .passing, glyph: .passing, count: overall.passing, label: "passing"),
-        ].filter { $0.count > 0 || $0.state == model.ciFilter }
+            Chip(filter: .ci(.running), count: overall.running, label: "running"),
+            Chip(filter: .ci(.failing), count: overall.failing, label: "failing"),
+            Chip(filter: .ci(.notStarted), count: overall.notStarted, label: "config/billing"),
+            Chip(filter: .ci(.passing), count: overall.passing, label: "passing"),
+            Chip(filter: .dependabot, count: model.dependabotCount, label: "dependabot"),
+        ].filter { $0.count > 0 || $0.filter == model.filter }
         if !chips.isEmpty {
-            HStack(spacing: 6) {
-                ForEach(chips, id: \.label) { chip in
-                    chipButton(chip, selected: model.ciFilter == chip.state)
-                }
+            ViewThatFits(in: .horizontal) {
+                row(chips, labeled: true)
+                row(chips, labeled: false)
             }
         }
     }
 
-    private func chipButton(_ chip: Chip, selected: Bool) -> some View {
-        Button { model.toggleFilter(chip.state) } label: {
+    private func row(_ chips: [Chip], labeled: Bool) -> some View {
+        HStack(spacing: 6) {
+            ForEach(chips, id: \.label) { chip in
+                chipButton(chip, labeled: labeled, selected: model.filter == chip.filter)
+            }
+        }
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private func icon(_ filter: RepoFilter) -> some View {
+        switch filter {
+        case .ci(.running): CIIcon(glyph: .running, size: 11)
+        case .ci(.failing): CIIcon(glyph: .failing, size: 11)
+        case .ci(.notStarted): CIIcon(glyph: .notStarted, size: 11)
+        case .ci: CIIcon(glyph: .passing, size: 11)
+        case .dependabot:
+            Image(systemName: "shippingbox")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(Theme.link)
+                .frame(width: 13, height: 13)
+        }
+    }
+
+    private func chipButton(_ chip: Chip, labeled: Bool, selected: Bool) -> some View {
+        Button { model.toggleFilter(chip.filter) } label: {
             HStack(spacing: 5) {
-                CIIcon(glyph: chip.glyph, size: 11)
+                icon(chip.filter)
                 Text("\(chip.count)").fontWeight(.semibold)
-                Text(chip.label).foregroundStyle(selected ? .primary : .secondary)
+                if labeled {
+                    Text(chip.label).foregroundStyle(selected ? .primary : .secondary)
+                }
             }
             .font(.system(size: 11.5))
             .padding(.horizontal, 8)
@@ -258,6 +295,37 @@ struct SummaryChips: View {
         .accessibilityLabel("\(chip.count) \(chip.label)")
         .accessibilityHint(selected ? "Shows all repositories" : "Shows only \(chip.label) repositories")
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// Picks the list order: the custom one from Settings, by name, or most recent activity first.
+struct SortMenu: View {
+    let model: AppModel
+
+    var body: some View {
+        let sort = model.prefs.menuSort
+        Menu {
+            Picker("Sort By", selection: Binding(get: { model.prefs.menuSort }, set: { model.prefs.menuSort = $0 })) {
+                ForEach(RepoSort.allCases, id: \.self) { option in
+                    Text(option == .activity ? "\(option.label) (\(model.prefs.activityMode.label))" : option.label).tag(option)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(sort == .custom ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.link))
+                .frame(width: 26, height: 20)
+                .background(sort == .custom ? Theme.fill : Theme.link.opacity(0.2), in: Capsule())
+                .contentShape(Capsule())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Sort: \(sort.label)")
+        .accessibilityLabel("Sort repositories")
+        .accessibilityValue(sort.label)
     }
 }
 

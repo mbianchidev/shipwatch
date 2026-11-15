@@ -184,9 +184,9 @@ struct RepoRowView: View {
         }
         Divider()
         Button("Move Up") { model.move(repo.id, by: -1) }
-            .disabled(repo.hidden || model.prefs.repos.visible.first?.id == repo.id)
+            .disabled(!model.canMove(repo.id, by: -1))
         Button("Move Down") { model.move(repo.id, by: 1) }
-            .disabled(repo.hidden || model.prefs.repos.visible.last?.id == repo.id)
+            .disabled(!model.canMove(repo.id, by: 1))
         Button(repo.hidden ? "Show “\(ref.name)”" : "Hide “\(ref.name)”") {
             model.setHidden(repo.id, !repo.hidden)
         }
@@ -197,15 +197,46 @@ struct RepoRowView: View {
     }
 }
 
-/// "⊙ 4 issues  [⇅ 11 PRs | ⧉ 5 dependabot]      ◷ 4m ago"
+/// "⊙ 4 issues  [⇅ 11 PRs | ⧉ 5 dependabot]      ◷ 4m ago", for one repository or the sum of a group.
 struct CountsLine: View {
     let model: AppModel
-    let status: RepoStatus
+    let issues: Int
+    let pullRequests: Int
+    let dependabot: Int
+    let activity: Date?
+    let issuesURL: URL
+    let pullRequestsURL: URL
+    let dependabotURL: URL
+
+    init(model: AppModel, status: RepoStatus) {
+        self.model = model
+        issues = status.openIssues
+        pullRequests = status.openPullRequests
+        dependabot = status.dependabotPullRequests
+        activity = status.lastActivity(model.prefs.activityMode)
+        issuesURL = GitHubLinks.issues(status.ref)
+        pullRequestsURL = GitHubLinks.pullRequests(status.ref)
+        dependabotURL = GitHubLinks.dependabotPullRequests(status.ref)
+    }
+
+    /// Readable repositories only; links search across all of them.
+    init(model: AppModel, statuses: [RepoStatus]) {
+        let readable = statuses.filter { $0.problem == nil }
+        let refs = readable.map(\.ref)
+        self.model = model
+        issues = readable.reduce(0) { $0 + $1.openIssues }
+        pullRequests = readable.reduce(0) { $0 + $1.openPullRequests }
+        dependabot = readable.reduce(0) { $0 + $1.dependabotPullRequests }
+        activity = readable.compactMap { $0.lastActivity(model.prefs.activityMode) }.max()
+        issuesURL = GitHubLinks.issues(refs)
+        pullRequestsURL = GitHubLinks.pullRequests(refs)
+        dependabotURL = GitHubLinks.dependabotPullRequests(refs)
+    }
 
     var body: some View {
         HStack(spacing: 10) {
-            Button { model.open(GitHubLinks.issues(status.ref)) } label: {
-                Counter(count: status.openIssues, label: status.openIssues == 1 ? "issue" : "issues") {
+            Button { model.open(issuesURL) } label: {
+                Counter(count: issues, label: issues == 1 ? "issue" : "issues") {
                     Image(systemName: "smallcircle.filled.circle")
                 }
                     .padding(.vertical, 2)
@@ -214,8 +245,8 @@ struct CountsLine: View {
             .help("Open issues")
 
             HStack(spacing: 0) {
-                Button { model.open(GitHubLinks.pullRequests(status.ref)) } label: {
-                    Counter(count: status.openPullRequests, label: status.openPullRequests == 1 ? "PR" : "PRs") {
+                Button { model.open(pullRequestsURL) } label: {
+                    Counter(count: pullRequests, label: pullRequests == 1 ? "PR" : "PRs") {
                         PullRequestGlyph()
                             .stroke(style: StrokeStyle(lineWidth: 1.15, lineCap: .round, lineJoin: .round))
                             .frame(width: 10.5, height: 10.5)
@@ -225,12 +256,12 @@ struct CountsLine: View {
                 }
                 .buttonStyle(.plain)
                 .help("Open pull requests")
-                if status.dependabotPullRequests > 0 {
+                if dependabot > 0 {
                     Divider().frame(height: 14)
-                    Button { model.open(GitHubLinks.dependabotPullRequests(status.ref)) } label: {
+                    Button { model.open(dependabotURL) } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "shippingbox")
-                            Text("\(status.dependabotPullRequests)").fontWeight(.semibold)
+                            Text("\(dependabot)").fontWeight(.semibold)
                             Text("dependabot")
                         }
                         .foregroundStyle(Theme.link)
@@ -245,7 +276,7 @@ struct CountsLine: View {
 
             Spacer(minLength: 4)
 
-            if let activity = status.lastActivity(model.prefs.activityMode) {
+            if let activity {
                 HStack(spacing: 4) {
                     Image(systemName: "clock")
                     Text(RelativeTime.ago(activity))
