@@ -111,7 +111,7 @@ struct GroupRowView: View {
         Button("Move Down") { model.move(group.entryID, by: 1) }
             .disabled(!model.canMove(group.entryID, by: 1))
         Divider()
-        Button("Edit Groups…") { model.actions.showSettings(.repositories) }
+        Button("Edit Group…") { model.showGroupEditor(.edit(group.id)) }
     }
 }
 

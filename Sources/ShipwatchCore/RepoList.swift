@@ -241,6 +241,15 @@ public struct RepoList: Codable, Equatable, Sendable {
         }
     }
 
+    /// Makes `members` exactly the group's repositories: new ones join after the current members, dropped ones
+    /// stay where they are, ungrouped.
+    public mutating func setMembers(of id: RepoGroup.ID, to members: [TrackedRepo.ID]) {
+        guard group(id) != nil else { return }
+        let wanted = Set(members)
+        setGroup(items.filter { $0.group == id && !wanted.contains($0.id) }.map(\.id), to: nil)
+        setGroup(items.filter { $0.group != id && wanted.contains($0.id) }.map(\.id), to: id)
+    }
+
     public mutating func setGroupExpanded(_ id: RepoGroup.ID, _ expanded: Bool) {
         guard let index = groups.firstIndex(where: { $0.id == id }) else { return }
         groups[index].isExpanded = expanded
@@ -289,13 +298,27 @@ public struct RepoList: Codable, Equatable, Sendable {
     }
 
     /// Every group and repository as Settings lists them.
-    public var rows: [RepoListRow] {
+    public var rows: [RepoListRow] { rows(collapsing: []) }
+
+    /// Settings rows without the members of the `collapsed` groups.
+    public func rows(collapsing collapsed: Set<RepoGroup.ID>) -> [RepoListRow] {
         entries(emptyGroups: true).flatMap { entry -> [RepoListRow] in
             switch entry {
             case .repo(let repo): [.repo(repo)]
-            case .group(let group, let members): [.group(group)] + members.map { .repo($0) }
+            case .group(let group, let members): [.group(group)] + (collapsed.contains(group.id) ? [] : members.map { .repo($0) })
             }
         }
+    }
+
+    /// `moveRows` for a table showing `rows(collapsing:)`. Dropping right below a collapsed group lands after
+    /// its hidden members, outside the group.
+    public mutating func moveRows(fromOffsets source: IndexSet, toOffset destination: Int, collapsing collapsed: Set<RepoGroup.ID>) {
+        let all = rows.map(\.id)
+        let shown = rows(collapsing: collapsed).map(\.id)
+        let offsets = shown.compactMap { all.firstIndex(of: $0) }
+        guard offsets.count == shown.count else { return }
+        let mapped = IndexSet(source.compactMap { offsets.indices.contains($0) ? offsets[$0] : nil })
+        moveRows(fromOffsets: mapped, toOffset: offsets.indices.contains(destination) ? offsets[destination] : all.count)
     }
 
     /// Applies a drag in the Settings table, offsets as in SwiftUI's `move(fromOffsets:toOffset:)` over `rows`.

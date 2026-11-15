@@ -30,6 +30,20 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// What the group sheet in Settings edits.
+public enum GroupEditor: Identifiable, Hashable, Sendable {
+    /// A new group, starting with these repositories.
+    case new([TrackedRepo.ID])
+    case edit(RepoGroup.ID)
+
+    public var id: String {
+        switch self {
+        case .new: "new"
+        case .edit(let id): RepoGroup.entryID(id)
+        }
+    }
+}
+
 public enum Banner: Equatable, Sendable {
     case rateLimited(until: Date)
     case offline(String)
@@ -113,6 +127,9 @@ public final class AppModel {
     public var pendingRemoval: String?
     public var settingsTab: SettingsTab = .repositories
     public var isAddingRepositories = false
+    public var groupEditor: GroupEditor?
+    /// Groups whose repositories Settings leaves out, apart from the menu's own expanded state.
+    public var collapsedSettingsGroups: Set<RepoGroup.ID> = []
     public var launchAtLogin = false
     public var launchAtLoginError: String?
     /// Launch at login needs the app bundle; a bare `swift run` binary cannot register.
@@ -668,11 +685,27 @@ public final class AppModel {
 
     // MARK: Groups
 
-    /// Creates a group with the given repositories and returns its id so Settings can focus its name.
+    /// Opens the group sheet in Settings.
+    public func showGroupEditor(_ editor: GroupEditor) {
+        groupEditor = editor
+        actions.showSettings(.repositories)
+    }
+
+    /// Applies the group sheet: creates the group when `id` is `nil`, otherwise renames it and sets its members.
+    /// Returns `nil` when the group was deleted in the meantime.
     @discardableResult
-    public func createGroup(with ids: [TrackedRepo.ID] = []) -> RepoGroup.ID {
-        let name = prefs.repos.unusedGroupName()
-        return prefs.repos.addGroup(named: name, members: ids)
+    public func saveGroup(_ id: RepoGroup.ID?, name: String, members: [TrackedRepo.ID]) -> RepoGroup.ID? {
+        var repos = prefs.repos
+        guard let id else {
+            let created = repos.addGroup(named: name, members: members)
+            prefs.repos = repos
+            return created
+        }
+        guard repos.group(id) != nil else { return nil }
+        repos.renameGroup(id, to: name)
+        repos.setMembers(of: id, to: members)
+        prefs.repos = repos
+        return id
     }
 
     public func renameGroup(_ id: RepoGroup.ID, to name: String) {
@@ -682,6 +715,7 @@ public final class AppModel {
     /// Deletes the group only; its repositories stay tracked, ungrouped.
     public func removeGroup(_ id: RepoGroup.ID) {
         prefs.repos.removeGroup(id)
+        collapsedSettingsGroups.remove(id)
     }
 
     public func setGroup(_ ids: [TrackedRepo.ID], to group: RepoGroup.ID?) {
@@ -691,6 +725,14 @@ public final class AppModel {
     public func toggleGroup(_ id: RepoGroup.ID) {
         guard let group = prefs.repos.group(id) else { return }
         prefs.repos.setGroupExpanded(id, !group.isExpanded)
+    }
+
+    public func toggleSettingsGroup(_ id: RepoGroup.ID) {
+        if collapsedSettingsGroups.remove(id) == nil { collapsedSettingsGroups.insert(id) }
+    }
+
+    public func setSettingsGroupsCollapsed(_ collapsed: Bool) {
+        collapsedSettingsGroups = collapsed ? Set(prefs.repos.groups.map(\.id)) : []
     }
 
     public func toggleExpanded(_ id: TrackedRepo.ID) {

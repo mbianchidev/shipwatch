@@ -140,6 +140,28 @@ struct RepoListTests {
         #expect(list.members(of: tools).map(\.ref) == [api, cli])
     }
 
+    @Test func collapsedGroupsHideTheirMembersAndDragsLandAroundThem() {
+        var (list, tools) = toolsList()
+        let collapsed: Set = [tools]
+        #expect(list.rows(collapsing: collapsed).map(\.id) == [RepoGroup.entryID(tools), web.key, infra.key])
+        list.moveRows(fromOffsets: [2], toOffset: 1, collapsing: collapsed)
+        #expect(list.items.map(\.ref) == [api, cli, infra, web])
+        #expect(list.members(of: tools).map(\.ref) == [api, cli])
+        list.moveRows(fromOffsets: [0], toOffset: 3, collapsing: collapsed)
+        #expect(list.items.map(\.ref) == [infra, web, api, cli])
+        #expect(list.members(of: tools).map(\.ref) == [api, cli])
+    }
+
+    @Test func setMembersMakesTheGroupExactlyThoseRepositories() {
+        var (list, tools) = toolsList()
+        list.setMembers(of: tools, to: [cli.key, infra.key])
+        #expect(list.members(of: tools).map(\.ref) == [cli, infra])
+        #expect(list.items.map(\.ref) == [api, cli, infra, web])
+        list.setMembers(of: tools, to: [])
+        #expect(list.members(of: tools).isEmpty)
+        #expect(list.group(tools) != nil)
+    }
+
     @Test func moveSkipsHiddenReposAndPassesWholeGroups() {
         var (list, tools) = toolsList()
         list.setHidden(web.key, true)

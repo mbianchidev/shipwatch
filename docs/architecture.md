@@ -84,9 +84,12 @@ and the groups. Each repository has an optional group; the members of a group ar
 kept next to each other, and the group sits where its first member is, so groups
 and ungrouped repositories share one order without a separate position for
 groups. `entries` turns the list into the popover's top-level rows and `rows`
-into the Settings table's group headers and repositories. `moveRows` maps a drag
-in that table back onto the list, and `sorted(by:activity:)` applies the Name and
-Last Activity orders without changing it.
+into the Settings table's group headers and repositories, leaving out the members
+of groups collapsed in Settings (`AppModel.collapsedSettingsGroups`, kept until
+quit). `moveRows` maps a drag in that table back onto the list, translating
+offsets past collapsed members, `setMembers` applies the group sheet, and
+`sorted(by:activity:)` applies the Name and Last Activity orders without
+changing it.
 
 ## Refresh cadence
 
