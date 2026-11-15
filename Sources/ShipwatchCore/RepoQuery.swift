@@ -1,6 +1,6 @@
 import Foundation
 
-/// Builds and parses the batched GraphQL query that fetches everything except workflow runs.
+/// Builds and parses the batched GraphQL query that fetches everything except workflow runs and scanning alerts.
 /// Values go through GraphQL variables, so repository names never get spliced into the query text.
 enum RepoQuery {
     /// GitHub answers 502 when a GraphQL query runs too long, and each repo adds a search, so batches stay small.
@@ -8,24 +8,27 @@ enum RepoQuery {
     /// Used for later refreshes once a batch timed out.
     static let smallChunkSize = 5
 
-    static let fragment = """
-    fragment RepoFields on Repository {
-      nameWithOwner url isPrivate isArchived pushedAt
-      defaultBranchRef { name target { oid } }
-      latestRelease { tagName url publishedAt isPrerelease }
-      releases(first: 10, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { tagName url publishedAt isPrerelease isDraft } }
-      issues(states: OPEN) { totalCount }
-      pullRequests(states: OPEN) { totalCount }
-      recentIssue: issues(first: 1, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { updatedAt } }
-      recentPullRequest: pullRequests(first: 1, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { updatedAt } }
+    /// Open Dependabot alerts come back `null`, with a `FORBIDDEN` error, when the token can't read them.
+    static func fragment(securityAlerts: Bool) -> String {
+        """
+        fragment RepoFields on Repository {
+          nameWithOwner url isPrivate isArchived pushedAt
+          defaultBranchRef { name target { oid } }
+          latestRelease { tagName url publishedAt isPrerelease }
+          releases(first: 10, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { tagName url publishedAt isPrerelease isDraft } }
+          issues(states: OPEN) { totalCount }
+          pullRequests(states: OPEN) { totalCount }
+          recentIssue: issues(first: 1, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { updatedAt } }
+          recentPullRequest: pullRequests(first: 1, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { updatedAt } }
+        \(securityAlerts ? "  vulnerabilityAlerts(states: OPEN) { totalCount }\n" : "")}
+        """
     }
-    """
 
     static func dependabotSearch(_ ref: RepoRef) -> String {
         "repo:\(ref.fullName) is:pr is:open author:app/dependabot"
     }
 
-    static func build(_ refs: [RepoRef]) -> (query: String, variables: [String: String]) {
+    static func build(_ refs: [RepoRef], securityAlerts: Bool = false) -> (query: String, variables: [String: String]) {
         var declarations: [String] = []
         var fields: [String] = ["  rateLimit { remaining resetAt }"]
         var variables: [String: String] = [:]
@@ -37,11 +40,13 @@ enum RepoQuery {
             variables["n\(index)"] = ref.name
             variables["q\(index)"] = dependabotSearch(ref)
         }
-        let query = "query(\(declarations.joined(separator: ", "))) {\n\(fields.joined(separator: "\n"))\n}\n\(fragment)"
+        let query = "query(\(declarations.joined(separator: ", "))) {\n\(fields.joined(separator: "\n"))\n}\n\(fragment(securityAlerts: securityAlerts))"
         return (query, variables)
     }
 
-    static func parse(_ data: Data, refs: [RepoRef], includePrereleases: Bool) throws -> (statuses: [RepoStatus], rateLimit: RateLimit?) {
+    static func parse(
+        _ data: Data, refs: [RepoRef], includePrereleases: Bool, securityAlerts: Bool = false
+    ) throws -> (statuses: [RepoStatus], rateLimit: RateLimit?) {
         let response = try JSON.decode(Response.self, from: data, snakeCase: false)
         guard let body = response.data else {
             let message = response.errors?.map(\.message).joined(separator: "; ") ?? "empty response"
@@ -60,7 +65,11 @@ enum RepoQuery {
                 }
                 return RepoStatus(ref: ref, problem: .noAccess)
             }
-            return node.status(for: ref, dependabot: body.dependabotCounts[index] ?? 0, includePrereleases: includePrereleases)
+            var status = node.status(for: ref, dependabot: body.dependabotCounts[index] ?? 0, includePrereleases: includePrereleases)
+            if securityAlerts {
+                status.securityAlerts = SecurityAlerts(dependabot: node.vulnerabilityAlerts?.totalCount)
+            }
+            return status
         }
         let rateLimit = body.rateLimit.map { RateLimit(remaining: $0.remaining, resetAt: $0.resetAt) }
         return (statuses, rateLimit)
@@ -181,6 +190,7 @@ enum RepoQuery {
         var pullRequests: Count
         var recentIssue: Nodes<Updated>
         var recentPullRequest: Nodes<Updated>
+        var vulnerabilityAlerts: Count?
 
         func status(for ref: RepoRef, dependabot: Int, includePrereleases: Bool) -> RepoStatus {
             // `latestRelease` skips pre-releases and drafts; with pre-releases on, take the newest published one.

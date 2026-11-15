@@ -40,12 +40,15 @@ public enum RepoFilter: Hashable, Sendable {
     case ci(CIState)
     /// Repositories with at least one open Dependabot pull request.
     case dependabot
+    /// Repositories with at least one open Dependabot, code scanning or secret scanning alert.
+    case securityAlerts
 
     func matches(_ status: RepoStatus?) -> Bool {
         guard let status, status.problem == nil else { return false }
         switch self {
         case .ci(let state): return status.ciState == state
         case .dependabot: return status.dependabotPullRequests > 0
+        case .securityAlerts: return status.securityAlerts?.hasAlerts == true
         }
     }
 }
@@ -175,9 +178,9 @@ public final class AppModel {
         showHiddenInMenu || !repo.hidden
     }
 
-    /// Visible repositories with at least one open Dependabot pull request.
-    public var dependabotCount: Int {
-        prefs.repos.visible.count { RepoFilter.dependabot.matches(statuses[$0.id]) }
+    /// Visible repositories the filter would list.
+    public func visibleCount(_ filter: RepoFilter) -> Int {
+        prefs.repos.visible.count { filter.matches(statuses[$0.id]) }
     }
 
     /// While a filter is on, groups list their matching members.
@@ -296,7 +299,10 @@ public final class AppModel {
         defer { isRefreshing = false }
         do {
             let includePrereleases = prefs.includePrereleases
-            let batch = try await authorized { try await $0.statuses(for: refs, includePrereleases: includePrereleases) }
+            let securityAlerts = prefs.showSecurityAlerts
+            let batch = try await authorized {
+                try await $0.statuses(for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts)
+            }
             statuses = followRenames(batch.statuses)
             lastUpdated = Date()
             banner = nil
@@ -704,6 +710,20 @@ public final class AppModel {
     public func setIncludePrereleases(_ include: Bool) {
         prefs.includePrereleases = include
         requestRefresh(force: true)
+    }
+
+    /// Turning alerts on asks again for every repository right away, so newly granted access shows up.
+    public func setShowSecurityAlerts(_ show: Bool) {
+        prefs.showSecurityAlerts = show
+        if show {
+            Task {
+                await client.retryUnreadableAlerts()
+                await refresh(force: true)
+            }
+        } else {
+            for key in statuses.keys { statuses[key]?.securityAlerts = nil }
+            if filter == .securityAlerts { filter = nil }
+        }
     }
 
     public func setLaunchAtLogin(_ enabled: Bool) {

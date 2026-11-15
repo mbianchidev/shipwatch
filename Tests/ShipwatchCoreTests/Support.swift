@@ -93,7 +93,7 @@ enum Fixtures {
 
     static func repoNode(
         _ fullName: String, releaseTag: String? = "v2.4.1", prerelease: String? = nil, issues: Int = 4, prs: Int = 11,
-        isPrivate: Bool = false
+        isPrivate: Bool = false, vulnerabilityAlerts: String? = nil
     ) -> String {
         let latest = releaseTag.map {
             #"{"tagName":"\#($0)","url":"https://github.com/\#(fullName)/releases/tag/\#($0)","publishedAt":"2026-11-11T10:00:00Z","isPrerelease":false}"#
@@ -110,7 +110,7 @@ enum Fixtures {
          "pushedAt":"2026-11-14T15:36:00Z","defaultBranchRef":{"name":"main","target":{"oid":"9f1c2e7a4b3d5e6f708192a3b4c5d6e7f8091a2b"}},"latestRelease":\(latest),
          "releases":{"nodes":[\(nodes.joined(separator: ","))]},"issues":{"totalCount":\(issues)},
          "pullRequests":{"totalCount":\(prs)},"recentIssue":{"nodes":[{"updatedAt":"2026-11-14T12:00:00Z"}]},
-         "recentPullRequest":{"nodes":[{"updatedAt":"2026-11-14T15:39:00Z"}]}}
+         "recentPullRequest":{"nodes":[{"updatedAt":"2026-11-14T15:39:00Z"}]}\(vulnerabilityAlerts.map { #","vulnerabilityAlerts":\#($0)"# } ?? "")}
         """
     }
 

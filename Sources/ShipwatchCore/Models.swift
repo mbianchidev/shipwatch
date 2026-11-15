@@ -167,6 +167,31 @@ public struct CISummary: Equatable, Sendable {
     }
 }
 
+/// Open security alerts of one repository. A count is `nil` when it couldn't be read: only admins and security
+/// managers can read alerts, private repositories need GitHub Advanced Security, and the feature may be off.
+public struct SecurityAlerts: Equatable, Sendable {
+    /// Code and secret scanning are counted from one page of REST results, so this many means at least this many.
+    public static let pageLimit = 100
+
+    public var dependabot: Int?
+    public var codeScanning: Int?
+    public var secretScanning: Int?
+
+    public init(dependabot: Int? = nil, codeScanning: Int? = nil, secretScanning: Int? = nil) {
+        self.dependabot = dependabot
+        self.codeScanning = codeScanning
+        self.secretScanning = secretScanning
+    }
+
+    /// Open alerts of the kinds that could be read.
+    public var total: Int { (dependabot ?? 0) + (codeScanning ?? 0) + (secretScanning ?? 0) }
+    public var hasAlerts: Bool { total > 0 }
+    /// Every kind could be read.
+    public var isComplete: Bool { dependabot != nil && codeScanning != nil && secretScanning != nil }
+    /// A scanning count stopped at `pageLimit`.
+    public var isCapped: Bool { codeScanning == Self.pageLimit || secretScanning == Self.pageLimit }
+}
+
 public enum RepoProblem: Equatable, Sendable {
     /// The token can't see the repo (not installed, private, moved to an owner without access, or deleted).
     case noAccess
@@ -191,6 +216,8 @@ public struct RepoStatus: Equatable, Sendable {
     public var lastPullRequestUpdate: Date?
     /// `nil` when workflow runs could not be read.
     public var ci: CISummary?
+    /// `nil` unless security alerts were requested.
+    public var securityAlerts: SecurityAlerts?
     public var problem: RepoProblem?
 
     public init(
@@ -198,7 +225,7 @@ public struct RepoStatus: Equatable, Sendable {
         defaultBranch: String? = nil, defaultBranchHead: String? = nil, latestRelease: Release? = nil, openIssues: Int = 0,
         openPullRequests: Int = 0, dependabotPullRequests: Int = 0, pushedAt: Date? = nil,
         lastIssueUpdate: Date? = nil, lastPullRequestUpdate: Date? = nil, ci: CISummary? = nil,
-        problem: RepoProblem? = nil
+        securityAlerts: SecurityAlerts? = nil, problem: RepoProblem? = nil
     ) {
         self.ref = ref
         self.url = url ?? GitHubLinks.repo(ref)
@@ -214,6 +241,7 @@ public struct RepoStatus: Equatable, Sendable {
         self.lastIssueUpdate = lastIssueUpdate
         self.lastPullRequestUpdate = lastPullRequestUpdate
         self.ci = ci
+        self.securityAlerts = securityAlerts
         self.problem = problem
     }
 

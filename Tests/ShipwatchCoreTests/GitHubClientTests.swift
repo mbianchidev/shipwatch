@@ -57,6 +57,23 @@ struct RepoQueryTests {
         #expect(pre.latestRelease?.isPrerelease == true)
     }
 
+    @Test func countsDependabotAlertsOnlyWhenAsked() throws {
+        #expect(!RepoQuery.build(refs).query.contains("vulnerabilityAlerts"))
+        #expect(RepoQuery.build(refs, securityAlerts: true).query.contains("vulnerabilityAlerts(states: OPEN) { totalCount }"))
+
+        let json = """
+        {"data":{"r0":\(Fixtures.repoNode("mbianchidev/api-server", vulnerabilityAlerts: #"{"totalCount":3}"#)),"d0":{"issueCount":0},
+          "r1":\(Fixtures.repoNode("acme-org/legacy-api", vulnerabilityAlerts: "null")),"d1":{"issueCount":0}},
+         "errors":[{"type":"FORBIDDEN","path":["r1","vulnerabilityAlerts"],"message":"Resource not accessible by integration"}]}
+        """
+        let statuses = try RepoQuery.parse(Data(json.utf8), refs: refs, includePrereleases: false, securityAlerts: true).statuses
+        #expect(statuses[0].securityAlerts == SecurityAlerts(dependabot: 3))
+        #expect(statuses[1].problem == nil)
+        #expect(statuses[1].securityAlerts == SecurityAlerts(dependabot: nil))
+        let off = try RepoQuery.parse(Data(json.utf8), refs: refs, includePrereleases: false).statuses
+        #expect(off[0].securityAlerts == nil)
+    }
+
     @Test func wholeQueryFailureThrows() {
         let json = #"{"errors":[{"message":"Bad credentials"}]}"#
         #expect(throws: GitHubError.graphQL("Bad credentials")) {
@@ -95,8 +112,79 @@ struct GitHubClientTests {
         #expect(api.ci?.running.first?.id == 482)
         #expect(batch.statuses[Self.legacy.key]?.problem == .noAccess)
         #expect(batch.statuses[Self.legacy.key]?.ci == nil)
+        #expect(api.securityAlerts == nil)
         #expect(batch.rateLimit?.remaining == 4990)
         #expect(transport.requests.count == 2)
+    }
+
+    static let codeScanningPath = "/repos/mbianchidev/api-server/code-scanning/alerts"
+    static let secretScanningPath = "/repos/mbianchidev/api-server/secret-scanning/alerts"
+
+    @Test func securityAlertsCombineGraphQLAndScanningCounts() async throws {
+        let transport = MockTransport { request in
+            switch request.url!.path {
+            case "/graphql":
+                #expect(request.bodyString.contains("vulnerabilityAlerts"))
+                let node = Fixtures.repoNode("mbianchidev/api-server", vulnerabilityAlerts: #"{"totalCount":2}"#)
+                return .json(#"{"data":{"r0":\#(node),"d0":{"issueCount":0}}}"#)
+            case Self.codeScanningPath:
+                if request.value(forHTTPHeaderField: "If-None-Match") == "\"cs\"" { return MockTransport.Reply(status: 304, body: Data()) }
+                return .json(#"[{"number":7},{"number":5},{"number":4}]"#, headers: ["ETag": "\"cs\""])
+            case Self.secretScanningPath:
+                return .json(#"{"message":"Not Found"}"#, status: 404)
+            default:
+                return .json(Self.runs)
+            }
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        for _ in 0..<2 {
+            let batch = try await client.statuses(for: [Self.api], includePrereleases: false, securityAlerts: true)
+            let alerts = try #require(batch.statuses[Self.api.key]?.securityAlerts)
+            #expect(alerts == SecurityAlerts(dependabot: 2, codeScanning: 3, secretScanning: nil))
+            #expect(alerts.total == 5)
+            #expect(!alerts.isComplete)
+        }
+        let paths = transport.requests.map { $0.url!.path }
+        #expect(paths.filter { $0 == Self.codeScanningPath }.count == 2)
+        // A 404 counts against the rate limit, so it isn't asked again on the next refresh.
+        #expect(paths.filter { $0 == Self.secretScanningPath }.count == 1)
+        let secret = try #require(transport.requests.first { $0.url!.path == Self.secretScanningPath }?.url)
+        let query = URLComponents(url: secret, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(query.contains(URLQueryItem(name: "state", value: "open")))
+        #expect(query.contains(URLQueryItem(name: "hide_secret", value: "true")))
+    }
+
+    @Test func unreadableAlertsAreAskedAgainLater() async throws {
+        let transport = MockTransport { _ in
+            .json(#"{"message":"Advanced Security must be enabled for this repository to use code scanning."}"#, status: 403)
+        }
+        let clock = Clock(Fixtures.now)
+        let client = GitHubClient(transport: transport, now: { clock.now }, token: { "test-token" })
+        #expect(try await client.openAlertCount(Self.api, .codeScanning) == nil)
+        clock.advance(10 * 60)
+        #expect(try await client.openAlertCount(Self.api, .codeScanning) == nil)
+        #expect(transport.requests.count == 1)
+        clock.advance(6 * 60)
+        _ = try await client.openAlertCount(Self.api, .codeScanning)
+        #expect(transport.requests.count == 2)
+        await client.retryUnreadableAlerts()
+        _ = try await client.openAlertCount(Self.api, .codeScanning)
+        #expect(transport.requests.count == 3)
+    }
+
+    @Test func failingScanningAlertsLeaveTheRestOfTheRow() async throws {
+        let transport = MockTransport { request in
+            switch request.url!.path {
+            case "/graphql": return Self.graphQLReply(["mbianchidev/api-server"])
+            case Self.codeScanningPath, Self.secretScanningPath: return Self.gatewayTimeout
+            default: return .json(Self.runs)
+            }
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let batch = try await client.statuses(for: [Self.api], includePrereleases: false, securityAlerts: true)
+        let api = try #require(batch.statuses[Self.api.key])
+        #expect(api.ci?.state == .running)
+        #expect(api.securityAlerts == SecurityAlerts(dependabot: nil, codeScanning: nil, secretScanning: nil))
     }
 
     static let payments = RepoRef(owner: "acme-org", name: "payments")

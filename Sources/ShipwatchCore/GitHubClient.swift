@@ -14,7 +14,11 @@ public actor GitHubClient {
     private let token: TokenProvider
     private var etagCache: [URL: (etag: String, data: Data)] = [:]
     private var neverStartedCache: [Int: (updatedAt: Date, neverStarted: Bool)] = [:]
-    private let maxConcurrentRunRequests = 6
+    /// Alert lists that answered 403 or 404, and when. Unlike 304s, those answers count against the rate limit.
+    private var unreadableAlerts: [URL: Date] = [:]
+    private let alertRetryInterval: TimeInterval = 15 * 60
+    private let now: @Sendable () -> Date
+    private let maxConcurrentRepoRequests = 6
     private var chunkSize = RepoQuery.chunkSize
     /// Repos in a row that failed even when queried alone: past this, GitHub is down rather than slow on one repo.
     private let maxConsecutiveRepoFailures = 3
@@ -22,10 +26,12 @@ public actor GitHubClient {
     public init(
         transport: any HTTPTransport = URLSessionTransport(),
         api: URL = URL(string: "https://api.github.com")!,
+        now: @escaping @Sendable () -> Date = { Date() },
         token: @escaping TokenProvider
     ) {
         self.transport = transport
         self.api = api
+        self.now = now
         self.token = token
     }
 
@@ -64,7 +70,9 @@ public actor GitHubClient {
 
     /// Fetches release, counts, activity and CI for every repo: one GraphQL call per chunk of repos,
     /// plus one conditional REST call per repo for workflow runs and one for the jobs of each new failure.
-    public func statuses(for refs: [RepoRef], includePrereleases: Bool) async throws -> StatusBatch {
+    /// With `securityAlerts`, the GraphQL call also counts open Dependabot alerts, and each repo gets one conditional
+    /// REST call for code scanning alerts and one for secret scanning alerts.
+    public func statuses(for refs: [RepoRef], includePrereleases: Bool, securityAlerts: Bool = false) async throws -> StatusBatch {
         var result: [String: RepoStatus] = [:]
         var progress = ChunkProgress()
 
@@ -72,21 +80,30 @@ public actor GitHubClient {
         while !remaining.isEmpty {
             let chunk = Array(remaining.prefix(chunkSize))
             remaining = remaining.dropFirst(chunk.count)
-            let statuses = try await repoStatuses(chunk, includePrereleases: includePrereleases, progress: &progress)
+            let statuses = try await repoStatuses(
+                chunk, includePrereleases: includePrereleases, securityAlerts: securityAlerts, progress: &progress
+            )
             for (ref, status) in zip(chunk, statuses) {
                 result[ref.key] = status
             }
         }
 
-        let readable = refs.compactMap { ref -> (key: String, ref: RepoRef, defaultBranch: String?)? in
+        let readable = refs.compactMap { ref -> ReadableRepo? in
             guard let status = result[ref.key], status.problem == nil else { return nil }
-            return (key: ref.key, ref: status.ref, defaultBranch: status.defaultBranch)
+            return ReadableRepo(key: ref.key, ref: status.ref, defaultBranch: status.defaultBranch)
         }
-        let summaries = try await ciSummaries(for: readable)
-        for (key, summary) in summaries {
-            result[key]?.ci = summary
+        let details = try await restDetails(for: readable, securityAlerts: securityAlerts)
+        for (key, detail) in details {
+            result[key]?.ci = detail.ci
+            result[key]?.securityAlerts?.codeScanning = detail.codeScanning
+            result[key]?.securityAlerts?.secretScanning = detail.secretScanning
         }
         return StatusBatch(statuses: result, rateLimit: progress.rateLimit)
+    }
+
+    /// Asks again right away for the alerts that couldn't be read, for example after access was granted.
+    public func retryUnreadableAlerts() {
+        unreadableAlerts = [:]
     }
 
     private struct ChunkProgress {
@@ -96,11 +113,15 @@ public actor GitHubClient {
 
     /// Splits a chunk in half when GitHub times out on it, so one slow batch or repo doesn't fail the whole refresh.
     /// A repo that still fails on its own shows the error on its row.
-    private func repoStatuses(_ chunk: [RepoRef], includePrereleases: Bool, progress: inout ChunkProgress) async throws -> [RepoStatus] {
+    private func repoStatuses(
+        _ chunk: [RepoRef], includePrereleases: Bool, securityAlerts: Bool, progress: inout ChunkProgress
+    ) async throws -> [RepoStatus] {
         do {
-            let (query, variables) = RepoQuery.build(chunk)
+            let (query, variables) = RepoQuery.build(chunk, securityAlerts: securityAlerts)
             let data = try await graphQL(query: query, variables: variables)
-            let parsed = try RepoQuery.parse(data, refs: chunk, includePrereleases: includePrereleases)
+            let parsed = try RepoQuery.parse(
+                data, refs: chunk, includePrereleases: includePrereleases, securityAlerts: securityAlerts
+            )
             progress.rateLimit = parsed.rateLimit ?? progress.rateLimit
             progress.consecutiveRepoFailures = 0
             return parsed.statuses
@@ -109,8 +130,12 @@ public actor GitHubClient {
                 log.notice("GraphQL query for \(chunk.count) repos failed, splitting it: \(error.localizedDescription, privacy: .public)")
                 chunkSize = min(chunkSize, RepoQuery.smallChunkSize)
                 let half = chunk.count / 2
-                let first = try await repoStatuses(Array(chunk[..<half]), includePrereleases: includePrereleases, progress: &progress)
-                let second = try await repoStatuses(Array(chunk[half...]), includePrereleases: includePrereleases, progress: &progress)
+                let first = try await repoStatuses(
+                    Array(chunk[..<half]), includePrereleases: includePrereleases, securityAlerts: securityAlerts, progress: &progress
+                )
+                let second = try await repoStatuses(
+                    Array(chunk[half...]), includePrereleases: includePrereleases, securityAlerts: securityAlerts, progress: &progress
+                )
                 return first + second
             }
             progress.consecutiveRepoFailures += 1
@@ -120,33 +145,55 @@ public actor GitHubClient {
         }
     }
 
-    private func ciSummaries(for repos: [(key: String, ref: RepoRef, defaultBranch: String?)]) async throws -> [String: CISummary] {
-        try await withThrowingTaskGroup(of: (String, CISummary?).self) { group in
-            var summaries: [String: CISummary] = [:]
+    private struct ReadableRepo: Sendable {
+        var key: String
+        var ref: RepoRef
+        var defaultBranch: String?
+    }
+
+    private struct RepoDetails: Sendable {
+        var ci: CISummary?
+        var codeScanning: Int?
+        var secretScanning: Int?
+    }
+
+    /// Reads workflow runs, and scanning alerts when asked, a few repos at a time.
+    private func restDetails(for repos: [ReadableRepo], securityAlerts: Bool) async throws -> [String: RepoDetails] {
+        try await withThrowingTaskGroup(of: (String, RepoDetails).self) { group in
+            var details: [String: RepoDetails] = [:]
             var pending = repos.makeIterator()
 
             func addNext() {
                 guard let repo = pending.next() else { return }
                 group.addTask {
-                    do {
-                        guard let runs = try await self.workflowRuns(repo.ref) else { return (repo.key, nil) }
-                        let marked = try await self.markRunsThatNeverStarted(runs, ref: repo.ref, defaultBranch: repo.defaultBranch)
-                        return (repo.key, CIEvaluator.summarize(runs: marked, defaultBranch: repo.defaultBranch))
-                    } catch let error as GitHubError where error.affectsEveryRequest {
-                        throw error
-                    } catch {
-                        // One repo's Actions failing shouldn't hide everything else; its CI shows as unknown.
-                        return (repo.key, nil)
+                    var detail = RepoDetails(ci: try await self.ciSummary(repo))
+                    if securityAlerts {
+                        detail.codeScanning = try await self.alertCountOrUnknown(repo.ref, .codeScanning)
+                        detail.secretScanning = try await self.alertCountOrUnknown(repo.ref, .secretScanning)
                     }
+                    return (repo.key, detail)
                 }
             }
 
-            for _ in 0..<maxConcurrentRunRequests { addNext() }
-            while let (key, summary) = try await group.next() {
-                if let summary { summaries[key] = summary }
+            for _ in 0..<maxConcurrentRepoRequests { addNext() }
+            while let (key, detail) = try await group.next() {
+                details[key] = detail
                 addNext()
             }
-            return summaries
+            return details
+        }
+    }
+
+    private func ciSummary(_ repo: ReadableRepo) async throws -> CISummary? {
+        do {
+            guard let runs = try await workflowRuns(repo.ref) else { return nil }
+            let marked = try await markRunsThatNeverStarted(runs, ref: repo.ref, defaultBranch: repo.defaultBranch)
+            return CIEvaluator.summarize(runs: marked, defaultBranch: repo.defaultBranch)
+        } catch let error as GitHubError where error.affectsEveryRequest {
+            throw error
+        } catch {
+            // One repo's Actions failing shouldn't hide everything else; its CI shows as unknown.
+            return nil
         }
     }
 
@@ -211,6 +258,55 @@ public actor GitHubClient {
         let (data, _) = try await get(url)
         let page = try JSON.decode(Page.self, from: data)
         return page.totalCount > page.jobs.count ? nil : page.jobs
+    }
+
+    // MARK: Security alerts
+
+    public enum ScanningAlertKind: String, Sendable {
+        case codeScanning = "code-scanning"
+        case secretScanning = "secret-scanning"
+    }
+
+    /// Open alerts of one kind, counted up to `SecurityAlerts.pageLimit`, or `nil` when the token can't read them.
+    /// GitHub answers 403 or 404 without admin or security manager access, without GitHub Advanced Security on a
+    /// private repo, or while the feature is off. Shipwatch then asks again only after `alertRetryInterval`.
+    public func openAlertCount(_ ref: RepoRef, _ kind: ScanningAlertKind) async throws -> Int? {
+        var query = [
+            URLQueryItem(name: "state", value: "open"),
+            URLQueryItem(name: "per_page", value: String(SecurityAlerts.pageLimit)),
+        ]
+        if kind == .secretScanning {
+            // Only the count matters, so leaked secrets never reach Shipwatch.
+            query.append(URLQueryItem(name: "hide_secret", value: "true"))
+        }
+        let url = api.appending(path: "repos/\(ref.owner)/\(ref.name)/\(kind.rawValue)/alerts").appending(queryItems: query)
+        if let since = unreadableAlerts[url], now().timeIntervalSince(since) < alertRetryInterval {
+            return nil
+        }
+        struct Alert: Decodable {}
+        do {
+            let (data, _) = try await get(url, conditional: true)
+            unreadableAlerts[url] = nil
+            return try JSON.decode([Alert].self, from: data).count
+        } catch GitHubError.notFound {
+            unreadableAlerts[url] = now()
+            return nil
+        } catch GitHubError.http(let status, _) where status == 403 {
+            unreadableAlerts[url] = now()
+            return nil
+        }
+    }
+
+    /// One repo's alerts failing, for example with a 503, only leaves them unknown.
+    private func alertCountOrUnknown(_ ref: RepoRef, _ kind: ScanningAlertKind) async throws -> Int? {
+        do {
+            return try await openAlertCount(ref, kind)
+        } catch let error as GitHubError where error.affectsEveryRequest {
+            throw error
+        } catch {
+            log.error("\(kind.rawValue, privacy: .public) alerts of \(ref.fullName, privacy: .private) could not be read: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     // MARK: Transport
