@@ -256,3 +256,50 @@ struct RelativeTimeTests {
         #expect(RelativeTime.updated(now.addingTimeInterval(-32), now: now) == "32 s ago")
     }
 }
+
+struct ReleaseWatchTests {
+    let api = RepoRef(owner: "octocat", name: "api-server")
+    let web = RepoRef(owner: "octocat", name: "website")
+    let refreshedAt = Fixtures.now
+
+    func release(_ tag: String, minutesAfterRefresh minutes: Double, pre: Bool = false) -> Release {
+        Release(
+            tagName: tag, url: URL(string: "https://github.com/octocat/api-server/releases/tag/\(tag)")!,
+            publishedAt: refreshedAt.addingTimeInterval(minutes * 60), isPrerelease: pre
+        )
+    }
+
+    func statuses(_ releases: [RepoRef: Release?]) -> [String: RepoStatus] {
+        Dictionary(uniqueKeysWithValues: releases.map { ($0.key.key, RepoStatus(ref: $0.key, latestRelease: $0.value)) })
+    }
+
+    func found(_ previous: [String: RepoStatus], _ current: [String: RepoStatus], watched: Set<String>? = nil) -> [String] {
+        ReleaseWatch.newReleases(previous: previous, previousAt: refreshedAt, current: current, watched: watched ?? [api.key, web.key])
+            .map { "\($0.ref.name) \($0.release.tagName)" }
+    }
+
+    @Test func reportsReleasesPublishedSinceThePreviousRefresh() {
+        let previous = statuses([api: release("v1.0.0", minutesAfterRefresh: -600), web: nil])
+        let current = statuses([api: release("v1.1.0", minutesAfterRefresh: 1), web: release("v0.1.0", minutesAfterRefresh: -1)])
+        #expect(found(previous, current) == ["api-server v1.1.0", "website v0.1.0"])
+        #expect(found(previous, current, watched: [web.key]) == ["website v0.1.0"])
+        #expect(ReleaseWatch.newReleases(previous: previous, previousAt: nil, current: current, watched: [api.key]).isEmpty)
+    }
+
+    @Test func staysQuietWhenAnOlderReleaseBecomesTheLatest() {
+        let previous = statuses([api: release("v2.0.0", minutesAfterRefresh: -60)])
+        let deleted = statuses([api: release("v1.9.0", minutesAfterRefresh: -6000)])
+        let prereleasesOn = statuses([api: release("v2.1.0-beta.1", minutesAfterRefresh: -30, pre: true)])
+        #expect(found(previous, deleted).isEmpty)
+        #expect(found(previous, prereleasesOn).isEmpty)
+        #expect(found(previous, previous).isEmpty)
+    }
+
+    @Test func needsAPreviousReadableStatus() {
+        let current = statuses([api: release("v1.1.0", minutesAfterRefresh: 1)])
+        #expect(found([:], current).isEmpty)
+        var unreadable = current
+        unreadable[api.key]?.problem = .noAccess
+        #expect(found(statuses([api: nil]), unreadable).isEmpty)
+    }
+}

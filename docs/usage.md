@@ -108,7 +108,7 @@ inside the group. The arrows turn blue while the order isn't Custom.
 ## Groups
 
 <p align="center">
-  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a search field, a Group column, a Tools group header row with Edit and Ungroup, and its three indented repositories between ungrouped ones" width="560">
+  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a search field, a Notify column with the bell on for two repositories, a Group column, a Tools group header row with Edit and Ungroup, and its three indented repositories between ungrouped ones" width="560">
 </p>
 
 A group shows as one row: its name, how many repositories it holds, the open
@@ -184,6 +184,9 @@ The repositories shown in the list, in order.
 
 - Click the eye to hide or show a repository. Hidden ones stay configured and are
   counted at the bottom of the list.
+- Click the bell to get a [release notification](#release-notifications) when the
+  repository publishes a GitHub release. Right-click selected rows for
+  **Notify About New Releases** to turn it on for all of them.
 - Select rows and click **-** (or press Delete), or right-click a repository and
   choose **Remove from Shipwatch…**, to stop tracking it. A right-click on a
   selected row acts on every selected repository. Shipwatch asks first; the
@@ -291,6 +294,7 @@ helper and never prompts.
 | Last activity means | Last push | **Last push**, or **Any update** (issues, pull requests, comments). |
 | Include pre-releases | Off | Show the newest release even if it is a pre-release. |
 | Show security alerts | Off | Count open Dependabot, code scanning and secret scanning alerts. See [Security alerts](#security-alerts). |
+| Release notifications | Off | Shows for how many repositories the bell is on. See [Release notifications](#release-notifications). |
 | Show count in menu bar | Running | Show the number of **Running** or **Failing** repositories next to the sailboat, or **None**. |
 | Launch at login | On after the first launch from Applications | Start Shipwatch when you log in. Only available for the app bundle. |
 | Check automatically | On, every 6 hours | Check GitHub Releases for a newer Shipwatch every hour, 6 hours, 12 hours or day. |
@@ -319,6 +323,31 @@ When GitHub rate limits the token, it waits for the reset time. Details are in
   only.
 - **GitHub App** Client ID and slug: only for builds without a bundled app, or to
   use your own. See [GitHub App setup](github-app-setup.md).
+
+### Release notifications
+
+Off by default. Click the bell next to a repository in Settings > Repositories,
+and Shipwatch shows a macOS notification, with its icon, when that repository
+publishes a GitHub release:
+
+- Only GitHub Releases count. Pushing a tag without creating a release, and
+  draft releases, don't notify. Pre-releases only count while
+  **Include pre-releases** is on.
+- Shipwatch finds the release on its next refresh, so the notification can come
+  up to one refresh interval later. A release published while Shipwatch wasn't
+  running is announced on the first refresh after it starts again.
+- A release that becomes the latest without being new, for example after a
+  newer one was deleted or after turning on **Include pre-releases**, doesn't
+  notify.
+- Click the notification to open the release on GitHub. More than three new
+  releases at once arrive as one notification.
+
+The first bell you turn on makes macOS ask whether Shipwatch may send
+notifications. Settings > General shows for how many repositories the bell is on,
+**Choose…** to go to the Repositories tab, and **Send Test** to see one. If
+notifications are off for Shipwatch in System Settings, it says so with a button
+to open them. Notifications need the app bundle; they aren't available when
+running from source with `swift run`.
 
 ## Where data is stored
 

@@ -232,6 +232,10 @@ struct GeneralSettingsView: View {
                 FormCaption("Open Dependabot, code scanning and secret scanning alerts. Needs write access, admin for secret scanning.")
             }
 
+            FormRow("Release notifications:") {
+                ReleaseNotificationsRow(model: model)
+            }
+
             FormRow("Show count in menu bar:") {
                 SettingsPicker(title: "Show count in menu bar", selection: $prefs.menuBarCount, options: MenuBarCount.allCases, label: \.label)
                 FormCaption("Number of running or failing repositories next to the sailboat.")
@@ -253,6 +257,7 @@ struct GeneralSettingsView: View {
         .font(.system(size: 13))
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
+        .task { await model.notifier.refreshAuthorization() }
     }
 
     @ViewBuilder
@@ -324,6 +329,41 @@ struct GeneralSettingsView: View {
         }
     }
 
+}
+
+/// How many repositories send release notifications, whether macOS lets Shipwatch show them, and a test button.
+struct ReleaseNotificationsRow: View {
+    let model: AppModel
+
+    var body: some View {
+        let notifier = model.notifier
+        let count = model.releaseNotificationCount
+        HStack(spacing: 8) {
+            Text(count == 0 ? "Off" : "On for \(count.counted("repository", "repositories"))")
+                .foregroundStyle(.secondary)
+            Button("Choose…") { model.settingsTab = .repositories }
+                .help("Click the bell next to a repository to get its release notifications")
+            Button("Send Test") { notifier.postTest() }
+                .disabled(notifier.authorization != .allowed)
+                .help("Show a sample notification")
+        }
+        switch notifier.authorization {
+        case .unavailable:
+            FormCaption("Available when Shipwatch runs from its app bundle.")
+        case .denied:
+            HStack(spacing: 8) {
+                FormCaption("Notifications are off for Shipwatch in System Settings.", color: Theme.warning)
+                Button("Open Notification Settings…") { model.open(Self.systemSettingsURL) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.link)
+                    .font(.system(size: 12))
+            }
+        case .notDetermined, .allowed:
+            FormCaption("A notification when a repository with the bell on in Repositories publishes a GitHub release. Pushing a tag alone doesn't count.")
+        }
+    }
+
+    private static let systemSettingsURL = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")!
 }
 
 /// One line describing the updater state. Uses a symbol and words, not only color.

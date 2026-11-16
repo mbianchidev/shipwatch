@@ -20,7 +20,7 @@ struct RepositoriesSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Repositories shown in the menu, in this order. Drag to reorder, pick a group in the Group column, click the eye to hide or show. Groups collapse into one row in the menu, and here with the arrow.")
+            Text("Repositories shown in the menu, in this order. Drag to reorder, pick a group in the Group column, click the eye to hide or show and the bell for release notifications. Groups collapse into one row in the menu, and here with the arrow.")
                 .font(.system(size: 12.5))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -113,6 +113,7 @@ struct RepositoriesSettingsView: View {
         HStack(spacing: 0) {
             Color.clear.frame(width: 28)
             Text("Show").frame(width: 46, alignment: .leading)
+            Text("Notify").frame(width: RepoSettingsRow.notifyWidth, alignment: .leading)
             Text("Repository")
             Spacer()
             Text("Group").frame(width: RepoSettingsRow.groupWidth, alignment: .leading)
@@ -321,8 +322,9 @@ struct GroupSettingsRow: View {
 }
 
 struct RepoSettingsRow: View {
+    static let notifyWidth: CGFloat = 50
     static let groupWidth: CGFloat = 130
-    static let accessWidth: CGFloat = 170
+    static let accessWidth: CGFloat = 150
     static let height: CGFloat = 32
     let model: AppModel
     let repo: TrackedRepo
@@ -346,6 +348,7 @@ struct RepoSettingsRow: View {
             .buttonStyle(.plain)
             .frame(width: 46, alignment: .leading)
             .help(repo.hidden ? "Show in the menu" : "Hide from the menu")
+            notifyButton
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(repo.ref.name)
                     .foregroundStyle(repo.hidden ? .secondary : .primary)
@@ -378,9 +381,32 @@ struct RepoSettingsRow: View {
                 Button("Remove from Group") { model.setGroup(targets(), to: nil) }
             }
             Divider()
-            let count = targets().count
+            let ids = targets()
+            let notifying = ids.allSatisfy(model.notifiesReleases)
+            Button(notifying ? "Stop Notifying About Releases" : "Notify About New Releases") {
+                model.setReleaseNotifications(ids, !notifying)
+            }
+            Divider()
+            let count = ids.count
             Button(count == 1 ? "Remove from Shipwatch…" : "Remove \(count) Repositories from Shipwatch…", role: .destructive, action: remove)
         }
+    }
+
+    /// The bell: a notification when the repository publishes a GitHub release.
+    private var notifyButton: some View {
+        let on = model.notifiesReleases(of: repo.id)
+        return Button { model.setReleaseNotifications([repo.id], !on) } label: {
+            Image(systemName: on ? "bell.fill" : "bell")
+                .font(.system(size: 13))
+                .foregroundStyle(on ? AnyShapeStyle(Theme.link) : AnyShapeStyle(.tertiary))
+                .frame(width: 30, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(width: Self.notifyWidth, alignment: .leading)
+        .help(on ? "Stop notifying about new releases" : "Notify me when it publishes a GitHub release")
+        .accessibilityLabel("Release notifications for \(repo.ref.fullName)")
+        .accessibilityValue(on ? "On" : "Off")
     }
 
     private var groupMenu: some View {

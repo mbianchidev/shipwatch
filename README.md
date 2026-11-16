@@ -129,6 +129,8 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
   passing repositories, or to those with open Dependabot pull requests.
 - Optional: open Dependabot, code scanning and secret scanning alerts per
   repository, with a chip that lists the repositories that have any.
+- Optional: a macOS notification when a repository you pick publishes a GitHub
+  release. A tag push alone doesn't count.
 - Sort the list by your custom order, name or last activity, and narrow it to
   one organization or user.
 - Collapsible groups that sum their repositories' issues and pull requests and

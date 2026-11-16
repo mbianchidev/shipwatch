@@ -116,6 +116,24 @@ successful refresh, so a relaunch (an update, logging in) shows every repository
 right away instead of "Loading…". The cache only holds tracked repositories and is
 ignored when unreadable or from another `StatusSnapshot.currentVersion`.
 
+## Release notifications
+
+After each successful refresh, `ReleaseWatch.newReleases` (in `ShipwatchCore`)
+compares the new statuses with the previous ones for the repositories in
+`Preferences.releaseNotifications`. A release counts when it is the latest under
+another tag than before and was published after the previous refresh (with
+2 minutes of leeway for clock differences). The publishing time keeps older
+releases quiet when they become the latest for another reason. The previous
+statuses come from `StatusCache` after a relaunch, so releases published while
+Shipwatch was closed are announced, and nothing is announced without a previous
+refresh. `latestRelease` only comes from GitHub releases, never from tags.
+
+`ReleaseNotifier` posts them through `UNUserNotificationCenter`, which shows the
+bundle's icon, and opens the release URL from `userInfo` when one is clicked. It
+only touches the notification center when running from the app bundle:
+`UNUserNotificationCenter` throws an exception in a process without a bundle
+identifier. Snapshots use `ReleaseNotifier(previewing:)`.
+
 ## Local clones
 
 Off by default. Shipwatch only writes to disk here, and only when the user has

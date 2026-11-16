@@ -43,6 +43,7 @@ public final class Preferences {
         static let syncClones = "syncClones"
         static let cloneSyncOptOut = "cloneSyncOptOut"
         static let ignoredRepos = "ignoredRepos"
+        static let releaseNotifications = "releaseNotifications"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -117,6 +118,10 @@ public final class Preferences {
     public var ignoredRepos: [String] {
         didSet { defaults.set(ignoredRepos, forKey: Key.ignoredRepos) }
     }
+    /// `TrackedRepo.id`s that send a notification when they publish a GitHub release. Empty by default.
+    public var releaseNotifications: Set<String> {
+        didSet { defaults.set(releaseNotifications.sorted(), forKey: Key.releaseNotifications) }
+    }
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -142,6 +147,7 @@ public final class Preferences {
         syncClones = defaults.bool(forKey: Key.syncClones)
         cloneSyncOptOut = Set(defaults.stringArray(forKey: Key.cloneSyncOptOut) ?? [])
         ignoredRepos = defaults.stringArray(forKey: Key.ignoredRepos) ?? []
+        releaseNotifications = Set(defaults.stringArray(forKey: Key.releaseNotifications) ?? [])
     }
 
     private static func loadRepos(_ defaults: UserDefaults) -> RepoList {

@@ -101,6 +101,7 @@ public final class AppModel {
     public let prefs: Preferences
     let updater: Updater
     public let workspace: WorkspaceModel
+    public let notifier: ReleaseNotifier
     @ObservationIgnored public var actions = AppActions()
 
     // Data
@@ -154,11 +155,13 @@ public final class AppModel {
         cli: GitHubCLI = GitHubCLI(),
         transport: any HTTPTransport = URLSessionTransport(),
         git: (any GitRunning)? = ProcessGit.locate(),
-        statusCache: StatusCache? = .standard
+        statusCache: StatusCache? = .standard,
+        notifier: ReleaseNotifier = ReleaseNotifier()
     ) {
         self.prefs = prefs
         updater = Updater(prefs: prefs)
         workspace = WorkspaceModel(prefs: prefs, git: git)
+        self.notifier = notifier
         self.bundled = bundled
         self.cli = cli
         self.transport = transport
@@ -166,6 +169,9 @@ public final class AppModel {
         self.vault = vault
         client = GitHubClient(transport: transport) { try await vault.accessToken() }
         self.statusCache = statusCache
+        notifier.open = { [weak self] url in
+            if let url { self?.open(url) } else { self?.actions.showPopover() }
+        }
     }
 
     // MARK: Derived state
@@ -261,6 +267,7 @@ public final class AppModel {
     public func start() {
         launchAtLogin = LoginItem.isEnabled
         observeWake()
+        notifier.start()
         Task { await workspace.rescan() }
         Task {
             await vault.setDeviceFlow(makeDeviceFlow())
@@ -363,7 +370,9 @@ public final class AppModel {
             let batch = try await authorized {
                 try await $0.statuses(for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts)
             }
+            let previous = statuses, previousAt = lastUpdated
             statuses = followRenames(batch.statuses)
+            notifyNewReleases(previous: previous, previousAt: previousAt)
             lastUpdated = Date()
             banner = nil
             rateLimitedUntil = nil
@@ -396,10 +405,24 @@ public final class AppModel {
             if expanded.remove(old) != nil { expanded.insert(new) }
             if pendingRemoval == old { pendingRemoval = nil }
             if prefs.cloneSyncOptOut.remove(old) != nil { prefs.cloneSyncOptOut.insert(new) }
+            if prefs.releaseNotifications.remove(old) != nil { prefs.releaseNotifications.insert(new) }
             refreshAgain = true
         }
         if repos != prefs.repos { prefs.repos = repos }
         return result
+    }
+
+    /// Posts a notification for each release published since the previous refresh by a repository with the bell on.
+    private func notifyNewReleases(previous: [String: RepoStatus], previousAt: Date?) {
+        guard !prefs.releaseNotifications.isEmpty else { return }
+        let found = ReleaseWatch.newReleases(
+            previous: previous, previousAt: previousAt, current: statuses, watched: prefs.releaseNotifications
+        )
+        guard !found.isEmpty else { return }
+        for item in found {
+            uiLog.notice("\(item.ref.fullName, privacy: .private) released \(item.release.tagName, privacy: .private)")
+        }
+        notifier.post(found)
     }
 
     // MARK: Status cache
@@ -710,10 +733,30 @@ public final class AppModel {
             statuses[id] = nil
             expanded.remove(id)
         }
+        if !prefs.releaseNotifications.isDisjoint(with: ids) { prefs.releaseNotifications.subtract(ids) }
         if let pendingRemoval, ids.contains(pendingRemoval) { self.pendingRemoval = nil }
         if prefs.menuOwner != nil, menuOwner == nil { prefs.menuOwner = nil }
         workspace.untrack(Set(ids))
         Task { await workspace.rescan() }
+    }
+
+    public func notifiesReleases(of id: TrackedRepo.ID) -> Bool {
+        prefs.releaseNotifications.contains(id)
+    }
+
+    /// Turns release notifications on or off for repositories, asking macOS for permission the first time.
+    public func setReleaseNotifications(_ ids: [TrackedRepo.ID], _ enabled: Bool) {
+        if enabled {
+            prefs.releaseNotifications.formUnion(ids)
+            Task { await notifier.requestAuthorization() }
+        } else {
+            prefs.releaseNotifications.subtract(ids)
+        }
+    }
+
+    /// Release notifications that are on for repositories still tracked.
+    public var releaseNotificationCount: Int {
+        prefs.repos.items.count { prefs.releaseNotifications.contains($0.id) }
     }
 
     public func setHidden(_ id: TrackedRepo.ID, _ hidden: Bool) {

@@ -123,6 +123,7 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     prefs.repos = repos
     prefs.cliFallback = true
     prefs.showSecurityAlerts = true
+    prefs.releaseNotifications = ["octocat/api-server", "octocat/website"]
 
     let cli = GitHubCLI(executable: URL(fileURLWithPath: "/opt/homebrew/bin/gh")) { _, _ in "gho_snapshot_mock" }
     let model = AppModel(
@@ -132,7 +133,8 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
         cli: cli,
         transport: OfflineTransport(),
         git: OfflineGit(),
-        statusCache: nil
+        statusCache: nil,
+        notifier: ReleaseNotifier(previewing: signedIn ? .allowed : .notDetermined)
     )
     model.loginItemAvailable = true
     model.launchAtLogin = true

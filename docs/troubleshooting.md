@@ -93,6 +93,18 @@ Shipwatch keeps the installed version when an update can't be verified or
 installed, and shows why in Settings > General. See
 [Updates](updates.md#when-an-update-fails). You can always upgrade by hand.
 
+## No release notification arrived
+
+- Check that the bell next to the repository is on in Settings > Repositories,
+  and that Settings > General doesn't say notifications are off. If it does,
+  click **Open Notification Settings…** and allow them for Shipwatch.
+- Click **Send Test** in Settings > General. If no banner shows, check Focus
+  modes and the Shipwatch entry in System Settings > Notifications.
+- Only GitHub releases notify. A pushed tag without a release, a draft, or a
+  pre-release while **Include pre-releases** is off doesn't.
+- Shipwatch finds new releases when it refreshes, so wait one refresh interval.
+- Notifications need the app bundle; a build run with `swift run` can't show them.
+
 ## A local clone isn't listed in Settings > Workspace
 
 - The repository must be tracked in Shipwatch. Clones of github.com
