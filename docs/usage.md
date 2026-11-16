@@ -6,8 +6,8 @@ Shipwatch shows a sailboat in the menu bar.
 
 | Icon | Meaning |
 | --- | --- |
-| Sailboat only | Nothing is running or queued; repositories may be passing, failing or config/billing |
-| Yellow dot | A workflow is running or queued in a visible repository |
+| Sailboat only | Nothing is running; repositories may be passing, queued, failing or config/billing |
+| Yellow dot | A workflow is running in a visible repository |
 
 By default the number of repositories with a running workflow shows next to the
 sailboat; repositories that only have queued workflows don't count. **Show count in menu bar** switches it to failing repositories or
@@ -49,7 +49,7 @@ apart without the Checks permission, so open the run to see GitHub's message.
 
 **Queued** (dotted yellow circle) means a run is waiting to start, for a runner,
 an approval or a concurrency slot, and none is in progress. Queued repositories
-are not counted as running.
+are not counted as running and don't show the menu bar dot.
 
 The chips under the title count running, queued, failing, config/billing and passing
 repositories, repositories with at least one open Dependabot pull request, and,
