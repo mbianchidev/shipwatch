@@ -86,6 +86,14 @@ scanning; unchanged results come back as `304 Not Modified` and don't use rate
 limit. Kinds GitHub refuses to show are asked again only every 15 minutes, or
 right away when you turn the setting off and on.
 
+With more than one organization or user among the shown repositories, the
+building button before the sort arrows narrows the list to one of them. It
+offers **All Organizations** (the default) and each owner with how many
+repositories it has. While one is chosen, the button shows its name in blue, and
+the chips, groups and **Move Up** and **Move Down** only count that owner's
+repositories. The menu bar icon still counts every repository. The choice is
+kept across launches.
+
 The arrows at the end of the chips sort the list:
 
 | Order | Lists |
@@ -100,7 +108,7 @@ inside the group. The arrows turn blue while the order isn't Custom.
 ## Groups
 
 <p align="center">
-  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a Group column, a Tools group header row with Edit and Ungroup, and its three indented repositories between ungrouped ones" width="560">
+  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a search field, a Group column, a Tools group header row with Edit and Ungroup, and its three indented repositories between ungrouped ones" width="560">
 </p>
 
 A group shows as one row: its name, how many repositories it holds, the open
@@ -146,6 +154,10 @@ The repositories shown in the list, in order.
 
 - Click **+** to pick repositories your token can read. Filter the list, or type
   `owner/name` to add one that isn't listed.
+- Type in **Search repositories and groups** to list only repositories whose
+  `owner/name` contains the text, under their group, and every repository of a
+  group whose name contains it. Groups stay open while searching. Clear the
+  search to drag rows again.
 - Drag rows to reorder. Drag a group's header row to move the whole group.
 - Click **New Group…** at the bottom to create a group: name it and tick its
   repositories (the selected ones are ticked already). Filter the list and use
@@ -172,7 +184,11 @@ The repositories shown in the list, in order.
 
 - Click the eye to hide or show a repository. Hidden ones stay configured and are
   counted at the bottom of the list.
-- Select rows and click **-** to remove them from Shipwatch.
+- Select rows and click **-** (or press Delete), or right-click a repository and
+  choose **Remove from Shipwatch…**, to stop tracking it. A right-click on a
+  selected row acts on every selected repository. Shipwatch asks first; the
+  repository stays on GitHub and its local clones stay on disk, so you can add
+  it again later.
 - The **Access** column shows whether the current sign-in can read each
   repository. **Grant…** opens the GitHub App installation page.
 
@@ -210,7 +226,7 @@ stashes, forces, pushes or switches branches.
 4. Turn on **Keep default branches up to date** (default off).
 
 <p align="center">
-  <img src="screenshots/settings-workspace.png" alt="Workspace settings with the workspace folder, the sync switch, two excluded folders, a table of local clones showing up to date, updated and skipped statuses, and a line saying 3 repositories cloned here aren't tracked yet with a Track 3 Found Here button" width="560">
+  <img src="screenshots/settings-workspace.png" alt="Workspace settings with the workspace folder, the sync switch, two excluded folders, a clone search field, a table of local clones showing up to date, updated and skipped statuses, and a line saying 3 repositories cloned here aren't tracked yet with a Track 3 Found Here button" width="560">
 </p>
 
 <p align="center">
@@ -237,7 +253,11 @@ failed; Shipwatch retries them after 15 minutes. See
   switching; the table shows "on *branch*".
 - **Sync Now** rescans and updates every clone right away, ignoring the
   15 minute wait. **Rescan** only looks for clones again.
-- Right-click a clone for **Show in Finder**.
+- Type in **Search clones by repository or path** to list only matching clones.
+- Right-click a clone for **Show in Finder**, or **Remove from Shipwatch…** to
+  stop tracking its repository. The clone stays on disk and moves to the
+  repositories that aren't tracked yet, so **Track N Found Here…** can add it
+  back.
 
 Shipwatch needs git for this: Homebrew's, or Apple's from the Command Line Tools
 (`xcode-select --install`). It uses your existing SSH agent or credential

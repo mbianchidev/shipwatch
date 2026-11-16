@@ -19,9 +19,9 @@ Shipwatch is a Swift package with no third-party dependencies.
 `StatusItemController` owns an `NSStatusItem` showing a sailboat template image
 plus a status dot, and an `NSPopover` hosting `PopoverView`. The app runs as an
 accessory (`LSUIElement`), so there is no Dock icon. Settings is a regular
-window (`SettingsWindowController`) forced to dark appearance. The sort button
-opens an AppKit `NSMenu`: a SwiftUI `Menu` inside the popover stops responding
-after its first pick until the popover reopens. Settings pop-ups use
+window (`SettingsWindowController`) forced to dark appearance. The sort and
+organization buttons open an AppKit `NSMenu`: a SwiftUI `Menu` inside the popover
+stops responding after its first pick until the popover reopens. Settings pop-ups use
 `SettingsPicker`, which takes its width from AppKit: with `fixedSize()` a
 picker sometimes collapsed to its arrows. Settings forms are a `Grid` of
 `FormRow`s, each caption inside its control's cell.
@@ -91,7 +91,11 @@ and ungrouped repositories share one order without a separate position for
 groups. `entries` turns the list into the popover's top-level rows and `rows`
 into the Settings table's group headers and repositories, leaving out the members
 of groups collapsed in Settings (`AppModel.collapsedSettingsGroups`, kept until
-quit). `moveRows` maps a drag in that table back onto the list, translating
+quit). `rows(collapsing:matching:)` applies the Settings search (`SearchText`),
+keeping each match under its group header; dragging is off while it is set,
+because filtered offsets don't map onto the list. `owners` lists the
+organizations and users for the popover's owner filter (`Preferences.menuOwner`).
+`moveRows` maps a drag in that table back onto the list, translating
 offsets past collapsed members, `setMembers` applies the group sheet, and
 `sorted(by:activity:)` applies the Name and Last Activity orders without
 changing it.
