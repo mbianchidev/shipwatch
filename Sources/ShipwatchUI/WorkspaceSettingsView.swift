@@ -42,7 +42,6 @@ struct WorkspaceSettingsView: View {
                 .padding(.bottom, 6)
                 if !workspace.scan.clones.isEmpty {
                     SheetField(prompt: "Search clones by repository or path", text: $cloneQuery, symbol: "magnifyingglass", focused: $cloneSearchFocused, clearable: true)
-                        .accessibilityLabel("Search local clones")
                         .padding(.bottom, 8)
                 }
                 clonesTable

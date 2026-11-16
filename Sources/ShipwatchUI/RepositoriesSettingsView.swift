@@ -27,7 +27,6 @@ struct RepositoriesSettingsView: View {
 
             if !repos.items.isEmpty || !repos.groups.isEmpty {
                 SheetField(prompt: "Search repositories and groups", text: $query, symbol: "magnifyingglass", focused: $searchFocused, clearable: true)
-                    .accessibilityLabel("Search repositories and groups")
             }
 
             VStack(spacing: 0) {
