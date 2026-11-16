@@ -157,6 +157,54 @@ struct GitHubClientTests {
         #expect(transport.requests.count == 2)
     }
 
+    static func reviewPage(_ nodes: [(repo: String, decision: String?)], next: String? = nil) -> String {
+        let items = nodes.map { node in
+            #"{"reviewDecision":\#(node.decision.map { "\"\($0)\"" } ?? "null"),"repository":{"nameWithOwner":"\#(node.repo)"}}"#
+        } + ["{}"]
+        let cursor = next.map { "\"\($0)\"" } ?? "null"
+        return #"{"data":{"search":{"issueCount":\#(nodes.count),"pageInfo":{"hasNextPage":\#(next != nil),"endCursor":\#(cursor)},"nodes":[\#(items.joined(separator: ","))]}}}"#
+    }
+
+    @Test func countsReviewRequestsPerRepoAcrossPages() async throws {
+        let transport = MockTransport { request in
+            let body = request.bodyString
+            if body.contains("RepoFields") { return .json(Self.graphQL) }
+            if request.url!.path != "/graphql" { return .json(Self.runs) }
+            #expect(body.contains("is:pr is:open archived:false review-requested:octocat"))
+            if body.contains("page-2") {
+                return .json(Self.reviewPage([(repo: "MBianchiDev/API-Server", decision: "APPROVED")]))
+            }
+            return .json(Self.reviewPage([
+                (repo: "mbianchidev/api-server", decision: "REVIEW_REQUIRED"), (repo: "octocat/elsewhere", decision: nil),
+            ], next: "page-2"))
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let all = try await client.reviewRequests(ReviewScope(login: "octocat", needingApproval: false))
+        #expect(all == [Self.api.key: 2, "octocat/elsewhere": 1])
+        let blocking = try await client.reviewRequests(ReviewScope(login: "octocat", needingApproval: true))
+        #expect(blocking == [Self.api.key: 1])
+
+        let batch = try await client.statuses(
+            for: [Self.api, Self.legacy], includePrereleases: false, reviews: ReviewScope(login: "octocat", needingApproval: false)
+        )
+        #expect(batch.statuses[Self.api.key]?.reviewRequests == 2)
+        #expect(batch.statuses[Self.legacy.key]?.reviewRequests == nil)
+    }
+
+    @Test func failingReviewSearchOnlyLeavesItsCountsUnknown() async throws {
+        let transport = MockTransport { request in
+            if request.bodyString.contains("RepoFields") { return .json(Self.graphQL) }
+            if request.url!.path == "/graphql" { return .json(#"{"errors":[{"message":"Something went wrong"}]}"#) }
+            return .json(Self.runs)
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let batch = try await client.statuses(
+            for: [Self.api], includePrereleases: false, reviews: ReviewScope(login: "octocat", needingApproval: false)
+        )
+        #expect(batch.statuses[Self.api.key]?.ci?.state == .running)
+        #expect(batch.statuses[Self.api.key]?.reviewRequests == nil)
+    }
+
     static let codeScanningPath = "/repos/mbianchidev/api-server/code-scanning/alerts"
     static let secretScanningPath = "/repos/mbianchidev/api-server/secret-scanning/alerts"
 

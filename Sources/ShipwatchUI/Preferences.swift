@@ -15,6 +15,19 @@ public enum MenuBarCount: String, CaseIterable, Sendable {
     }
 }
 
+/// Which pull requests waiting for your review the rows count.
+public enum ReviewRequestMode: String, CaseIterable, Sendable {
+    case off, all, needingApproval
+
+    public var label: String {
+        switch self {
+        case .off: "Off"
+        case .all: "All requests"
+        case .needingApproval: "Needing approval"
+        }
+    }
+}
+
 /// User settings, saved to UserDefaults on every change.
 @MainActor
 @Observable
@@ -46,6 +59,7 @@ public final class Preferences {
         static let releaseNotifications = "releaseNotifications"
         static let onlyMine = "onlyMine"
         static let onlyMineRepos = "onlyMineRepos"
+        static let reviewRequests = "reviewRequests"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -132,6 +146,10 @@ public final class Preferences {
     public var onlyMineRepos: Set<String> {
         didSet { defaults.set(onlyMineRepos.sorted(), forKey: Key.onlyMineRepos) }
     }
+    /// Off by default: it costs one more search per refresh.
+    public var reviewRequests: ReviewRequestMode {
+        didSet { defaults.set(reviewRequests.rawValue, forKey: Key.reviewRequests) }
+    }
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -160,6 +178,7 @@ public final class Preferences {
         releaseNotifications = Set(defaults.stringArray(forKey: Key.releaseNotifications) ?? [])
         onlyMine = defaults.bool(forKey: Key.onlyMine)
         onlyMineRepos = Set(defaults.stringArray(forKey: Key.onlyMineRepos) ?? [])
+        reviewRequests = defaults.string(forKey: Key.reviewRequests).flatMap(ReviewRequestMode.init(rawValue:)) ?? .off
     }
 
     private static func loadRepos(_ defaults: UserDefaults) -> RepoList {

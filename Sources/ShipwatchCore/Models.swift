@@ -265,13 +265,16 @@ public struct RepoStatus: Codable, Equatable, Sendable {
     /// The login the counts and runs are limited to: open issues and pull requests assigned to it, and workflow runs
     /// it triggered. `nil` counts everyone's.
     public var onlyMine: String?
+    /// Open pull requests waiting for the signed-in user's review, when review requests are counted.
+    public var reviewRequests: Int?
 
     public init(
         ref: RepoRef, url: URL? = nil, isPrivate: Bool = false, isArchived: Bool = false,
         defaultBranch: String? = nil, defaultBranchHead: String? = nil, latestRelease: Release? = nil, openIssues: Int = 0,
         openPullRequests: Int = 0, dependabotPullRequests: Int = 0, pushedAt: Date? = nil,
         lastIssueUpdate: Date? = nil, lastPullRequestUpdate: Date? = nil, ci: CISummary? = nil,
-        securityAlerts: SecurityAlerts? = nil, problem: RepoProblem? = nil, onlyMine: String? = nil
+        securityAlerts: SecurityAlerts? = nil, problem: RepoProblem? = nil, onlyMine: String? = nil,
+        reviewRequests: Int? = nil
     ) {
         self.ref = ref
         self.url = url ?? GitHubLinks.repo(ref)
@@ -290,6 +293,7 @@ public struct RepoStatus: Codable, Equatable, Sendable {
         self.securityAlerts = securityAlerts
         self.problem = problem
         self.onlyMine = onlyMine
+        self.reviewRequests = reviewRequests
     }
 
     public var ciState: CIState { ci?.state ?? .none }

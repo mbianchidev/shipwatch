@@ -126,6 +126,7 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     prefs.showSecurityAlerts = true
     prefs.releaseNotifications = ["octocat/api-server", "octocat/website"]
     prefs.onlyMineRepos = ["acme-org/infra"]
+    prefs.reviewRequests = .all
 
     let cli = GitHubCLI(executable: URL(fileURLWithPath: "/opt/homebrew/bin/gh")) { _, _ in "gho_snapshot_mock" }
     let model = AppModel(
@@ -157,6 +158,8 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     ]
     model.installationRepoCounts = [1: 6, 2: 14]
     model.statuses = Dictionary(uniqueKeysWithValues: statuses.map { ($0.ref.key, $0) })
+    model.statuses["octocat/website"]?.reviewRequests = 1
+    model.statuses["octocat/cli-tool"]?.reviewRequests = 2
     model.expanded = ["octocat/api-server"]
     model.lastUpdated = ago(40)
     model.nextRefresh = now.addingTimeInterval(20)

@@ -57,6 +57,8 @@ public enum RepoFilter: Hashable, Sendable {
     case dependabot
     /// Repositories with at least one open Dependabot, code scanning or secret scanning alert.
     case securityAlerts
+    /// Repositories with at least one open pull request waiting for your review.
+    case reviewRequests
 
     func matches(_ status: RepoStatus?) -> Bool {
         guard let status, status.problem == nil else { return false }
@@ -64,6 +66,7 @@ public enum RepoFilter: Hashable, Sendable {
         case .ci(let state): return status.ciState == state
         case .dependabot: return status.dependabotPullRequests > 0
         case .securityAlerts: return status.securityAlerts?.hasAlerts == true
+        case .reviewRequests: return (status.reviewRequests ?? 0) > 0
         }
     }
 }
@@ -368,8 +371,11 @@ public final class AppModel {
             let includePrereleases = prefs.includePrereleases
             let securityAlerts = prefs.showSecurityAlerts
             let mine = mineScope
+            let reviews = reviewScope
             let batch = try await authorized {
-                try await $0.statuses(for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine)
+                try await $0.statuses(
+                    for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine, reviews: reviews
+                )
             }
             let previous = statuses, previousAt = lastUpdated
             statuses = followRenames(batch.statuses)
@@ -767,6 +773,21 @@ public final class AppModel {
             return nil
         }
         return MineScope(login: login, keys: keys)
+    }
+
+    public func setReviewRequests(_ mode: ReviewRequestMode) {
+        prefs.reviewRequests = mode
+        requestRefresh(force: true)
+    }
+
+    /// Whose review requests the next refresh counts. Needs the signed-in login.
+    private var reviewScope: ReviewScope? {
+        guard prefs.reviewRequests != .off else { return nil }
+        guard let login = user?.login else {
+            uiLog.notice("The GitHub user isn't loaded yet, so this refresh doesn't count review requests")
+            return nil
+        }
+        return ReviewScope(login: login, needingApproval: prefs.reviewRequests == .needingApproval)
     }
 
     public func notifiesReleases(of id: TrackedRepo.ID) -> Bool {

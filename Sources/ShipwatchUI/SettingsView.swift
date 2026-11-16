@@ -239,6 +239,16 @@ struct GeneralSettingsView: View {
                 FormCaption("Count only issues and pull requests assigned to you and workflow runs you triggered, in every repository. Use the person in Repositories for single ones.")
             }
 
+            FormRow("Review requests:") {
+                SettingsPicker(
+                    title: "Review requests",
+                    selection: Binding(get: { prefs.reviewRequests }, set: { model.setReviewRequests($0) }),
+                    options: ReviewRequestMode.allCases,
+                    label: \.label
+                )
+                FormCaption("Open pull requests waiting for your review, per repository. Needing approval: only those that can't merge before an approving review.")
+            }
+
             FormRow("Release notifications:") {
                 ReleaseNotificationsRow(model: model)
             }

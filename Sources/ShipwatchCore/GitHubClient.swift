@@ -73,8 +73,10 @@ public actor GitHubClient {
     /// With `securityAlerts`, the GraphQL call also counts open Dependabot alerts, and each repo gets one conditional
     /// REST call for code scanning alerts and one for secret scanning alerts.
     /// Repositories in `mine` only count the open issues and pull requests assigned to its login and the runs it triggered.
+    /// With `reviews`, one more search counts the pull requests waiting for that user's review.
     public func statuses(
-        for refs: [RepoRef], includePrereleases: Bool, securityAlerts: Bool = false, mine: MineScope? = nil
+        for refs: [RepoRef], includePrereleases: Bool, securityAlerts: Bool = false, mine: MineScope? = nil,
+        reviews: ReviewScope? = nil
     ) async throws -> StatusBatch {
         var result: [String: RepoStatus] = [:]
         var progress = ChunkProgress()
@@ -101,7 +103,42 @@ public actor GitHubClient {
             result[key]?.securityAlerts?.codeScanning = detail.codeScanning
             result[key]?.securityAlerts?.secretScanning = detail.secretScanning
         }
+        if let reviews, !readable.isEmpty, let counts = try await reviewRequestsOrUnknown(reviews) {
+            for repo in readable {
+                result[repo.key]?.reviewRequests = counts[repo.ref.key] ?? 0
+            }
+        }
         return StatusBatch(statuses: result, rateLimit: progress.rateLimit)
+    }
+
+    /// Open pull requests waiting for `scope.login`'s review, by `RepoRef.key`, from one search across every
+    /// repository, up to `ReviewRequestQuery.maxPages` pages.
+    public func reviewRequests(_ scope: ReviewScope) async throws -> [String: Int] {
+        var counts: [String: Int] = [:]
+        var cursor: String?
+        for _ in 0..<ReviewRequestQuery.maxPages {
+            var variables = ["q": ReviewRequestQuery.search(scope)]
+            if let cursor { variables["after"] = cursor }
+            let data = try await graphQL(query: ReviewRequestQuery.query, variables: variables)
+            let page = try ReviewRequestQuery.parse(data, needingApproval: scope.needingApproval)
+            counts.merge(page.counts, uniquingKeysWith: +)
+            guard let next = page.nextCursor else { return counts }
+            cursor = next
+        }
+        log.notice("More than \(ReviewRequestQuery.maxPages * ReviewRequestQuery.pageSize) review requests, counting the first ones")
+        return counts
+    }
+
+    /// Review requests failing only leaves their counts unknown.
+    private func reviewRequestsOrUnknown(_ scope: ReviewScope) async throws -> [String: Int]? {
+        do {
+            return try await reviewRequests(scope)
+        } catch let error as GitHubError where error.affectsEveryRequest {
+            throw error
+        } catch {
+            log.error("Review requests could not be read: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     /// Asks again right away for the alerts that couldn't be read, for example after access was granted.

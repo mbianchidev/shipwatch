@@ -57,6 +57,11 @@ Per refresh, `GitHubClient.statuses(for:)`:
 2. Sends one REST call per repo for the 50 most recent workflow runs, with
    `If-None-Match` so unchanged repos come back as `304` and don't use rate limit.
    "Only mine" repos ask for `actor=<login>`, so only the user's runs decide CI.
+   With review requests on, one more GraphQL search
+   (`ReviewRequestQuery`, `review-requested:<login>`, up to 5 pages of 100) counts
+   open PRs waiting for the user's review per repo, keeping only
+   `reviewDecision: REVIEW_REQUIRED` for "Needing approval". If it fails, only
+   those counts are unknown.
    With security alerts on, it also lists open code scanning and secret scanning
    alerts (first page of 100, secrets hidden), the same way, in the same task per
    repo. `403` and `404` mean the token can't read them (not enough access to

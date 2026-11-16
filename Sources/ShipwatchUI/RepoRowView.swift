@@ -209,10 +209,13 @@ struct CountsLine: View {
     let issues: Int
     let pullRequests: Int
     let dependabot: Int
+    /// Open pull requests waiting for your review; 0 while they aren't counted.
+    let reviews: Int
     let activity: Date?
     let issuesURL: URL
     let pullRequestsURL: URL
     let dependabotURL: URL
+    let reviewsURL: URL?
     /// `nil` while security alerts are off or not loaded yet.
     let alerts: SecurityAlertsBadge?
 
@@ -225,6 +228,10 @@ struct CountsLine: View {
         issuesURL = GitHubLinks.issues(status.ref, assignee: status.onlyMine)
         pullRequestsURL = GitHubLinks.pullRequests(status.ref, assignee: status.onlyMine)
         dependabotURL = GitHubLinks.dependabotPullRequests(status.ref, assignee: status.onlyMine)
+        reviews = status.reviewRequests ?? 0
+        reviewsURL = model.user.map {
+            GitHubLinks.reviewRequests(status.ref, reviewer: $0.login, needingApproval: model.prefs.reviewRequests == .needingApproval)
+        }
         alerts = model.prefs.showSecurityAlerts
             ? status.securityAlerts.map { SecurityAlertsBadge(model: model, ref: status.ref, alerts: $0) }
             : nil
@@ -244,6 +251,10 @@ struct CountsLine: View {
         issuesURL = GitHubLinks.issues(refs, assignee: assignee)
         pullRequestsURL = GitHubLinks.pullRequests(refs, assignee: assignee)
         dependabotURL = GitHubLinks.dependabotPullRequests(refs, assignee: assignee)
+        reviews = readable.reduce(0) { $0 + ($1.reviewRequests ?? 0) }
+        reviewsURL = model.user.map {
+            GitHubLinks.reviewRequests(refs, reviewer: $0.login, needingApproval: model.prefs.reviewRequests == .needingApproval)
+        }
         let memberAlerts = readable.compactMap(\.securityAlerts)
         alerts = model.prefs.showSecurityAlerts && !memberAlerts.isEmpty
             ? SecurityAlertsBadge(model: model, group: memberAlerts)
@@ -252,10 +263,10 @@ struct CountsLine: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            // Drops the "dependabot" word before anything gets truncated.
+            // Drops the "dependabot" and "to review" words before anything gets truncated.
             ViewThatFits(in: .horizontal) {
-                counts(labelsDependabot: true).fixedSize()
-                counts(labelsDependabot: false)
+                counts(labeled: true).fixedSize()
+                counts(labeled: false)
             }
 
             Spacer(minLength: 4)
@@ -273,7 +284,7 @@ struct CountsLine: View {
         .lineLimit(1)
     }
 
-    private func counts(labelsDependabot: Bool) -> some View {
+    private func counts(labeled: Bool) -> some View {
         HStack(spacing: 10) {
             Button { model.open(issuesURL) } label: {
                 Counter(count: issues, label: issues == 1 ? "issue" : "issues") {
@@ -302,7 +313,7 @@ struct CountsLine: View {
                         HStack(spacing: 4) {
                             Image(systemName: "shippingbox")
                             Text("\(dependabot)").fontWeight(.semibold)
-                            if labelsDependabot {
+                            if labeled {
                                 Text("dependabot")
                             }
                         }
@@ -313,6 +324,24 @@ struct CountsLine: View {
                     .buttonStyle(.plain)
                     .help("Open Dependabot pull requests")
                     .accessibilityLabel("\(dependabot) dependabot")
+                }
+                if reviews > 0, let reviewsURL {
+                    Divider().frame(height: 14)
+                    Button { model.open(reviewsURL) } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.badge.clock")
+                            Text("\(reviews)").fontWeight(.semibold)
+                            if labeled {
+                                Text("to review")
+                            }
+                        }
+                        .foregroundStyle(Theme.link)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open pull requests waiting for your review")
+                    .accessibilityLabel("\(reviews) to review")
                 }
             }
             .background(Theme.fill, in: RoundedRectangle(cornerRadius: 6))

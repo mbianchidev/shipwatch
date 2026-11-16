@@ -251,6 +251,10 @@ struct SummaryChips: View {
             Chip(filter: .ci(.passing), count: overall.passing, label: "passing"),
             Chip(filter: .dependabot, count: model.visibleCount(.dependabot), label: "dependabot"),
             Chip(
+                filter: .reviewRequests, count: model.visibleCount(.reviewRequests), label: "to review",
+                subject: "repositories with pull requests waiting for your review"
+            ),
+            Chip(
                 filter: .securityAlerts, count: model.visibleCount(.securityAlerts), label: "with alerts",
                 subject: "repositories with security alerts"
             ),
@@ -259,12 +263,16 @@ struct SummaryChips: View {
             ViewThatFits(in: .horizontal) {
                 row(chips, labeled: true)
                 row(chips, labeled: false)
+                // With many kinds of chips even the icons may not fit; scrolling beats pushing the popover wider.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    row(chips, labeled: false)
+                }
             }
         }
     }
 
     private func row(_ chips: [Chip], labeled: Bool) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: labeled ? 6 : 4) {
             ForEach(chips, id: \.label) { chip in
                 chipButton(chip, labeled: labeled, selected: model.filter == chip.filter)
             }
@@ -282,6 +290,11 @@ struct SummaryChips: View {
         case .ci: CIIcon(glyph: .passing, size: 11)
         case .dependabot:
             Image(systemName: "shippingbox")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(Theme.link)
+                .frame(width: 13, height: 13)
+        case .reviewRequests:
+            Image(systemName: "person.badge.clock")
                 .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(Theme.link)
                 .frame(width: 13, height: 13)
@@ -303,7 +316,7 @@ struct SummaryChips: View {
                 }
             }
             .font(.system(size: 11.5))
-            .padding(.horizontal, 8)
+            .padding(.horizontal, labeled ? 8 : 6)
             .padding(.vertical, 3)
             .background(selected ? Theme.link.opacity(0.2) : Theme.fill, in: Capsule())
             .overlay(Capsule().strokeBorder(Theme.link.opacity(selected ? 0.8 : 0), lineWidth: 1))

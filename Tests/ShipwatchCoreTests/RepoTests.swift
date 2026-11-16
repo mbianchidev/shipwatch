@@ -233,6 +233,7 @@ struct LinkTests {
         #expect(query(GitHubLinks.dependabotPullRequests(ref, assignee: "octocat"))?.first?.value == "is:pr is:open author:app/dependabot assignee:octocat")
         #expect(query(GitHubLinks.actions(ref, actor: "octocat")) == [URLQueryItem(name: "query", value: "actor:octocat")])
         #expect(query(GitHubLinks.issues([ref], assignee: "octocat"))?.first?.value == "is:issue is:open assignee:octocat repo:acme-org/payments")
+        #expect(query(GitHubLinks.reviewRequests(ref, reviewer: "octocat", needingApproval: true))?.first?.value == "is:pr is:open review-requested:octocat review:required")
     }
 
     @Test func groupLinksSearchAcrossRepositories() throws {

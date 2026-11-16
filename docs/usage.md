@@ -33,6 +33,7 @@ Each visible repository shows:
 | Open issues | the open issues list |
 | Open pull requests | the open pull requests list |
 | `N dependabot` | open pull requests by `app/dependabot`; just the icon and number when the line is full |
+| `N to review`, with [review requests](#review-requests) on | open pull requests waiting for your review |
 | Shield, with [security alerts](#security-alerts) on | the repository's Security tab |
 | Last activity | (hover for the exact date) |
 
@@ -55,11 +56,13 @@ an approval or a concurrency slot, and none is in progress. Queued repositories
 are not counted as running and don't show the menu bar dot.
 
 The chips under the title count running, queued, failing, config/billing and passing
-repositories, repositories with at least one open Dependabot pull request, and,
-with [security alerts](#security-alerts) on, repositories with at least one open
+repositories, repositories with at least one open Dependabot pull request,
+repositories with pull requests waiting for your review (with
+[review requests](#review-requests) on), and, with
+[security alerts](#security-alerts) on, repositories with at least one open
 alert. Click one to list only those repositories; click it again, or close the
 list, to show all of them. When the chips don't fit, they show only icons and
-numbers; hover for the label.
+numbers; hover for the label. When even those don't fit, scroll them sideways.
 
 ### Security alerts
 
@@ -301,6 +304,7 @@ helper and never prompts.
 | Include pre-releases | Off | Show the newest release even if it is a pre-release. |
 | Show security alerts | Off | Count open Dependabot, code scanning and secret scanning alerts. See [Security alerts](#security-alerts). |
 | Only mine everywhere | Off | Count only what is yours in every repository. See [Only mine](#only-mine). |
+| Review requests | Off | **All requests** or **Needing approval**. See [Review requests](#review-requests). |
 | Release notifications | Off | Shows for how many repositories the bell is on. See [Release notifications](#release-notifications). |
 | Show count in menu bar | Running | Show the number of **Running** or **Failing** repositories next to the sailboat, or **None**. |
 | Launch at login | On after the first launch from Applications | Start Shipwatch when you log in. Only available for the app bundle. |
@@ -350,6 +354,23 @@ release, last activity and security alerts stay the repository's own. The
 running dot and count in the menu bar follow the same counts, so they only light
 up for your runs. Each such repository needs one more search per refresh for its
 pull requests.
+
+### Review requests
+
+Off by default. Pick **All requests** or **Needing approval** for **Review
+requests** in Settings > General to count the open pull requests where your
+review is requested, directly or through a team:
+
+- **All requests**: every one still waiting for you. GitHub drops the request
+  once you review, so reviewed pull requests leave the count.
+- **Needing approval**: only those that can't be merged before an approving
+  review, because branch protection or a ruleset requires one and it hasn't been
+  given yet (`review:required` on GitHub).
+
+Each row shows **N to review** in its pull request pill, linking to that list on
+GitHub, and groups add theirs up. The **to review** chip lists only the
+repositories that have any. It takes one more search per refresh, across all
+repositories at once, and counts up to 500 pull requests.
 
 ### Release notifications
 
