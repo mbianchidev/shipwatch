@@ -129,7 +129,14 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
   passing repositories, or to those with open Dependabot pull requests.
 - Optional: open Dependabot, code scanning and secret scanning alerts per
   repository, with a chip that lists the repositories that have any.
-- Sort the list by your custom order, name or last activity.
+- Optional: a macOS notification when a repository you pick publishes a GitHub
+  release. A tag push alone doesn't count.
+- Optional, per repository or everywhere: count only the issues and pull requests
+  assigned to you and the workflow runs you triggered.
+- Optional: pull requests waiting for your review, all of them or only those
+  still needing an approval, with a chip to list those repositories.
+- Sort the list by your custom order, name or last activity, and narrow it to
+  one organization or user.
 - Collapsible groups that sum their repositories' issues and pull requests and
   show whether any CI is running, queued or failing.
 - Renamed and transferred repositories are followed automatically.

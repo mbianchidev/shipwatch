@@ -24,28 +24,47 @@ enum RepoQuery {
         """
     }
 
-    static func dependabotSearch(_ ref: RepoRef) -> String {
-        "repo:\(ref.fullName) is:pr is:open author:app/dependabot"
+    static func dependabotSearch(_ ref: RepoRef, assignee: String? = nil) -> String {
+        "repo:\(ref.fullName) is:pr is:open author:app/dependabot" + (assignee.map { " assignee:\($0)" } ?? "")
     }
 
-    static func build(_ refs: [RepoRef], securityAlerts: Bool = false) -> (query: String, variables: [String: String]) {
+    static func assignedPullRequestSearch(_ ref: RepoRef, assignee: String) -> String {
+        "repo:\(ref.fullName) is:pr is:open assignee:\(assignee)"
+    }
+
+    /// Repositories in `mine` also count the open issues assigned to its login, and search the pull requests
+    /// assigned to it, which `pullRequests` can't filter by.
+    static func build(
+        _ refs: [RepoRef], securityAlerts: Bool = false, mine: MineScope? = nil
+    ) -> (query: String, variables: [String: String]) {
         var declarations: [String] = []
         var fields: [String] = ["  rateLimit { remaining resetAt }"]
         var variables: [String: String] = [:]
         for (index, ref) in refs.enumerated() {
+            let assignee = mine?.login(for: ref)
             declarations.append("$o\(index): String!, $n\(index): String!, $q\(index): String!")
-            fields.append("  r\(index): repository(owner: $o\(index), name: $n\(index)) { ...RepoFields }")
+            if let assignee {
+                declarations.append("$p\(index): String!")
+                fields.append("  r\(index): repository(owner: $o\(index), name: $n\(index)) { ...RepoFields assignedIssues: issues(states: OPEN, filterBy: {assignee: $me}) { totalCount } }")
+                fields.append("  p\(index): search(query: $p\(index), type: ISSUE, first: 0) { issueCount }")
+                variables["p\(index)"] = assignedPullRequestSearch(ref, assignee: assignee)
+                variables["me"] = assignee
+            } else {
+                fields.append("  r\(index): repository(owner: $o\(index), name: $n\(index)) { ...RepoFields }")
+            }
             fields.append("  d\(index): search(query: $q\(index), type: ISSUE, first: 0) { issueCount }")
             variables["o\(index)"] = ref.owner
             variables["n\(index)"] = ref.name
-            variables["q\(index)"] = dependabotSearch(ref)
+            variables["q\(index)"] = dependabotSearch(ref, assignee: assignee)
         }
+        // GraphQL rejects declared variables that no field uses.
+        if variables["me"] != nil { declarations.append("$me: String!") }
         let query = "query(\(declarations.joined(separator: ", "))) {\n\(fields.joined(separator: "\n"))\n}\n\(fragment(securityAlerts: securityAlerts))"
         return (query, variables)
     }
 
     static func parse(
-        _ data: Data, refs: [RepoRef], includePrereleases: Bool, securityAlerts: Bool = false
+        _ data: Data, refs: [RepoRef], includePrereleases: Bool, securityAlerts: Bool = false, mine: MineScope? = nil
     ) throws -> (statuses: [RepoStatus], rateLimit: RateLimit?) {
         let response = try JSON.decode(Response.self, from: data, snakeCase: false)
         guard let body = response.data else {
@@ -66,6 +85,13 @@ enum RepoQuery {
                 return RepoStatus(ref: ref, problem: .noAccess)
             }
             var status = node.status(for: ref, dependabot: body.dependabotCounts[index] ?? 0, includePrereleases: includePrereleases)
+            if let login = mine?.login(for: ref) {
+                let assignedPullRequests = body.assignedPullRequests[index] ?? 0
+                status.openIssues = node.assignedIssues?.totalCount ?? 0
+                status.openPullRequests = assignedPullRequests
+                status.dependabotPullRequests = min(body.dependabotCounts[index] ?? 0, assignedPullRequests)
+                status.onlyMine = login
+            }
             if securityAlerts {
                 status.securityAlerts = SecurityAlerts(dependabot: node.vulnerabilityAlerts?.totalCount)
             }
@@ -112,6 +138,7 @@ enum RepoQuery {
         var rateLimit: RateLimitNode?
         var repositories: [Int: RepoNode] = [:]
         var dependabotCounts: [Int: Int] = [:]
+        var assignedPullRequests: [Int: Int] = [:]
 
         struct Key: CodingKey {
             var stringValue: String
@@ -130,6 +157,8 @@ enum RepoQuery {
                     repositories[index] = try container.decodeIfPresent(RepoNode.self, forKey: key)
                 } else if name.hasPrefix("d"), let index = Int(name.dropFirst()) {
                     dependabotCounts[index] = try container.decodeIfPresent(SearchCount.self, forKey: key)?.issueCount
+                } else if name.hasPrefix("p"), let index = Int(name.dropFirst()) {
+                    assignedPullRequests[index] = try container.decodeIfPresent(SearchCount.self, forKey: key)?.issueCount
                 }
             }
         }
@@ -191,6 +220,7 @@ enum RepoQuery {
         var recentIssue: Nodes<Updated>
         var recentPullRequest: Nodes<Updated>
         var vulnerabilityAlerts: Count?
+        var assignedIssues: Count?
 
         func status(for ref: RepoRef, dependabot: Int, includePrereleases: Bool) -> RepoStatus {
             // `latestRelease` skips pre-releases and drafts; with pre-releases on, take the newest published one.

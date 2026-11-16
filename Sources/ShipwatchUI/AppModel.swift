@@ -57,6 +57,8 @@ public enum RepoFilter: Hashable, Sendable {
     case dependabot
     /// Repositories with at least one open Dependabot, code scanning or secret scanning alert.
     case securityAlerts
+    /// Repositories with at least one open pull request waiting for your review.
+    case reviewRequests
 
     func matches(_ status: RepoStatus?) -> Bool {
         guard let status, status.problem == nil else { return false }
@@ -64,6 +66,7 @@ public enum RepoFilter: Hashable, Sendable {
         case .ci(let state): return status.ciState == state
         case .dependabot: return status.dependabotPullRequests > 0
         case .securityAlerts: return status.securityAlerts?.hasAlerts == true
+        case .reviewRequests: return (status.reviewRequests ?? 0) > 0
         }
     }
 }
@@ -101,6 +104,7 @@ public final class AppModel {
     public let prefs: Preferences
     let updater: Updater
     public let workspace: WorkspaceModel
+    public let notifier: ReleaseNotifier
     @ObservationIgnored public var actions = AppActions()
 
     // Data
@@ -108,6 +112,8 @@ public final class AppModel {
     public var lastUpdated: Date?
     public var nextRefresh: Date?
     public var isRefreshing = false
+    /// How long the last successful refresh took.
+    public var lastRefreshDuration: TimeInterval?
     public var banner: Banner?
     public var rateLimitedUntil: Date?
 
@@ -154,11 +160,13 @@ public final class AppModel {
         cli: GitHubCLI = GitHubCLI(),
         transport: any HTTPTransport = URLSessionTransport(),
         git: (any GitRunning)? = ProcessGit.locate(),
-        statusCache: StatusCache? = .standard
+        statusCache: StatusCache? = .standard,
+        notifier: ReleaseNotifier = ReleaseNotifier()
     ) {
         self.prefs = prefs
         updater = Updater(prefs: prefs)
         workspace = WorkspaceModel(prefs: prefs, git: git)
+        self.notifier = notifier
         self.bundled = bundled
         self.cli = cli
         self.transport = transport
@@ -166,6 +174,9 @@ public final class AppModel {
         self.vault = vault
         client = GitHubClient(transport: transport) { try await vault.accessToken() }
         self.statusCache = statusCache
+        notifier.open = { [weak self] url in
+            if let url { self?.open(url) } else { self?.actions.showPopover() }
+        }
     }
 
     // MARK: Derived state
@@ -180,9 +191,10 @@ public final class AppModel {
         authMethod == nil || signInStep == .install
     }
 
-    /// Rows in the popover: visible repos, plus hidden ones while "Show" is on, narrowed by the filter.
+    /// Rows in the popover: visible repos, plus hidden ones while "Show" is on, of the chosen owner, narrowed by
+    /// the filter.
     public var menuRepos: [TrackedRepo] {
-        let repos = prefs.repos.items.filter(isShownInMenu)
+        let repos = prefs.repos.items.filter(isListed)
         guard let filter else { return repos }
         return repos.filter { filter.matches(statuses[$0.id]) }
     }
@@ -199,9 +211,35 @@ public final class AppModel {
         showHiddenInMenu || !repo.hidden
     }
 
-    /// Visible repositories the filter would list.
+    /// The `RepoRef.ownerKey` the popover is narrowed to, while a tracked repository still has that owner.
+    public var menuOwner: String? {
+        guard let owner = prefs.menuOwner, prefs.repos.items.contains(where: { $0.ref.ownerKey == owner }) else { return nil }
+        return owner
+    }
+
+    /// Choices of the popover's owner menu: owners of the shown repositories, and the chosen one.
+    public var menuOwners: [RepoOwner] {
+        let chosen = menuOwner
+        return prefs.repos.owners { isShownInMenu($0) || $0.ref.ownerKey == chosen }
+    }
+
+    private func isOfMenuOwner(_ repo: TrackedRepo) -> Bool {
+        menuOwner.map { repo.ref.ownerKey == $0 } ?? true
+    }
+
+    /// Listed in the popover before the summary chips narrow it: shown, and of the chosen owner.
+    func isListed(_ repo: TrackedRepo) -> Bool {
+        isShownInMenu(repo) && isOfMenuOwner(repo)
+    }
+
+    /// Visible repositories of the chosen owner, which the summary chips count.
+    private var menuVisible: [TrackedRepo] {
+        prefs.repos.visible.filter(isOfMenuOwner)
+    }
+
+    /// Visible repositories of the chosen owner the filter would list.
     public func visibleCount(_ filter: RepoFilter) -> Int {
-        prefs.repos.visible.count { filter.matches(statuses[$0.id]) }
+        menuVisible.count { filter.matches(statuses[$0.id]) }
     }
 
     /// While a filter is on, groups list their matching members.
@@ -209,8 +247,14 @@ public final class AppModel {
         filter != nil || group.isExpanded
     }
 
+    /// Every visible repository, whatever owner the popover shows, for the menu bar icon.
     public var overall: OverallStatus {
         OverallStatus(prefs.repos.visible.compactMap { statuses[$0.id] })
+    }
+
+    /// Visible repositories of the chosen owner, for the summary chips.
+    public var menuOverall: OverallStatus {
+        OverallStatus(menuVisible.compactMap { statuses[$0.id] })
     }
 
     var anyActive: Bool {
@@ -228,6 +272,7 @@ public final class AppModel {
     public func start() {
         launchAtLogin = LoginItem.isEnabled
         observeWake()
+        notifier.start()
         Task { await workspace.rescan() }
         Task {
             await vault.setDeviceFlow(makeDeviceFlow())
@@ -324,14 +369,24 @@ public final class AppModel {
         }
         isRefreshing = true
         defer { isRefreshing = false }
+        let started = Date()
         do {
             let includePrereleases = prefs.includePrereleases
             let securityAlerts = prefs.showSecurityAlerts
+            let mine = mineScope
+            let reviews = reviewScope
             let batch = try await authorized {
-                try await $0.statuses(for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts)
+                try await $0.statuses(
+                    for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine, reviews: reviews
+                )
             }
+            let previous = statuses, previousAt = lastUpdated
             statuses = followRenames(batch.statuses)
+            notifyNewReleases(previous: previous, previousAt: previousAt)
             lastUpdated = Date()
+            let took = Date().timeIntervalSince(started)
+            lastRefreshDuration = took
+            uiLog.info("Refreshed \(refs.count) repositories in \(RelativeTime.duration(took), privacy: .public)")
             banner = nil
             rateLimitedUntil = nil
             saveStatuses()
@@ -363,10 +418,25 @@ public final class AppModel {
             if expanded.remove(old) != nil { expanded.insert(new) }
             if pendingRemoval == old { pendingRemoval = nil }
             if prefs.cloneSyncOptOut.remove(old) != nil { prefs.cloneSyncOptOut.insert(new) }
+            if prefs.releaseNotifications.remove(old) != nil { prefs.releaseNotifications.insert(new) }
+            if prefs.onlyMineRepos.remove(old) != nil { prefs.onlyMineRepos.insert(new) }
             refreshAgain = true
         }
         if repos != prefs.repos { prefs.repos = repos }
         return result
+    }
+
+    /// Posts a notification for each release published since the previous refresh by a repository with the bell on.
+    private func notifyNewReleases(previous: [String: RepoStatus], previousAt: Date?) {
+        guard !prefs.releaseNotifications.isEmpty else { return }
+        let found = ReleaseWatch.newReleases(
+            previous: previous, previousAt: previousAt, current: statuses, watched: prefs.releaseNotifications
+        )
+        guard !found.isEmpty else { return }
+        for item in found {
+            uiLog.notice("\(item.ref.fullName, privacy: .private) released \(item.release.tagName, privacy: .private)")
+        }
+        notifier.post(found)
     }
 
     // MARK: Status cache
@@ -655,17 +725,94 @@ public final class AppModel {
     }
 
     public func addRepositories(_ refs: [RepoRef]) {
+        workspace.stopIgnoring(refs)
         guard prefs.repos.add(refs) > 0 else { return }
         requestRefresh(force: true)
         Task { await workspace.rescan() }
     }
 
     public func removeRepository(_ id: TrackedRepo.ID) {
-        prefs.repos.remove(id)
-        statuses[id] = nil
-        expanded.remove(id)
-        if pendingRemoval == id { pendingRemoval = nil }
+        removeRepositories([id])
+    }
+
+    /// Stops tracking the repositories. Nothing changes on GitHub, and local clones stay on disk. `ignoring` also
+    /// keeps them out of "Track N Found Here".
+    public func removeRepositories(_ ids: [TrackedRepo.ID], ignoring: Bool = false) {
+        var repos = prefs.repos
+        for id in ids { repos.remove(id) }
+        guard repos != prefs.repos else { return }
+        if ignoring { workspace.ignore(prefs.repos.items.filter { ids.contains($0.id) }.map(\.ref)) }
+        prefs.repos = repos
+        for id in ids {
+            statuses[id] = nil
+            expanded.remove(id)
+        }
+        if !prefs.releaseNotifications.isDisjoint(with: ids) { prefs.releaseNotifications.subtract(ids) }
+        if !prefs.onlyMineRepos.isDisjoint(with: ids) { prefs.onlyMineRepos.subtract(ids) }
+        if let pendingRemoval, ids.contains(pendingRemoval) { self.pendingRemoval = nil }
+        if prefs.menuOwner != nil, menuOwner == nil { prefs.menuOwner = nil }
+        workspace.untrack(Set(ids))
         Task { await workspace.rescan() }
+    }
+
+    /// Whether the repository counts only the issues and pull requests assigned to you and the runs you triggered.
+    public func isOnlyMine(_ id: TrackedRepo.ID) -> Bool {
+        prefs.onlyMine || prefs.onlyMineRepos.contains(id)
+    }
+
+    public func setOnlyMine(_ ids: [TrackedRepo.ID], _ enabled: Bool) {
+        if enabled { prefs.onlyMineRepos.formUnion(ids) } else { prefs.onlyMineRepos.subtract(ids) }
+        requestRefresh(force: true)
+    }
+
+    public func setOnlyMineEverywhere(_ enabled: Bool) {
+        prefs.onlyMine = enabled
+        requestRefresh(force: true)
+    }
+
+    /// What the next refresh limits to you. Needs the signed-in login; without it everything is counted.
+    private var mineScope: MineScope? {
+        let keys = Set(prefs.repos.items.map(\.id).filter(isOnlyMine))
+        guard !keys.isEmpty else { return nil }
+        guard let login = user?.login else {
+            uiLog.notice("The GitHub user isn't loaded yet, so this refresh counts everyone's issues, pull requests and runs")
+            return nil
+        }
+        return MineScope(login: login, keys: keys)
+    }
+
+    public func setReviewRequests(_ mode: ReviewRequestMode) {
+        prefs.reviewRequests = mode
+        requestRefresh(force: true)
+    }
+
+    /// Whose review requests the next refresh counts. Needs the signed-in login.
+    private var reviewScope: ReviewScope? {
+        guard prefs.reviewRequests != .off else { return nil }
+        guard let login = user?.login else {
+            uiLog.notice("The GitHub user isn't loaded yet, so this refresh doesn't count review requests")
+            return nil
+        }
+        return ReviewScope(login: login, needingApproval: prefs.reviewRequests == .needingApproval)
+    }
+
+    public func notifiesReleases(of id: TrackedRepo.ID) -> Bool {
+        prefs.releaseNotifications.contains(id)
+    }
+
+    /// Turns release notifications on or off for repositories, asking macOS for permission the first time.
+    public func setReleaseNotifications(_ ids: [TrackedRepo.ID], _ enabled: Bool) {
+        if enabled {
+            prefs.releaseNotifications.formUnion(ids)
+            Task { await notifier.requestAuthorization() }
+        } else {
+            prefs.releaseNotifications.subtract(ids)
+        }
+    }
+
+    /// Release notifications that are on for repositories still tracked.
+    public var releaseNotificationCount: Int {
+        prefs.repos.items.count { prefs.releaseNotifications.contains($0.id) }
     }
 
     public func setHidden(_ id: TrackedRepo.ID, _ hidden: Bool) {
@@ -675,12 +822,12 @@ public final class AppModel {
 
     /// "Move Up" and "Move Down" for a repository key or a `RepoGroup.entryID`. Only the custom order can change.
     public func canMove(_ id: String, by offset: Int) -> Bool {
-        prefs.menuSort == .custom && prefs.repos.canMove(id, by: offset, including: isShownInMenu)
+        prefs.menuSort == .custom && prefs.repos.canMove(id, by: offset, including: isListed)
     }
 
     public func move(_ id: String, by offset: Int) {
         guard canMove(id, by: offset) else { return }
-        prefs.repos.move(id, by: offset, including: isShownInMenu)
+        prefs.repos.move(id, by: offset, including: isListed)
     }
 
     // MARK: Groups

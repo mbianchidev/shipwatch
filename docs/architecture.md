@@ -19,12 +19,15 @@ Shipwatch is a Swift package with no third-party dependencies.
 `StatusItemController` owns an `NSStatusItem` showing a sailboat template image
 plus a status dot, and an `NSPopover` hosting `PopoverView`. The app runs as an
 accessory (`LSUIElement`), so there is no Dock icon. Settings is a regular
-window (`SettingsWindowController`) forced to dark appearance. The sort button
-opens an AppKit `NSMenu`: a SwiftUI `Menu` inside the popover stops responding
-after its first pick until the popover reopens. Settings pop-ups use
+window (`SettingsWindowController`) forced to dark appearance. The sort and
+organization buttons open an AppKit `NSMenu`: a SwiftUI `Menu` inside the popover
+stops responding after its first pick until the popover reopens. Settings pop-ups use
 `SettingsPicker`, which takes its width from AppKit: with `fixedSize()` a
 picker sometimes collapsed to its arrows. Settings forms are a `Grid` of
-`FormRow`s, each caption inside its control's cell.
+`FormRow`s, each caption inside its control's cell. Switches and checkboxes use
+`BlueSwitchStyle` and `BlueCheckboxStyle`, which stay blue while on: AppKit draws
+them grey whenever the window isn't active, which for a menu bar app's Settings
+window is most of the time. VoiceOver still gets a standard switch or checkbox.
 
 The dot is yellow while any visible repo has a running workflow, and hidden
 otherwise; queued, failing and config/billing repos show only in the list and
@@ -50,8 +53,18 @@ Per refresh, `GitHubClient.statuses(for:)`:
    use batches of 5. A repo that still fails alone shows the error on its row.
    With security alerts on, the query also counts open `vulnerabilityAlerts`
    (Dependabot); a `FORBIDDEN` error on that field leaves only that count unknown.
+   For repos in the "only mine" `MineScope`, the query also counts open issues
+   with `filterBy: {assignee:}`, searches open PRs with `assignee:` (the
+   `pullRequests` connection can't filter by assignee) and adds `assignee:` to the
+   Dependabot search; `RepoStatus.onlyMine` records the login.
 2. Sends one REST call per repo for the 50 most recent workflow runs, with
    `If-None-Match` so unchanged repos come back as `304` and don't use rate limit.
+   "Only mine" repos ask for `actor=<login>`, so only the user's runs decide CI.
+   With review requests on, one more GraphQL search
+   (`ReviewRequestQuery`, `review-requested:<login>`, up to 5 pages of 100) counts
+   open PRs waiting for the user's review per repo, keeping only
+   `reviewDecision: REVIEW_REQUIRED` for "Needing approval". If it fails, only
+   those counts are unknown.
    With security alerts on, it also lists open code scanning and secret scanning
    alerts (first page of 100, secrets hidden), the same way, in the same task per
    repo. `403` and `404` mean the token can't read them (not enough access to
@@ -91,7 +104,11 @@ and ungrouped repositories share one order without a separate position for
 groups. `entries` turns the list into the popover's top-level rows and `rows`
 into the Settings table's group headers and repositories, leaving out the members
 of groups collapsed in Settings (`AppModel.collapsedSettingsGroups`, kept until
-quit). `moveRows` maps a drag in that table back onto the list, translating
+quit). `rows(collapsing:matching:)` applies the Settings search (`SearchText`),
+keeping each match under its group header; dragging is off while it is set,
+because filtered offsets don't map onto the list. `owners` lists the
+organizations and users for the popover's owner filter (`Preferences.menuOwner`).
+`moveRows` maps a drag in that table back onto the list, translating
 offsets past collapsed members, `setMembers` applies the group sheet, and
 `sorted(by:activity:)` applies the Name and Last Activity orders without
 changing it.
@@ -112,6 +129,24 @@ successful refresh, so a relaunch (an update, logging in) shows every repository
 right away instead of "Loading…". The cache only holds tracked repositories and is
 ignored when unreadable or from another `StatusSnapshot.currentVersion`.
 
+## Release notifications
+
+After each successful refresh, `ReleaseWatch.newReleases` (in `ShipwatchCore`)
+compares the new statuses with the previous ones for the repositories in
+`Preferences.releaseNotifications`. A release counts when it is the latest under
+another tag than before and was published after the previous refresh (with
+2 minutes of leeway for clock differences). The publishing time keeps older
+releases quiet when they become the latest for another reason. The previous
+statuses come from `StatusCache` after a relaunch, so releases published while
+Shipwatch was closed are announced, and nothing is announced without a previous
+refresh. `latestRelease` only comes from GitHub releases, never from tags.
+
+`ReleaseNotifier` posts them through `UNUserNotificationCenter`, which shows the
+bundle's icon, and opens the release URL from `userInfo` when one is clicked. It
+only touches the notification center when running from the app bundle:
+`UNUserNotificationCenter` throws an exception in a process without a bundle
+identifier. Snapshots use `ReleaseNotifier(previewing:)`.
+
 ## Local clones
 
 Off by default. Shipwatch only writes to disk here, and only when the user has
@@ -123,7 +158,8 @@ picked a workspace folder and turned the switch on.
   `.git/config` parses (`RepoRef(gitRemote:)`) to a github.com repository. A
   tracked remote wins, then `origin`. Clones of tracked repositories go to
   `clones`; the rest go to `untracked`, which Settings > Workspace offers to
-  track. It reads files only and never runs git, and it does not descend into
+  track, one clone per repository and minus the ignored ones
+  (`WorkspaceScan.offered`, `Preferences.ignoredRepos`). It reads files only and never runs git, and it does not descend into
   clones. Folders it can't list (usually
   macOS privacy prompts that were declined) are reported, not fatal.
 - **`CloneSyncer`** fast-forwards one clone's local default branch to the head

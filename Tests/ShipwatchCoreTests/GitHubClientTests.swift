@@ -74,6 +74,29 @@ struct RepoQueryTests {
         #expect(off[0].securityAlerts == nil)
     }
 
+    @Test func mineCountsOnlyWhatIsAssigned() throws {
+        let mine = MineScope(login: "octocat", keys: [refs[0].key])
+        let (query, variables) = RepoQuery.build(refs, mine: mine)
+        #expect(query.contains("r0: repository(owner: $o0, name: $n0) { ...RepoFields assignedIssues: issues(states: OPEN, filterBy: {assignee: $me}) { totalCount } }"))
+        #expect(query.contains("r1: repository(owner: $o1, name: $n1) { ...RepoFields }"))
+        #expect(query.contains("$p0: String!") && query.contains("$me: String!") && !query.contains("$p1"))
+        #expect(variables["me"] == "octocat")
+        #expect(variables["p0"] == "repo:mbianchidev/api-server is:pr is:open assignee:octocat")
+        #expect(variables["q0"] == "repo:mbianchidev/api-server is:pr is:open author:app/dependabot assignee:octocat")
+        #expect(variables["q1"] == "repo:acme-org/legacy-api is:pr is:open author:app/dependabot")
+        #expect(!RepoQuery.build(refs).query.contains("$me"))
+
+        let node = String(Fixtures.repoNode("mbianchidev/api-server").dropLast()) + #","assignedIssues":{"totalCount":1}}"#
+        let json = """
+        {"data":{"r0":\(node),"p0":{"issueCount":2},"d0":{"issueCount":3},
+          "r1":\(Fixtures.repoNode("acme-org/legacy-api")),"d1":{"issueCount":5}}}
+        """
+        let statuses = try RepoQuery.parse(Data(json.utf8), refs: refs, includePrereleases: false, mine: mine).statuses
+        let counts = statuses.map { [$0.openIssues, $0.openPullRequests, $0.dependabotPullRequests] }
+        #expect(counts == [[1, 2, 2], [4, 11, 5]])
+        #expect(statuses.map(\.onlyMine) == ["octocat", nil])
+    }
+
     @Test func wholeQueryFailureThrows() {
         let json = #"{"errors":[{"message":"Bad credentials"}]}"#
         #expect(throws: GitHubError.graphQL("Bad credentials")) {
@@ -115,6 +138,71 @@ struct GitHubClientTests {
         #expect(api.securityAlerts == nil)
         #expect(batch.rateLimit?.remaining == 4990)
         #expect(transport.requests.count == 2)
+    }
+
+    @Test func mineAsksOnlyForRunsTheUserTriggered() async throws {
+        let transport = MockTransport { request in
+            if request.url!.path == "/graphql" {
+                #expect(request.bodyString.contains("assignedIssues"))
+                return .json(Self.graphQL)
+            }
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            #expect(query.contains(URLQueryItem(name: "actor", value: "octocat")))
+            return .json(Self.runs)
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let mine = MineScope(login: "octocat", keys: [Self.api.key])
+        let batch = try await client.statuses(for: [Self.api, Self.legacy], includePrereleases: false, mine: mine)
+        #expect(batch.statuses[Self.api.key]?.onlyMine == "octocat")
+        #expect(transport.requests.count == 2)
+    }
+
+    static func reviewPage(_ nodes: [(repo: String, decision: String?)], next: String? = nil) -> String {
+        let items = nodes.map { node in
+            #"{"reviewDecision":\#(node.decision.map { "\"\($0)\"" } ?? "null"),"repository":{"nameWithOwner":"\#(node.repo)"}}"#
+        } + ["{}"]
+        let cursor = next.map { "\"\($0)\"" } ?? "null"
+        return #"{"data":{"search":{"issueCount":\#(nodes.count),"pageInfo":{"hasNextPage":\#(next != nil),"endCursor":\#(cursor)},"nodes":[\#(items.joined(separator: ","))]}}}"#
+    }
+
+    @Test func countsReviewRequestsPerRepoAcrossPages() async throws {
+        let transport = MockTransport { request in
+            let body = request.bodyString
+            if body.contains("RepoFields") { return .json(Self.graphQL) }
+            if request.url!.path != "/graphql" { return .json(Self.runs) }
+            #expect(body.contains("is:pr is:open archived:false review-requested:octocat"))
+            if body.contains("page-2") {
+                return .json(Self.reviewPage([(repo: "MBianchiDev/API-Server", decision: "APPROVED")]))
+            }
+            return .json(Self.reviewPage([
+                (repo: "mbianchidev/api-server", decision: "REVIEW_REQUIRED"), (repo: "octocat/elsewhere", decision: nil),
+            ], next: "page-2"))
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let all = try await client.reviewRequests(ReviewScope(login: "octocat", needingApproval: false))
+        #expect(all == [Self.api.key: 2, "octocat/elsewhere": 1])
+        let blocking = try await client.reviewRequests(ReviewScope(login: "octocat", needingApproval: true))
+        #expect(blocking == [Self.api.key: 1])
+
+        let batch = try await client.statuses(
+            for: [Self.api, Self.legacy], includePrereleases: false, reviews: ReviewScope(login: "octocat", needingApproval: false)
+        )
+        #expect(batch.statuses[Self.api.key]?.reviewRequests == 2)
+        #expect(batch.statuses[Self.legacy.key]?.reviewRequests == nil)
+    }
+
+    @Test func failingReviewSearchOnlyLeavesItsCountsUnknown() async throws {
+        let transport = MockTransport { request in
+            if request.bodyString.contains("RepoFields") { return .json(Self.graphQL) }
+            if request.url!.path == "/graphql" { return .json(#"{"errors":[{"message":"Something went wrong"}]}"#) }
+            return .json(Self.runs)
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let batch = try await client.statuses(
+            for: [Self.api], includePrereleases: false, reviews: ReviewScope(login: "octocat", needingApproval: false)
+        )
+        #expect(batch.statuses[Self.api.key]?.ci?.state == .running)
+        #expect(batch.statuses[Self.api.key]?.reviewRequests == nil)
     }
 
     static let codeScanningPath = "/repos/mbianchidev/api-server/code-scanning/alerts"

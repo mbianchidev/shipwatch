@@ -33,8 +33,12 @@ Each visible repository shows:
 | Open issues | the open issues list |
 | Open pull requests | the open pull requests list |
 | `N dependabot` | open pull requests by `app/dependabot`; just the icon and number when the line is full |
+| `N to review`, with [review requests](#review-requests) on | open pull requests waiting for your review |
 | Shield, with [security alerts](#security-alerts) on | the repository's Security tab |
 | Last activity | (hover for the exact date) |
+
+A person after the name means the row only counts what is yours; see
+[Only mine](#only-mine).
 
 Failing means the latest completed run of any workflow on the default branch
 failed. A red run that was fixed by a later run is ignored. Running beats
@@ -52,11 +56,13 @@ an approval or a concurrency slot, and none is in progress. Queued repositories
 are not counted as running and don't show the menu bar dot.
 
 The chips under the title count running, queued, failing, config/billing and passing
-repositories, repositories with at least one open Dependabot pull request, and,
-with [security alerts](#security-alerts) on, repositories with at least one open
+repositories, repositories with at least one open Dependabot pull request,
+repositories with pull requests waiting for your review (with
+[review requests](#review-requests) on), and, with
+[security alerts](#security-alerts) on, repositories with at least one open
 alert. Click one to list only those repositories; click it again, or close the
 list, to show all of them. When the chips don't fit, they show only icons and
-numbers; hover for the label.
+numbers; hover for the label. When even those don't fit, scroll them sideways.
 
 ### Security alerts
 
@@ -86,6 +92,14 @@ scanning; unchanged results come back as `304 Not Modified` and don't use rate
 limit. Kinds GitHub refuses to show are asked again only every 15 minutes, or
 right away when you turn the setting off and on.
 
+With more than one organization or user among the shown repositories, the
+building button before the sort arrows narrows the list to one of them. It
+offers **All Organizations** (the default) and each owner with how many
+repositories it has. While one is chosen, the button shows its name in blue, and
+the chips, groups and **Move Up** and **Move Down** only count that owner's
+repositories. The menu bar icon still counts every repository. The choice is
+kept across launches.
+
 The arrows at the end of the chips sort the list:
 
 | Order | Lists |
@@ -100,7 +114,7 @@ inside the group. The arrows turn blue while the order isn't Custom.
 ## Groups
 
 <p align="center">
-  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a Group column, a Tools group header row with Edit and Ungroup, and its three indented repositories between ungrouped ones" width="560">
+  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a search field, a Notify column with the bell on for two repositories, a Mine column with the person on for infra, a Group column, a Tools group header row with Edit and Ungroup, and its three indented repositories between ungrouped ones" width="560">
 </p>
 
 A group shows as one row: its name, how many repositories it holds, the open
@@ -146,6 +160,10 @@ The repositories shown in the list, in order.
 
 - Click **+** to pick repositories your token can read. Filter the list, or type
   `owner/name` to add one that isn't listed.
+- Type in **Search repositories and groups** to list only repositories whose
+  `owner/name` contains the text, under their group, and every repository of a
+  group whose name contains it. Groups stay open while searching. Clear the
+  search to drag rows again.
 - Drag rows to reorder. Drag a group's header row to move the whole group.
 - Click **New Group…** at the bottom to create a group: name it and tick its
   repositories (the selected ones are ticked already). Filter the list and use
@@ -172,7 +190,18 @@ The repositories shown in the list, in order.
 
 - Click the eye to hide or show a repository. Hidden ones stay configured and are
   counted at the bottom of the list.
-- Select rows and click **-** to remove them from Shipwatch.
+- Click the bell to get a [release notification](#release-notifications) when the
+  repository publishes a GitHub release. Right-click selected rows for
+  **Notify About New Releases** to turn it on for all of them.
+- Click the person to count [only yours](#only-mine) for the repository.
+  Right-click selected rows for **Show Only My Issues, PRs and Runs** to turn it
+  on for all of them.
+- Select rows and click **-** (or press Delete), or right-click a repository and
+  choose **Remove from Shipwatch…**, to stop tracking it. A right-click on a
+  selected row acts on every selected repository. Shipwatch asks first; the
+  repository stays on GitHub and its local clones stay on disk, so you can add
+  it again later. With a workspace folder set, **Remove and Ignore** also keeps
+  its clones out of [Track N Found Here](#ignored-repositories).
 - The **Access** column shows whether the current sign-in can read each
   repository. **Grant…** opens the GitHub App installation page.
 
@@ -203,18 +232,21 @@ stashes, forces, pushes or switches branches.
    a line under the table says how many. Click **Track N Found Here…**, untick
    any you don't want (all are ticked at first), and click
    **Track N Repositories**. They are added to Settings > Repositories like
-   repositories added with **+**.
+   repositories added with **+**. Click **Ignore N** instead to stop offering
+   the ticked ones; see [Ignored repositories](#ignored-repositories). Filter
+   the list to find a repository by name or path; both buttons only act on the
+   ticked repositories the filter shows.
 3. Optionally add **Excluded folders** with **+**. Shipwatch doesn't scan them or
    anything inside them. Hidden folders, `node_modules`, symlinks and app
    bundles are always skipped.
 4. Turn on **Keep default branches up to date** (default off).
 
 <p align="center">
-  <img src="screenshots/settings-workspace.png" alt="Workspace settings with the workspace folder, the sync switch, two excluded folders, a table of local clones showing up to date, updated and skipped statuses, and a line saying 3 repositories cloned here aren't tracked yet with a Track 3 Found Here button" width="560">
+  <img src="screenshots/settings-workspace.png" alt="Workspace settings with the workspace folder, the sync switch, two excluded folders, a clone search field, a table of local clones showing up to date, updated and skipped statuses, a line saying 3 repositories cloned here aren't tracked yet with a Track 3 Found Here button, and a line saying 2 ignored repositories aren't offered for tracking with a Show Ignored button" width="560">
 </p>
 
 <p align="center">
-  <img src="screenshots/settings-track-found.png" alt="Track Repositories Found Here sheet listing three untracked repositories with their local paths, all ticked, and a Track 3 Repositories button" width="560">
+  <img src="screenshots/settings-track-found.png" alt="Track Repositories Found Here sheet with a filter field, three untracked repositories with their local paths, all ticked, and Ignore 3 and Track 3 Repositories buttons" width="560">
 </p>
 
 After every refresh where GitHub reports a new commit on a default branch,
@@ -237,7 +269,27 @@ failed; Shipwatch retries them after 15 minutes. See
   switching; the table shows "on *branch*".
 - **Sync Now** rescans and updates every clone right away, ignoring the
   15 minute wait. **Rescan** only looks for clones again.
-- Right-click a clone for **Show in Finder**.
+- Type in **Search clones by repository or path** to list only matching clones.
+- Right-click a clone for **Show in Finder**, or **Remove from Shipwatch…** to
+  stop tracking its repository. The clone stays on disk. **Remove** puts it back
+  among the repositories that aren't tracked yet, so **Track N Found Here…** can
+  add it again; **Remove and Ignore** also [ignores](#ignored-repositories) it.
+
+#### Ignored repositories
+
+An ignored repository isn't offered by **Track N Found Here…** and isn't counted
+in the "aren't tracked yet" line, even though its clone stays on disk. Ignore
+repositories with **Ignore N** in that sheet, or with **Remove and Ignore** when
+removing a tracked repository (in Repositories or Workspace, while a workspace
+folder is set).
+
+A line under the clones table says how many are ignored. Click
+**Show Ignored…**, tick repositories and click **Stop Ignoring N** to offer them
+again. Adding an ignored repository with **+** stops ignoring it too.
+
+<p align="center">
+  <img src="screenshots/settings-ignored.png" alt="Ignored Repositories sheet with a filter field and two ignored repositories, one with its local path and one not in the workspace, and Select All, Done and Stop Ignoring buttons" width="560">
+</p>
 
 Shipwatch needs git for this: Homebrew's, or Apple's from the Command Line Tools
 (`xcode-select --install`). It uses your existing SSH agent or credential
@@ -247,10 +299,14 @@ helper and never prompts.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
+| Repositories | Info only | How many repositories, groups and hidden ones you track, how long the last refresh took, and **Manage…** to open Repositories. See [How many repositories](#how-many-repositories). |
 | Refresh every | 2 minutes | 1, 2, 5, 10 or 15 minutes. While a workflow runs or is queued, Shipwatch refreshes every 20 seconds. |
 | Last activity means | Last push | **Last push**, or **Any update** (issues, pull requests, comments). |
 | Include pre-releases | Off | Show the newest release even if it is a pre-release. |
 | Show security alerts | Off | Count open Dependabot, code scanning and secret scanning alerts. See [Security alerts](#security-alerts). |
+| Only mine everywhere | Off | Count only what is yours in every repository. See [Only mine](#only-mine). |
+| Review requests | Off | **All requests** or **Needing approval**. See [Review requests](#review-requests). |
+| Release notifications | Off | Shows for how many repositories the bell is on. See [Release notifications](#release-notifications). |
 | Show count in menu bar | Running | Show the number of **Running** or **Failing** repositories next to the sailboat, or **None**. |
 | Launch at login | On after the first launch from Applications | Start Shipwatch when you log in. Only available for the app bundle. |
 | Check automatically | On, every 6 hours | Check GitHub Releases for a newer Shipwatch every hour, 6 hours, 12 hours or day. |
@@ -280,12 +336,86 @@ When GitHub rate limits the token, it waits for the reset time. Details are in
 - **GitHub App** Client ID and slug: only for builds without a bundled app, or to
   use your own. See [GitHub App setup](github-app-setup.md).
 
+### How many repositories
+
+Shipwatch stays quick with up to about 50 repositories and works well up to
+about 100. Every refresh reads each tracked repository, hidden ones too, at
+roughly a second each, so with 100 a refresh takes about 2 minutes, and the
+20 second refresh while a workflow runs can't keep up. GitHub's rate limits
+aren't the bottleneck: each refresh costs about one GraphQL point per 10
+repositories, and unchanged workflow runs come back as `304` and are free. The
+limit is shared with `gh` and your other tools, though. Above 100, Settings >
+General says so in orange. Remove the repositories you don't need; hiding them
+doesn't make refreshes faster.
+
+### Only mine
+
+Off by default. Turn it on for single repositories with the person in Settings >
+Repositories, or for all of them with **Only mine everywhere** in Settings >
+General. Those repositories then only count:
+
+- open issues and pull requests **assigned** to you, including Dependabot pull
+  requests;
+- workflow runs **you triggered** (GitHub's `actor`): the Actions status, the
+  running and queued runs and the latest run per workflow on the default branch
+  only look at those. With none of yours, the row has no Actions status.
+
+The rows show a person after the name, and their links open GitHub filtered the
+same way (`assignee:` for issues and pull requests, `actor:` for Actions). A
+group's links are only filtered when all its repositories count only yours. The
+release, last activity and security alerts stay the repository's own. The
+running dot and count in the menu bar follow the same counts, so they only light
+up for your runs. Each such repository needs one more search per refresh for its
+pull requests.
+
+### Review requests
+
+Off by default. Pick **All requests** or **Needing approval** for **Review
+requests** in Settings > General to count the open pull requests where your
+review is requested, directly or through a team:
+
+- **All requests**: every one still waiting for you. GitHub drops the request
+  once you review, so reviewed pull requests leave the count.
+- **Needing approval**: only those that can't be merged before an approving
+  review, because branch protection or a ruleset requires one and it hasn't been
+  given yet (`review:required` on GitHub).
+
+Each row shows **N to review** in its pull request pill, linking to that list on
+GitHub, and groups add theirs up. The **to review** chip lists only the
+repositories that have any. It takes one more search per refresh, across all
+repositories at once, and counts up to 500 pull requests.
+
+### Release notifications
+
+Off by default. Click the bell next to a repository in Settings > Repositories,
+and Shipwatch shows a macOS notification, with its icon, when that repository
+publishes a GitHub release:
+
+- Only GitHub Releases count. Pushing a tag without creating a release, and
+  draft releases, don't notify. Pre-releases only count while
+  **Include pre-releases** is on.
+- Shipwatch finds the release on its next refresh, so the notification can come
+  up to one refresh interval later. A release published while Shipwatch wasn't
+  running is announced on the first refresh after it starts again.
+- A release that becomes the latest without being new, for example after a
+  newer one was deleted or after turning on **Include pre-releases**, doesn't
+  notify.
+- Click the notification to open the release on GitHub. More than three new
+  releases at once arrive as one notification.
+
+The first bell you turn on makes macOS ask whether Shipwatch may send
+notifications. Settings > General shows for how many repositories the bell is on,
+**Choose…** to go to the Repositories tab, and **Send Test** to see one. If
+notifications are off for Shipwatch in System Settings, it says so with a button
+to open them. Notifications need the app bundle; they aren't available when
+running from source with `swift run`.
+
 ## Where data is stored
 
 | What | Where |
 | --- | --- |
 | GitHub App token | login Keychain, service `dev.mbianchi.shipwatch` |
-| Repositories, groups and settings, including the list order, workspace folder and exclusions | `UserDefaults` domain `dev.mbianchi.shipwatch` |
+| Repositories, groups and settings, including the list order, workspace folder, exclusions and ignored repositories | `UserDefaults` domain `dev.mbianchi.shipwatch` |
 | Update state and lock, statuses of the last refresh | `~/Library/Application Support/Shipwatch` |
 | GitHub CLI token | memory only |
 

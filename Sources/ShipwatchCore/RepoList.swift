@@ -94,6 +94,37 @@ public enum RepoListRow: Equatable, Sendable, Identifiable {
     }
 }
 
+/// What a Settings search field matches: text anywhere in `owner/name`, a group name or a path, ignoring case.
+/// Blank text matches everything.
+public struct SearchText: Equatable, Sendable {
+    public let needle: String
+
+    public init(_ text: String) {
+        needle = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    public var isEmpty: Bool { needle.isEmpty }
+
+    public func matches(_ candidates: String...) -> Bool {
+        isEmpty || candidates.contains { $0.lowercased().contains(needle) }
+    }
+}
+
+/// An organization or user that owns tracked repositories, for the menu's owner filter.
+public struct RepoOwner: Equatable, Sendable, Identifiable {
+    /// The login as the first of its tracked repositories spells it.
+    public var login: String
+    public var count: Int
+
+    public init(login: String, count: Int) {
+        self.login = login
+        self.count = count
+    }
+
+    /// Matches `RepoRef.ownerKey`.
+    public var id: String { login.lowercased() }
+}
+
 public enum RepoSort: String, CaseIterable, Sendable {
     case custom, name, activity
 
@@ -147,6 +178,15 @@ public struct RepoList: Codable, Equatable, Sendable {
 
     public func members(of id: RepoGroup.ID) -> [TrackedRepo] {
         items.filter { $0.group == id }
+    }
+
+    /// Owners of the repositories `include` accepts, alphabetically, with how many of them each owns.
+    public func owners(including include: (TrackedRepo) -> Bool = { _ in true }) -> [RepoOwner] {
+        var owners: [String: RepoOwner] = [:]
+        for item in items where include(item) {
+            owners[item.ref.ownerKey, default: RepoOwner(login: item.ref.owner, count: 0)].count += 1
+        }
+        return owners.values.sorted { $0.login.localizedStandardCompare($1.login) == .orderedAscending }
     }
 
     /// Former names of tracked repositories, by `RepoRef.key`, mapped to the current name.
@@ -306,6 +346,22 @@ public struct RepoList: Codable, Equatable, Sendable {
             switch entry {
             case .repo(let repo): [.repo(repo)]
             case .group(let group, let members): [.group(group)] + (collapsed.contains(group.id) ? [] : members.map { .repo($0) })
+            }
+        }
+    }
+
+    /// Settings rows for `search`: matching repositories under their group's header, and every member of a group
+    /// whose name matches. Groups stay open while searching, so no match is left out.
+    public func rows(collapsing collapsed: Set<RepoGroup.ID>, matching search: SearchText) -> [RepoListRow] {
+        guard !search.isEmpty else { return rows(collapsing: collapsed) }
+        return entries(emptyGroups: true).flatMap { entry -> [RepoListRow] in
+            switch entry {
+            case .repo(let repo):
+                return search.matches(repo.ref.fullName) ? [.repo(repo)] : []
+            case .group(let group, let members):
+                let groupMatches = search.matches(group.displayName)
+                let shown = groupMatches ? members : members.filter { search.matches($0.ref.fullName) }
+                return groupMatches || !shown.isEmpty ? [.group(group)] + shown.map { .repo($0) } : []
             }
         }
     }

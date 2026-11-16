@@ -124,12 +124,32 @@ public final class WorkspaceModel {
         return prefs.repos.items.filter { !cloned.contains($0.id) }.count
     }
 
-    /// One clone per github.com repository in the workspace that isn't tracked, sorted by repository.
+    /// One clone per github.com repository in the workspace that isn't tracked or ignored, sorted by repository.
     public var untracked: [LocalClone] {
-        var seen = Set<String>()
-        return scan.untracked
-            .filter { !prefs.repos.contains($0.ref) && seen.insert($0.ref.key).inserted }
-            .sorted { $0.ref.fullName.localizedStandardCompare($1.ref.fullName) == .orderedAscending }
+        scan.offered(tracked: Set(prefs.repos.items.map(\.id)), ignored: Set(prefs.ignoredRepos.map { $0.lowercased() }))
+    }
+
+    /// Repositories "Track N Found Here" doesn't offer, sorted by name.
+    public var ignored: [RepoRef] {
+        prefs.ignoredRepos.compactMap { RepoRef(parsing: $0) }
+            .sorted { $0.fullName.localizedStandardCompare($1.fullName) == .orderedAscending }
+    }
+
+    /// A clone of `ref` the last scan found, when it isn't tracked.
+    public func untrackedClone(of ref: RepoRef) -> LocalClone? {
+        scan.untracked.first { $0.ref.key == ref.key }
+    }
+
+    public func ignore(_ refs: [RepoRef]) {
+        var seen = Set(prefs.ignoredRepos.map { $0.lowercased() })
+        let added = refs.filter { seen.insert($0.key).inserted }.map(\.fullName)
+        if !added.isEmpty { prefs.ignoredRepos += added }
+    }
+
+    public func stopIgnoring(_ refs: [RepoRef]) {
+        let keys = Set(refs.map(\.key))
+        guard prefs.ignoredRepos.contains(where: { keys.contains($0.lowercased()) }) else { return }
+        prefs.ignoredRepos.removeAll { keys.contains($0.lowercased()) }
     }
 
     // MARK: Settings
@@ -185,6 +205,15 @@ public final class WorkspaceModel {
         results = results.filter { paths.contains($0.key) }
         scan = found
         scannedAt = Date()
+    }
+
+    /// Lists the clones of repositories no longer tracked as untracked right away, before the next scan.
+    func untrack(_ ids: Set<String>) {
+        let gone = scan.clones.filter { ids.contains($0.ref.key) }
+        guard !gone.isEmpty else { return }
+        scan.clones.removeAll { ids.contains($0.ref.key) }
+        scan.untracked.append(contentsOf: gone)
+        for clone in gone { results[clone.path] = nil }
     }
 
     // MARK: Sync

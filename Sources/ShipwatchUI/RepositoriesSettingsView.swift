@@ -4,59 +4,35 @@ import SwiftUI
 struct RepositoriesSettingsView: View {
     let model: AppModel
     @State private var selection = Set<String>()
+    @State private var query = ""
+    @State private var pendingRemoval: PendingRemoval?
     @FocusState private var focusedGroup: RepoGroup.ID?
+    @FocusState private var searchFocused: Bool
     private static let listRowInset: CGFloat = 8
 
     private var repos: RepoList { model.prefs.repos }
-    private var rows: [RepoListRow] { repos.rows(collapsing: model.collapsedSettingsGroups) }
+    private var search: SearchText { SearchText(query) }
+    private var rows: [RepoListRow] { repos.rows(collapsing: model.collapsedSettingsGroups, matching: search) }
+    /// Sized for the rows without the search, so typing doesn't resize the window.
+    private var tableHeight: CGFloat {
+        RepoSettingsRow.height * CGFloat(min(max(repos.rows(collapsing: model.collapsedSettingsGroups).count, 4), 11))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Repositories shown in the menu, in this order. Drag to reorder, pick a group in the Group column, click the eye to hide or show. Groups collapse into one row in the menu, and here with the arrow.")
+            Text("Repositories shown in the menu, in this order. Drag to reorder, pick a group in the Group column, click the eye to hide or show, the bell for release notifications and the person to count only yours. Groups collapse into one row in the menu, and here with the arrow.")
                 .font(.system(size: 12.5))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if !repos.items.isEmpty || !repos.groups.isEmpty {
+                SheetField(prompt: "Search repositories and groups", text: $query, symbol: "magnifyingglass", focused: $searchFocused, clearable: true)
+            }
+
             VStack(spacing: 0) {
                 header
                 Divider()
-                if rows.isEmpty {
-                    VStack(spacing: 6) {
-                        Text("No repositories yet")
-                            .font(.system(size: 13, weight: .medium))
-                        Text("Click + to pick repositories your token can read.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 300)
-                } else {
-                    List(selection: $selection) {
-                        ForEach(rows) { row in
-                            Group {
-                                switch row {
-                                case .group(let group):
-                                    GroupSettingsRow(model: model, group: group, focus: $focusedGroup) { removeGroup(group.id) }
-                                case .repo(let repo):
-                                    RepoSettingsRow(model: model, repo: repo) { targets(for: repo) }
-                                }
-                            }
-                            .tag(row.id)
-                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                            .listRowSeparator(.hidden)
-                        }
-                        .onMove {
-                            model.prefs.repos.moveRows(fromOffsets: $0, toOffset: $1, collapsing: model.collapsedSettingsGroups)
-                        }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .alternatingRowBackgrounds()
-                    .environment(\.defaultMinListRowHeight, RepoSettingsRow.height)
-                    .frame(height: RepoSettingsRow.height * CGFloat(min(max(rows.count, 4), 11)))
-                    .onDeleteCommand(perform: removeSelection)
-                    // Rows a collapse hides can't stay selected, or "-" would remove repositories you can't see.
-                    .onChange(of: rows.map(\.id)) { _, shown in selection.formIntersection(shown) }
-                }
+                table
                 Divider()
                 footer
             }
@@ -68,12 +44,77 @@ struct RepositoriesSettingsView: View {
         .sheet(isPresented: Binding(get: { model.isAddingRepositories }, set: { model.isAddingRepositories = $0 })) {
             AddRepositoriesSheet(model: model)
         }
+        .confirmsRemoval($pendingRemoval, model: model)
+    }
+
+    @ViewBuilder
+    private var table: some View {
+        if repos.items.isEmpty && repos.groups.isEmpty {
+            VStack(spacing: 6) {
+                Text("No repositories yet")
+                    .font(.system(size: 13, weight: .medium))
+                Text("Click + to pick repositories your token can read.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 300)
+        } else if rows.isEmpty {
+            VStack(spacing: 6) {
+                Text("No matches")
+                    .font(.system(size: 13, weight: .medium))
+                Text("No repository or group name contains “\(search.needle)”.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: tableHeight)
+        } else {
+            list
+        }
+    }
+
+    private var list: some View {
+        // Offsets of a filtered list don't map onto the whole one, so dragging waits for the search to clear.
+        let reorder: ((IndexSet, Int) -> Void)? = search.isEmpty ? { move($0, $1) } : nil
+        return List(selection: $selection) {
+            ForEach(rows) { row in
+                rowView(row)
+                    .tag(row.id)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                    .listRowSeparator(.hidden)
+            }
+            .onMove(perform: reorder)
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .alternatingRowBackgrounds()
+        .environment(\.defaultMinListRowHeight, RepoSettingsRow.height)
+        .frame(height: tableHeight)
+        .onDeleteCommand(perform: removeSelection)
+        // Rows a collapse or the search hides can't stay selected, or "-" would remove repositories you can't see.
+        .onChange(of: rows.map(\.id)) { _, shown in selection.formIntersection(shown) }
+    }
+
+    @ViewBuilder
+    private func rowView(_ row: RepoListRow) -> some View {
+        switch row {
+        case .group(let group):
+            GroupSettingsRow(model: model, group: group, focus: $focusedGroup, isSearching: !search.isEmpty) {
+                removeGroup(group.id)
+            }
+        case .repo(let repo):
+            RepoSettingsRow(model: model, repo: repo, targets: { targets(for: repo) }) {
+                pendingRemoval = PendingRemoval(repos: targets(for: repo))
+            }
+        }
     }
 
     private var header: some View {
         HStack(spacing: 0) {
             Color.clear.frame(width: 28)
-            Text("Show").frame(width: 46, alignment: .leading)
+            Text("Show").frame(width: RepoSettingsRow.showWidth, alignment: .leading)
+            Text("Notify").frame(width: RepoSettingsRow.notifyWidth, alignment: .leading)
+            Text("Mine").frame(width: RepoSettingsRow.mineWidth, alignment: .leading)
             Text("Repository")
             Spacer()
             Text("Group").frame(width: RepoSettingsRow.groupWidth, alignment: .leading)
@@ -110,20 +151,13 @@ struct RepositoriesSettingsView: View {
             .help(selectedRepoIDs.isEmpty ? "Create a group and pick its repositories" : "Create a group with the selected repositories")
             Divider().frame(height: 24)
             Spacer()
-            Text(summary)
+            Text(repos.summary)
                 .font(.system(size: 11.5))
                 .foregroundStyle(.secondary)
                 .padding(.trailing, 12)
         }
         .buttonStyle(.plain)
         .font(.system(size: 13, weight: .medium))
-    }
-
-    private var summary: String {
-        var parts = [repos.items.count.counted("repository", "repositories")]
-        if !repos.groups.isEmpty { parts.append(repos.groups.count.counted("group")) }
-        parts.append("\(repos.hiddenCount) hidden")
-        return parts.joined(separator: " · ")
     }
 
     private var selectedRepoIDs: [TrackedRepo.ID] {
@@ -140,14 +174,74 @@ struct RepositoriesSettingsView: View {
         model.removeGroup(id)
     }
 
+    private func move(_ source: IndexSet, _ destination: Int) {
+        model.prefs.repos.moveRows(fromOffsets: source, toOffset: destination, collapsing: model.collapsedSettingsGroups)
+    }
+
+    /// Ungroups the selected groups right away, but asks before removing repositories.
     private func removeSelection() {
-        for group in repos.groups where selection.contains(group.entryID) {
-            model.removeGroup(group.id)
+        let groups = repos.groups.filter { selection.contains($0.entryID) }.map(\.id)
+        let ids = selectedRepoIDs
+        if ids.isEmpty {
+            groups.forEach(removeGroup)
+        } else {
+            pendingRemoval = PendingRemoval(repos: ids, groups: groups)
         }
-        for id in selectedRepoIDs {
-            model.removeRepository(id)
+    }
+}
+
+extension RepoList {
+    /// "45 repositories · 5 groups · 5 hidden".
+    var summary: String {
+        var parts = [items.count.counted("repository", "repositories")]
+        if !groups.isEmpty { parts.append(groups.count.counted("group")) }
+        parts.append("\(hiddenCount) hidden")
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// Repositories waiting for the user to confirm they should leave Shipwatch.
+struct PendingRemoval {
+    var repos: [TrackedRepo.ID]
+    /// Groups selected along with them, ungrouped once confirmed.
+    var groups: [RepoGroup.ID] = []
+}
+
+extension View {
+    /// Asks before removing repositories from Shipwatch, saying that GitHub and local clones stay as they are. With a
+    /// workspace, it also offers to ignore them, so "Track N Found Here" doesn't offer them again.
+    func confirmsRemoval(_ pending: Binding<PendingRemoval?>, model: AppModel) -> some View {
+        let ids = pending.wrappedValue?.repos ?? []
+        let title = if ids.count == 1, let repo = model.prefs.repos.items.first(where: { $0.id == ids[0] }) {
+            "Remove “\(repo.ref.fullName)” from Shipwatch?"
+        } else {
+            "Remove \(ids.count.counted("repository", "repositories")) from Shipwatch?"
         }
-        selection = []
+        return confirmationDialog(
+            title,
+            isPresented: Binding(get: { pending.wrappedValue != nil }, set: { if !$0 { pending.wrappedValue = nil } }),
+            titleVisibility: .visible,
+            presenting: pending.wrappedValue
+        ) { removal in
+            Button("Remove", role: .destructive) {
+                removal.groups.forEach(model.removeGroup)
+                model.removeRepositories(removal.repos)
+            }
+            if model.workspace.root != nil {
+                Button("Remove and Ignore", role: .destructive) {
+                    removal.groups.forEach(model.removeGroup)
+                    model.removeRepositories(removal.repos, ignoring: true)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { removal in
+            let pronoun = removal.repos.count == 1 ? "it" : "them"
+            if model.workspace.root != nil {
+                Text("Shipwatch stops showing \(pronoun). Nothing changes on GitHub, and local clones stay on disk. Remove and Ignore also stops offering \(pronoun) under Track Found Here in Workspace.")
+            } else {
+                Text("Shipwatch stops showing \(pronoun). Nothing changes on GitHub, and local clones stay on disk.")
+            }
+        }
     }
 }
 
@@ -156,9 +250,11 @@ struct GroupSettingsRow: View {
     let model: AppModel
     let group: RepoGroup
     var focus: FocusState<RepoGroup.ID?>.Binding
+    /// Groups stay open while searching.
+    var isSearching = false
     let ungroup: () -> Void
 
-    private var isCollapsed: Bool { model.collapsedSettingsGroups.contains(group.id) }
+    private var isCollapsed: Bool { !isSearching && model.collapsedSettingsGroups.contains(group.id) }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -179,6 +275,7 @@ struct GroupSettingsRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .disabled(isSearching)
             .frame(width: 46, alignment: .leading)
             .help(isCollapsed ? "Show the group's repositories" : "Hide the group's repositories")
             .accessibilityLabel(isCollapsed ? "Expand \(group.displayName)" : "Collapse \(group.displayName)")
@@ -213,6 +310,7 @@ struct GroupSettingsRow: View {
             Button("Rename") { focus.wrappedValue = group.id }
             Divider()
             Button(isCollapsed ? "Expand" : "Collapse", action: toggle)
+                .disabled(isSearching)
             Button("Collapse All Groups") { withAnimation(Self.animation) { model.setSettingsGroupsCollapsed(true) } }
             Button("Expand All Groups") { withAnimation(Self.animation) { model.setSettingsGroupsCollapsed(false) } }
             Divider()
@@ -228,13 +326,18 @@ struct GroupSettingsRow: View {
 }
 
 struct RepoSettingsRow: View {
-    static let groupWidth: CGFloat = 130
-    static let accessWidth: CGFloat = 170
+    static let showWidth: CGFloat = 44
+    static let notifyWidth: CGFloat = 48
+    static let mineWidth: CGFloat = 44
+    static let groupWidth: CGFloat = 120
+    static let accessWidth: CGFloat = 140
     static let height: CGFloat = 32
     let model: AppModel
     let repo: TrackedRepo
     /// The repositories the row's menus act on.
     let targets: () -> [TrackedRepo.ID]
+    /// Asks to remove `targets()` from Shipwatch.
+    let remove: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
@@ -249,8 +352,10 @@ struct RepoSettingsRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .frame(width: 46, alignment: .leading)
+            .frame(width: Self.showWidth, alignment: .leading)
             .help(repo.hidden ? "Show in the menu" : "Hide from the menu")
+            notifyButton
+            mineButton
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(repo.ref.name)
                     .foregroundStyle(repo.hidden ? .secondary : .primary)
@@ -282,7 +387,62 @@ struct RepoSettingsRow: View {
             if repo.group != nil {
                 Button("Remove from Group") { model.setGroup(targets(), to: nil) }
             }
+            Divider()
+            let ids = targets()
+            let notifying = ids.allSatisfy(model.notifiesReleases)
+            Button(notifying ? "Stop Notifying About Releases" : "Notify About New Releases") {
+                model.setReleaseNotifications(ids, !notifying)
+            }
+            if !model.prefs.onlyMine {
+                let mine = ids.allSatisfy(model.isOnlyMine)
+                Button(mine ? "Show Everyone's Issues, PRs and Runs" : "Show Only My Issues, PRs and Runs") {
+                    model.setOnlyMine(ids, !mine)
+                }
+            }
+            Divider()
+            let count = ids.count
+            Button(count == 1 ? "Remove from Shipwatch…" : "Remove \(count) Repositories from Shipwatch…", role: .destructive, action: remove)
         }
+    }
+
+    /// The bell: a notification when the repository publishes a GitHub release.
+    private var notifyButton: some View {
+        let on = model.notifiesReleases(of: repo.id)
+        return Button { model.setReleaseNotifications([repo.id], !on) } label: {
+            Image(systemName: on ? "bell.fill" : "bell")
+                .font(.system(size: 13))
+                .foregroundStyle(on ? AnyShapeStyle(Theme.link) : AnyShapeStyle(.tertiary))
+                .frame(width: 30, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(width: Self.notifyWidth, alignment: .leading)
+        .help(on ? "Stop notifying about new releases" : "Notify me when it publishes a GitHub release")
+        .accessibilityLabel("Release notifications for \(repo.ref.fullName)")
+        .accessibilityValue(on ? "On" : "Off")
+    }
+
+    /// The person: only issues and pull requests assigned to you, and workflow runs you triggered.
+    private var mineButton: some View {
+        let everywhere = model.prefs.onlyMine
+        let on = model.isOnlyMine(repo.id)
+        return Button { model.setOnlyMine([repo.id], !on) } label: {
+            Image(systemName: on ? "person.fill" : "person")
+                .font(.system(size: 13))
+                .foregroundStyle(on && !everywhere ? AnyShapeStyle(Theme.link) : AnyShapeStyle(.tertiary))
+                .frame(width: 30, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(everywhere)
+        .frame(width: Self.mineWidth, alignment: .leading)
+        .help(
+            everywhere ? "On for every repository in Settings > General"
+                : on ? "Show everyone's issues, pull requests and workflow runs"
+                : "Show only issues and pull requests assigned to you, and workflow runs you triggered"
+        )
+        .accessibilityLabel("Only mine for \(repo.ref.fullName)")
+        .accessibilityValue(on ? "On" : "Off")
     }
 
     private var groupMenu: some View {
@@ -515,6 +675,8 @@ struct SheetField: View {
     @Binding var text: String
     var symbol: String?
     var focused: FocusState<Bool>.Binding
+    /// Shows a button that empties the field while it has text.
+    var clearable = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -524,6 +686,14 @@ struct SheetField: View {
             TextField(prompt, text: $text)
                 .textFieldStyle(.plain)
                 .focused(focused)
+            if clearable && !text.isEmpty {
+                Button { text = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear")
+                .accessibilityLabel("Clear search")
+            }
         }
         .font(.system(size: 13))
         .padding(.horizontal, 9)
@@ -756,7 +926,7 @@ struct PickerRow: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Toggle("", isOn: Binding(get: { isAdded || isSelected }, set: { _ in toggle() }))
-                    .toggleStyle(.checkbox)
+                    .toggleStyle(.blueCheckbox)
                     .labelsHidden()
                     .disabled(isAdded)
                 Text(name)

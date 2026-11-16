@@ -35,6 +35,7 @@ public struct RepoRef: Hashable, Codable, Sendable, CustomStringConvertible {
 
     /// GitHub treats owner and name case-insensitively.
     public var key: String { fullName.lowercased() }
+    public var ownerKey: String { owner.lowercased() }
 
     static func isValidOwner(_ value: String) -> Bool {
         guard !value.isEmpty, value.count <= 39, !value.hasPrefix("-") else { return false }
@@ -44,6 +45,24 @@ public struct RepoRef: Hashable, Codable, Sendable, CustomStringConvertible {
     static func isValidName(_ value: String) -> Bool {
         guard !value.isEmpty, value.count <= 100, value != ".", value != ".." else { return false }
         return value.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "-_.".contains($0)) }
+    }
+}
+
+/// Repositories whose counts and runs only cover one user: open issues and pull requests assigned to them, and
+/// workflow runs they triggered.
+public struct MineScope: Equatable, Sendable {
+    public var login: String
+    /// `RepoRef.key` values.
+    public var keys: Set<String>
+
+    public init(login: String, keys: Set<String>) {
+        self.login = login
+        self.keys = keys
+    }
+
+    /// The login to limit `ref` to, or `nil` for everyone's.
+    public func login(for ref: RepoRef) -> String? {
+        keys.contains(ref.key) ? login : nil
     }
 }
 
@@ -243,13 +262,19 @@ public struct RepoStatus: Codable, Equatable, Sendable {
     /// `nil` unless security alerts were requested.
     public var securityAlerts: SecurityAlerts?
     public var problem: RepoProblem?
+    /// The login the counts and runs are limited to: open issues and pull requests assigned to it, and workflow runs
+    /// it triggered. `nil` counts everyone's.
+    public var onlyMine: String?
+    /// Open pull requests waiting for the signed-in user's review, when review requests are counted.
+    public var reviewRequests: Int?
 
     public init(
         ref: RepoRef, url: URL? = nil, isPrivate: Bool = false, isArchived: Bool = false,
         defaultBranch: String? = nil, defaultBranchHead: String? = nil, latestRelease: Release? = nil, openIssues: Int = 0,
         openPullRequests: Int = 0, dependabotPullRequests: Int = 0, pushedAt: Date? = nil,
         lastIssueUpdate: Date? = nil, lastPullRequestUpdate: Date? = nil, ci: CISummary? = nil,
-        securityAlerts: SecurityAlerts? = nil, problem: RepoProblem? = nil
+        securityAlerts: SecurityAlerts? = nil, problem: RepoProblem? = nil, onlyMine: String? = nil,
+        reviewRequests: Int? = nil
     ) {
         self.ref = ref
         self.url = url ?? GitHubLinks.repo(ref)
@@ -267,6 +292,8 @@ public struct RepoStatus: Codable, Equatable, Sendable {
         self.ci = ci
         self.securityAlerts = securityAlerts
         self.problem = problem
+        self.onlyMine = onlyMine
+        self.reviewRequests = reviewRequests
     }
 
     public var ciState: CIState { ci?.state ?? .none }

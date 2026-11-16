@@ -120,6 +120,21 @@ import Testing
         #expect(WorkspaceScanner.isExcluded("/w/forks/a", by: ["/w/forks"]))
         #expect(!WorkspaceScanner.isExcluded("/w/forks-old", by: ["/w/forks"]))
     }
+
+    @Test func offersEachUntrackedRepoOnceUnlessTrackedOrIgnored() {
+        func clone(_ path: String, _ owner: String, _ name: String) -> LocalClone {
+            LocalClone(path: URL(fileURLWithPath: path), ref: RepoRef(owner: owner, name: name), remote: "origin", headBranch: "main")
+        }
+        let scan = WorkspaceScan(untracked: [
+            clone("/w/zeta", "octocat", "zeta"),
+            clone("/w/handbook", "acme-org", "handbook"),
+            clone("/w/scratch/zeta", "Octocat", "Zeta"),
+            clone("/w/spoon", "octocat", "Spoon-Knife"),
+            clone("/w/added", "octocat", "added"),
+        ])
+        let offered = scan.offered(tracked: ["octocat/added"], ignored: ["octocat/spoon-knife"])
+        #expect(offered.map(\.path.path) == ["/w/handbook", "/w/zeta"])
+    }
 }
 
 @Suite(.enabled(if: ProcessGit.locate() != nil, "git is not installed"))

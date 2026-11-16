@@ -205,6 +205,10 @@ struct GeneralSettingsView: View {
     var body: some View {
         @Bindable var prefs = model.prefs
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 14) {
+            FormRow("Repositories:") {
+                RepositoryCountRow(model: model)
+            }
+
             FormRow("Refresh every:") {
                 SettingsPicker(
                     title: "Refresh every",
@@ -222,14 +226,35 @@ struct GeneralSettingsView: View {
             FormRow("Include pre-releases:") {
                 Toggle("Include pre-releases", isOn: Binding(get: { prefs.includePrereleases }, set: { model.setIncludePrereleases($0) }))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.blueSwitch)
             }
 
             FormRow("Show security alerts:") {
                 Toggle("Show security alerts", isOn: Binding(get: { prefs.showSecurityAlerts }, set: { model.setShowSecurityAlerts($0) }))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.blueSwitch)
                 FormCaption("Open Dependabot, code scanning and secret scanning alerts. Needs write access, admin for secret scanning.")
+            }
+
+            FormRow("Only mine everywhere:") {
+                Toggle("Only mine everywhere", isOn: Binding(get: { prefs.onlyMine }, set: { model.setOnlyMineEverywhere($0) }))
+                    .labelsHidden()
+                    .toggleStyle(.blueSwitch)
+                FormCaption("Count only issues and pull requests assigned to you and workflow runs you triggered, in every repository. Use the person in Repositories for single ones.")
+            }
+
+            FormRow("Review requests:") {
+                SettingsPicker(
+                    title: "Review requests",
+                    selection: Binding(get: { prefs.reviewRequests }, set: { model.setReviewRequests($0) }),
+                    options: ReviewRequestMode.allCases,
+                    label: \.label
+                )
+                FormCaption("Open pull requests waiting for your review, per repository. Needing approval: only those that can't merge before an approving review.")
+            }
+
+            FormRow("Release notifications:") {
+                ReleaseNotificationsRow(model: model)
             }
 
             FormRow("Show count in menu bar:") {
@@ -240,7 +265,7 @@ struct GeneralSettingsView: View {
             FormRow("Launch at login:") {
                 Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.blueSwitch)
                     .disabled(!model.loginItemAvailable)
                 if !model.loginItemAvailable {
                     FormCaption("Available when Shipwatch runs from its app bundle.")
@@ -253,6 +278,7 @@ struct GeneralSettingsView: View {
         .font(.system(size: 13))
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
+        .task { await model.notifier.refreshAuthorization() }
     }
 
     @ViewBuilder
@@ -292,7 +318,7 @@ struct GeneralSettingsView: View {
             HStack(spacing: 10) {
                 Toggle("Check for updates automatically", isOn: Binding(get: { prefs.checkForUpdates }, set: { updater.setCheckForUpdates($0) }))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.blueSwitch)
                 SettingsPicker(
                     title: "Check for updates",
                     selection: Binding(get: { prefs.updateCheckHours }, set: { updater.setUpdateCheckHours($0) }),
@@ -307,7 +333,7 @@ struct GeneralSettingsView: View {
         FormRow("Install automatically:") {
             Toggle("Install updates automatically", isOn: $prefs.installUpdatesAutomatically)
                 .labelsHidden()
-                .toggleStyle(.switch)
+                .toggleStyle(.blueSwitch)
                 .disabled(!updater.isSupported)
             FormCaption("Updates are signed by the Shipwatch release key and checked before installing. Shipwatch restarts to finish.")
             if let message = updater.pause.message(offering: updater.availableRelease?.version), !updater.hasFailed {
@@ -324,6 +350,70 @@ struct GeneralSettingsView: View {
         }
     }
 
+}
+
+/// How many repositories are tracked, and how many keep Shipwatch quick. Every refresh reads each tracked
+/// repository, hidden ones too, at roughly a second each, sharing the user's GitHub rate limit with gh and other tools.
+struct RepositoryCountRow: View {
+    let model: AppModel
+    static let quick = 50
+    static let workable = 100
+
+    var body: some View {
+        let repos = model.prefs.repos
+        let count = repos.items.count
+        HStack(spacing: 8) {
+            Text(repos.summary)
+                .foregroundStyle(.secondary)
+            Button("Manage…") { model.settingsTab = .repositories }
+        }
+        let took = model.lastRefreshDuration.map { "The last refresh took \(RelativeTime.duration($0)). " } ?? ""
+        if count > Self.workable {
+            FormCaption(
+                "\(took)Over \(Self.workable), refreshes take minutes and can hit GitHub's rate limits. Remove the ones you don't need: hidden ones are still refreshed.",
+                color: Theme.warning
+            )
+        } else {
+            FormCaption(
+                "\(took)Quick up to about \(Self.quick), fine up to about \(Self.workable): a refresh takes about a second per repository, hidden ones too, and shares your rate limit with gh."
+            )
+        }
+    }
+}
+
+/// How many repositories send release notifications, whether macOS lets Shipwatch show them, and a test button.
+struct ReleaseNotificationsRow: View {
+    let model: AppModel
+
+    var body: some View {
+        let notifier = model.notifier
+        let count = model.releaseNotificationCount
+        HStack(spacing: 8) {
+            Text(count == 0 ? "Off" : "On for \(count.counted("repository", "repositories"))")
+                .foregroundStyle(.secondary)
+            Button("Choose…") { model.settingsTab = .repositories }
+                .help("Click the bell next to a repository to get its release notifications")
+            Button("Send Test") { notifier.postTest() }
+                .disabled(notifier.authorization != .allowed)
+                .help("Show a sample notification")
+        }
+        switch notifier.authorization {
+        case .unavailable:
+            FormCaption("Available when Shipwatch runs from its app bundle.")
+        case .denied:
+            HStack(spacing: 8) {
+                FormCaption("Notifications are off for Shipwatch in System Settings.", color: Theme.warning)
+                Button("Open Notification Settings…") { model.open(Self.systemSettingsURL) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.link)
+                    .font(.system(size: 12))
+            }
+        case .notDetermined, .allowed:
+            FormCaption("A notification when a repository with the bell on in Repositories publishes a GitHub release. Pushing a tag alone doesn't count.")
+        }
+    }
+
+    private static let systemSettingsURL = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")!
 }
 
 /// One line describing the updater state. Uses a symbol and words, not only color.
@@ -528,7 +618,7 @@ struct AccountSettingsView: View {
                 SettingsCardRow(symbol: "terminal", title: "Use GitHub CLI token if app sign-in is unavailable") {
                     Toggle("Use GitHub CLI token", isOn: Binding(get: { model.prefs.cliFallback }, set: { model.setCLIFallback($0) }))
                         .labelsHidden()
-                        .toggleStyle(.switch)
+                        .toggleStyle(.blueSwitch)
                         .controlSize(.small)
                 }
                 SettingsCardRow(symbol: "key", title: model.cliPath.map { "gh at \($0)" } ?? "gh not found", showsDivider: false) {

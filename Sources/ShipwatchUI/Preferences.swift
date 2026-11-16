@@ -15,6 +15,19 @@ public enum MenuBarCount: String, CaseIterable, Sendable {
     }
 }
 
+/// Which pull requests waiting for your review the rows count.
+public enum ReviewRequestMode: String, CaseIterable, Sendable {
+    case off, all, needingApproval
+
+    public var label: String {
+        switch self {
+        case .off: "Off"
+        case .all: "All requests"
+        case .needingApproval: "Needing approval"
+        }
+    }
+}
+
 /// User settings, saved to UserDefaults on every change.
 @MainActor
 @Observable
@@ -30,6 +43,7 @@ public final class Preferences {
         static let showSecurityAlerts = "showSecurityAlerts"
         static let menuBarCount = "menuBarCount"
         static let menuSort = "menuSort"
+        static let menuOwner = "menuOwner"
         static let cliFallback = "cliFallback"
         static let clientIDOverride = "clientIDOverride"
         static let appSlugOverride = "appSlugOverride"
@@ -41,6 +55,11 @@ public final class Preferences {
         static let excludedFolders = "excludedFolders"
         static let syncClones = "syncClones"
         static let cloneSyncOptOut = "cloneSyncOptOut"
+        static let ignoredRepos = "ignoredRepos"
+        static let releaseNotifications = "releaseNotifications"
+        static let onlyMine = "onlyMine"
+        static let onlyMineRepos = "onlyMineRepos"
+        static let reviewRequests = "reviewRequests"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -68,6 +87,10 @@ public final class Preferences {
     /// Order of the popover list. Groups keep their members together in every order.
     public var menuSort: RepoSort {
         didSet { defaults.set(menuSort.rawValue, forKey: Key.menuSort) }
+    }
+    /// `RepoRef.ownerKey` the popover list is narrowed to, or `nil` for every owner.
+    public var menuOwner: String? {
+        didSet { defaults.set(menuOwner, forKey: Key.menuOwner) }
     }
     public var cliFallback: Bool {
         didSet { defaults.set(cliFallback, forKey: Key.cliFallback) }
@@ -107,6 +130,26 @@ public final class Preferences {
     public var cloneSyncOptOut: Set<String> {
         didSet { defaults.set(cloneSyncOptOut.sorted(), forKey: Key.cloneSyncOptOut) }
     }
+    /// `owner/name` of repositories found in the workspace that "Track N Found Here" doesn't offer.
+    public var ignoredRepos: [String] {
+        didSet { defaults.set(ignoredRepos, forKey: Key.ignoredRepos) }
+    }
+    /// `TrackedRepo.id`s that send a notification when they publish a GitHub release. Empty by default.
+    public var releaseNotifications: Set<String> {
+        didSet { defaults.set(releaseNotifications.sorted(), forKey: Key.releaseNotifications) }
+    }
+    /// Every repository counts only the issues and pull requests assigned to you and the runs you triggered.
+    public var onlyMine: Bool {
+        didSet { defaults.set(onlyMine, forKey: Key.onlyMine) }
+    }
+    /// `TrackedRepo.id`s that count only yours while `onlyMine` is off.
+    public var onlyMineRepos: Set<String> {
+        didSet { defaults.set(onlyMineRepos.sorted(), forKey: Key.onlyMineRepos) }
+    }
+    /// Off by default: it costs one more search per refresh.
+    public var reviewRequests: ReviewRequestMode {
+        didSet { defaults.set(reviewRequests.rawValue, forKey: Key.reviewRequests) }
+    }
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -118,6 +161,7 @@ public final class Preferences {
         showSecurityAlerts = defaults.bool(forKey: Key.showSecurityAlerts)
         menuBarCount = defaults.string(forKey: Key.menuBarCount).flatMap(MenuBarCount.init(rawValue:)) ?? .running
         menuSort = defaults.string(forKey: Key.menuSort).flatMap(RepoSort.init(rawValue:)) ?? .custom
+        menuOwner = defaults.string(forKey: Key.menuOwner).flatMap { $0.isEmpty ? nil : $0 }
         cliFallback = defaults.bool(forKey: Key.cliFallback)
         clientIDOverride = defaults.string(forKey: Key.clientIDOverride) ?? ""
         appSlugOverride = defaults.string(forKey: Key.appSlugOverride) ?? ""
@@ -130,6 +174,11 @@ public final class Preferences {
         excludedFolders = defaults.stringArray(forKey: Key.excludedFolders) ?? []
         syncClones = defaults.bool(forKey: Key.syncClones)
         cloneSyncOptOut = Set(defaults.stringArray(forKey: Key.cloneSyncOptOut) ?? [])
+        ignoredRepos = defaults.stringArray(forKey: Key.ignoredRepos) ?? []
+        releaseNotifications = Set(defaults.stringArray(forKey: Key.releaseNotifications) ?? [])
+        onlyMine = defaults.bool(forKey: Key.onlyMine)
+        onlyMineRepos = Set(defaults.stringArray(forKey: Key.onlyMineRepos) ?? [])
+        reviewRequests = defaults.string(forKey: Key.reviewRequests).flatMap(ReviewRequestMode.init(rawValue:)) ?? .off
     }
 
     private static func loadRepos(_ defaults: UserDefaults) -> RepoList {
