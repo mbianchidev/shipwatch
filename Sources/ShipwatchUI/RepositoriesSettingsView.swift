@@ -926,7 +926,7 @@ struct PickerRow: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Toggle("", isOn: Binding(get: { isAdded || isSelected }, set: { _ in toggle() }))
-                    .toggleStyle(.checkbox)
+                    .toggleStyle(.blueCheckbox)
                     .labelsHidden()
                     .disabled(isAdded)
                 Text(name)

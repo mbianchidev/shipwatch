@@ -8,6 +8,8 @@ enum Theme {
     static let passing = Color(red: 0.20, green: 0.80, blue: 0.35)
     static let warning = Color(red: 1.00, green: 0.62, blue: 0.04)
     static let link = Color(nsColor: .linkColor)
+    /// Switches and checkboxes while on: macOS system blue in dark mode.
+    static let toggleOn = Color(red: 0.04, green: 0.52, blue: 1.00)
     static let fill = Color.primary.opacity(0.07)
     static let fillStrong = Color.primary.opacity(0.11)
     static let settingsChrome = Color(white: 0.17)
@@ -329,4 +331,86 @@ struct AccentButtonStyle: ButtonStyle {
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
             .opacity(isEnabled ? 1 : 0.45)
     }
+}
+
+/// A switch that stays blue while on. AppKit's switch turns grey whenever its window isn't the active one, which for
+/// a menu bar app's Settings window is most of the time. Draws only the switch, as with `.labelsHidden()`; the label
+/// is still read by VoiceOver.
+struct BlueSwitchStyle: ToggleStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
+
+    func makeBody(configuration: Configuration) -> some View {
+        let height: CGFloat = controlSize == .small || controlSize == .mini ? 18 : 22
+        let width = height * 1.73
+        return Button { configuration.isOn.toggle() } label: {
+            ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                Capsule()
+                    .fill(configuration.isOn ? Theme.toggleOn : Color.white.opacity(0.2))
+                Circle()
+                    .fill(.white)
+                    .shadow(color: .black.opacity(0.3), radius: 1, y: 0.5)
+                    .padding(2)
+            }
+            .frame(width: width, height: height)
+            .animation(.easeInOut(duration: 0.15), value: configuration.isOn)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.45)
+        .controlBaseline()
+        .accessibilityRepresentation {
+            Toggle(isOn: configuration.$isOn) { configuration.label }
+                .toggleStyle(.switch)
+        }
+    }
+}
+
+/// A checkbox that stays blue while ticked, for the same reason as `BlueSwitchStyle`. Draws only the box.
+struct BlueCheckboxStyle: ToggleStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        Button { configuration.isOn.toggle() } label: {
+            RoundedRectangle(cornerRadius: 3.5)
+                .fill(configuration.isOn ? Theme.toggleOn : Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 3.5)
+                        .strokeBorder(configuration.isOn ? Color.clear : Color.white.opacity(0.35), lineWidth: 1)
+                )
+                .overlay {
+                    if configuration.isOn {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .frame(width: 14, height: 14)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.45)
+        .controlBaseline()
+        .accessibilityRepresentation {
+            Toggle(isOn: configuration.$isOn) { configuration.label }
+                .toggleStyle(.checkbox)
+        }
+    }
+}
+
+private extension View {
+    /// A text baseline a little below the center, where a 13 pt label beside the control sits, so `Grid` rows aligned
+    /// by first text baseline line the control up with its label, like AppKit's controls.
+    func controlBaseline() -> some View {
+        alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4.5 }
+            .alignmentGuide(.lastTextBaseline) { $0[VerticalAlignment.center] + 4.5 }
+    }
+}
+
+extension ToggleStyle where Self == BlueSwitchStyle {
+    static var blueSwitch: BlueSwitchStyle { BlueSwitchStyle() }
+}
+
+extension ToggleStyle where Self == BlueCheckboxStyle {
+    static var blueCheckbox: BlueCheckboxStyle { BlueCheckboxStyle() }
 }

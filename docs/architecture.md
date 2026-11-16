@@ -24,7 +24,10 @@ organization buttons open an AppKit `NSMenu`: a SwiftUI `Menu` inside the popove
 stops responding after its first pick until the popover reopens. Settings pop-ups use
 `SettingsPicker`, which takes its width from AppKit: with `fixedSize()` a
 picker sometimes collapsed to its arrows. Settings forms are a `Grid` of
-`FormRow`s, each caption inside its control's cell.
+`FormRow`s, each caption inside its control's cell. Switches and checkboxes use
+`BlueSwitchStyle` and `BlueCheckboxStyle`, which stay blue while on: AppKit draws
+them grey whenever the window isn't active, which for a menu bar app's Settings
+window is most of the time. VoiceOver still gets a standard switch or checkbox.
 
 The dot is yellow while any visible repo has a running workflow, and hidden
 otherwise; queued, failing and config/billing repos show only in the list and

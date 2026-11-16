@@ -226,20 +226,20 @@ struct GeneralSettingsView: View {
             FormRow("Include pre-releases:") {
                 Toggle("Include pre-releases", isOn: Binding(get: { prefs.includePrereleases }, set: { model.setIncludePrereleases($0) }))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.blueSwitch)
             }
 
             FormRow("Show security alerts:") {
                 Toggle("Show security alerts", isOn: Binding(get: { prefs.showSecurityAlerts }, set: { model.setShowSecurityAlerts($0) }))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.blueSwitch)
                 FormCaption("Open Dependabot, code scanning and secret scanning alerts. Needs write access, admin for secret scanning.")
             }
 
             FormRow("Only mine everywhere:") {
                 Toggle("Only mine everywhere", isOn: Binding(get: { prefs.onlyMine }, set: { model.setOnlyMineEverywhere($0) }))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.blueSwitch)
                 FormCaption("Count only issues and pull requests assigned to you and workflow runs you triggered, in every repository. Use the person in Repositories for single ones.")
             }
 
@@ -265,7 +265,7 @@ struct GeneralSettingsView: View {
             FormRow("Launch at login:") {
                 Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.blueSwitch)
                     .disabled(!model.loginItemAvailable)
                 if !model.loginItemAvailable {
                     FormCaption("Available when Shipwatch runs from its app bundle.")
@@ -318,7 +318,7 @@ struct GeneralSettingsView: View {
             HStack(spacing: 10) {
                 Toggle("Check for updates automatically", isOn: Binding(get: { prefs.checkForUpdates }, set: { updater.setCheckForUpdates($0) }))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.blueSwitch)
                 SettingsPicker(
                     title: "Check for updates",
                     selection: Binding(get: { prefs.updateCheckHours }, set: { updater.setUpdateCheckHours($0) }),
@@ -333,7 +333,7 @@ struct GeneralSettingsView: View {
         FormRow("Install automatically:") {
             Toggle("Install updates automatically", isOn: $prefs.installUpdatesAutomatically)
                 .labelsHidden()
-                .toggleStyle(.switch)
+                .toggleStyle(.blueSwitch)
                 .disabled(!updater.isSupported)
             FormCaption("Updates are signed by the Shipwatch release key and checked before installing. Shipwatch restarts to finish.")
             if let message = updater.pause.message(offering: updater.availableRelease?.version), !updater.hasFailed {
@@ -618,7 +618,7 @@ struct AccountSettingsView: View {
                 SettingsCardRow(symbol: "terminal", title: "Use GitHub CLI token if app sign-in is unavailable") {
                     Toggle("Use GitHub CLI token", isOn: Binding(get: { model.prefs.cliFallback }, set: { model.setCLIFallback($0) }))
                         .labelsHidden()
-                        .toggleStyle(.switch)
+                        .toggleStyle(.blueSwitch)
                         .controlSize(.small)
                 }
                 SettingsCardRow(symbol: "key", title: model.cliPath.map { "gh at \($0)" } ?? "gh not found", showsDivider: false) {

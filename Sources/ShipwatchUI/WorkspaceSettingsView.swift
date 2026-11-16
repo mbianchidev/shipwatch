@@ -90,7 +90,7 @@ struct WorkspaceSettingsView: View {
                     isOn: Binding(get: { prefs.syncClones && switchEnabled }, set: { model.setSyncClones($0) })
                 )
                 .labelsHidden()
-                .toggleStyle(.switch)
+                .toggleStyle(.blueSwitch)
                 .disabled(!switchEnabled)
                 if !workspace.gitAvailable {
                     FormCaption("Needs git. Install the Command Line Tools with xcode-select --install, then restart Shipwatch.", color: Theme.warning)
@@ -612,7 +612,7 @@ private struct CloneRow: View {
                 isOn: Binding(get: { !optedOut }, set: { model.setCloneSyncOptedOut(clone.ref, !$0) })
             )
             .labelsHidden()
-            .toggleStyle(.checkbox)
+            .toggleStyle(.blueCheckbox)
             .frame(width: Self.syncWidth, alignment: .leading)
             .help(optedOut ? "Shipwatch leaves clones of \(clone.ref.key) alone" : "Keep clones of \(clone.ref.key) up to date")
             VStack(alignment: .leading, spacing: 2) {
