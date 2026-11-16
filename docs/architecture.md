@@ -127,7 +127,8 @@ picked a workspace folder and turned the switch on.
   `.git/config` parses (`RepoRef(gitRemote:)`) to a github.com repository. A
   tracked remote wins, then `origin`. Clones of tracked repositories go to
   `clones`; the rest go to `untracked`, which Settings > Workspace offers to
-  track. It reads files only and never runs git, and it does not descend into
+  track, one clone per repository and minus the ignored ones
+  (`WorkspaceScan.offered`, `Preferences.ignoredRepos`). It reads files only and never runs git, and it does not descend into
   clones. Folders it can't list (usually
   macOS privacy prompts that were declined) are reported, not fatal.
 - **`CloneSyncer`** fast-forwards one clone's local default branch to the head

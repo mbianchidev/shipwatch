@@ -6,6 +6,7 @@ struct WorkspaceSettingsView: View {
     let model: AppModel
     @State private var excludedSelection = Set<String>()
     @State private var isTrackingFound = false
+    @State private var isShowingIgnored = false
     @State private var cloneQuery = ""
     @State private var pendingRemoval: PendingRemoval?
     @FocusState private var cloneSearchFocused: Bool
@@ -48,11 +49,17 @@ struct WorkspaceSettingsView: View {
                 if !workspace.untracked.isEmpty {
                     untrackedRow.padding(.top, 8)
                 }
+                if !prefs.ignoredRepos.isEmpty {
+                    ignoredRow.padding(.top, 8)
+                }
                 actions.padding(.top, 14)
             }
         }
         .sheet(isPresented: $isTrackingFound) {
             TrackFoundRepositoriesSheet(model: model, clones: workspace.untracked) { isTrackingFound = false }
+        }
+        .sheet(isPresented: $isShowingIgnored) {
+            IgnoredRepositoriesSheet(model: model) { isShowingIgnored = false }
         }
         .confirmsRemoval($pendingRemoval, model: model)
     }
@@ -297,6 +304,22 @@ struct WorkspaceSettingsView: View {
         .padding(.horizontal, 4)
     }
 
+    private var ignoredRow: some View {
+        let count = prefs.ignoredRepos.count
+        return HStack(spacing: 8) {
+            Image(systemName: "eye.slash")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text("\(count.counted("ignored repository", "ignored repositories")) \(count == 1 ? "isn't" : "aren't") offered for tracking.")
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Show Ignored…") { isShowingIgnored = true }
+                .help("List the ignored repositories and offer them for tracking again")
+        }
+        .font(.system(size: 12))
+        .padding(.horizontal, 4)
+    }
+
     private var actions: some View {
         HStack(spacing: 8) {
             if workspace.isSyncing {
@@ -366,12 +389,15 @@ struct WorkspaceSettingsView: View {
     }
 }
 
-/// Picks which untracked github.com repositories found in the workspace to track. All are selected at first.
+/// Picks which untracked github.com repositories found in the workspace to track, or to ignore so they aren't offered
+/// again. All are selected at first. The buttons act only on the selected repositories the filter shows.
 package struct TrackFoundRepositoriesSheet: View {
     let model: AppModel
     let clones: [LocalClone]
     let dismiss: () -> Void
     @State private var selected: Set<String>
+    @State private var query = ""
+    @FocusState private var filterFocused: Bool
 
     package init(model: AppModel, clones: [LocalClone], dismiss: @escaping () -> Void) {
         self.model = model
@@ -380,24 +406,38 @@ package struct TrackFoundRepositoriesSheet: View {
         _selected = State(initialValue: Set(clones.map(\.ref.key)))
     }
 
+    /// Leaves out repositories ignored while the sheet is open.
+    private var shown: [LocalClone] {
+        let ignored = Set(model.workspace.ignored.map(\.key))
+        let search = SearchText(query)
+        return clones.filter {
+            !ignored.contains($0.ref.key) && search.matches($0.ref.fullName, WorkspaceSettingsView.abbreviated($0.path.path))
+        }
+    }
+
     private var selectedRefs: [RepoRef] {
-        clones.map(\.ref).filter { selected.contains($0.key) }
+        shown.map(\.ref).filter { selected.contains($0.key) }
     }
 
     package var body: some View {
+        let shown = shown
         let count = selectedRefs.count
+        let allShownSelected = !shown.isEmpty && count == shown.count
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Track Repositories Found Here")
                     .font(.system(size: 15, weight: .semibold))
-                Text("GitHub repositories cloned in your workspace that Shipwatch doesn't track yet.")
+                Text("GitHub repositories cloned in your workspace that Shipwatch doesn't track yet. Ignore the ones you never want offered here.")
                     .font(.system(size: 12.5))
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+
+            SheetField(prompt: "Filter repositories", text: $query, symbol: "magnifyingglass", focused: $filterFocused, clearable: true)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(clones) { clone in
+                    ForEach(shown) { clone in
                         let key = clone.ref.key
                         PickerRow(
                             name: AttributedString(clone.ref.fullName),
@@ -406,18 +446,29 @@ package struct TrackFoundRepositoriesSheet: View {
                             isSelected: selected.contains(key)
                         ) { toggle(key) }
                     }
+                    if shown.isEmpty {
+                        Text(query.isEmpty ? "Nothing left to track here." : "No matches.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .padding(14)
+                    }
                 }
             }
             .frame(height: 290)
             .settingsTable()
 
             HStack {
-                Button(count == clones.count ? "Select None" : "Select All") {
-                    selected = count == clones.count ? [] : Set(clones.map(\.ref.key))
+                Button(allShownSelected ? "Select None" : "Select All") {
+                    let keys = shown.map(\.ref.key)
+                    if allShownSelected { selected.subtract(keys) } else { selected.formUnion(keys) }
                 }
+                .disabled(shown.isEmpty)
                 Spacer()
                 Button("Cancel", action: dismiss)
                     .keyboardShortcut(.cancelAction)
+                Button(count == 0 ? "Ignore" : "Ignore \(count)") { model.workspace.ignore(selectedRefs) }
+                    .disabled(count == 0)
+                    .help("Stop offering the selected repositories here. Settings > Workspace lists them under ignored repositories.")
                 Button(count == 0 ? "Track Repositories" : "Track \(count.counted("Repository", "Repositories"))") {
                     model.addRepositories(selectedRefs)
                     dismiss()
@@ -434,6 +485,102 @@ package struct TrackFoundRepositoriesSheet: View {
         .background(Theme.settingsContent)
         .environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark)
+    }
+
+    private func toggle(_ key: String) {
+        if selected.contains(key) {
+            selected.remove(key)
+        } else {
+            selected.insert(key)
+        }
+    }
+}
+
+/// The repositories "Track N Found Here" doesn't offer, to offer them again.
+package struct IgnoredRepositoriesSheet: View {
+    let model: AppModel
+    let dismiss: () -> Void
+    @State private var selected = Set<String>()
+    @State private var query = ""
+    @FocusState private var filterFocused: Bool
+
+    package init(model: AppModel, dismiss: @escaping () -> Void) {
+        self.model = model
+        self.dismiss = dismiss
+    }
+
+    private var shown: [RepoRef] {
+        let search = SearchText(query)
+        return model.workspace.ignored.filter { search.matches($0.fullName) }
+    }
+
+    package var body: some View {
+        let shown = shown
+        let refs = shown.filter { selected.contains($0.key) }
+        let allShownSelected = !shown.isEmpty && refs.count == shown.count
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Ignored Repositories")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("Track Found Here doesn't offer these. Stop ignoring them to see them there again.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(.secondary)
+            }
+
+            SheetField(prompt: "Filter repositories", text: $query, symbol: "magnifyingglass", focused: $filterFocused, clearable: true)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(shown, id: \.key) { ref in
+                        PickerRow(
+                            name: AttributedString(ref.fullName),
+                            detail: detail(ref),
+                            isAdded: false,
+                            isSelected: selected.contains(ref.key)
+                        ) { toggle(ref.key) }
+                    }
+                    if shown.isEmpty {
+                        Text(query.isEmpty ? "No ignored repositories." : "No matches.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .padding(14)
+                    }
+                }
+            }
+            .frame(height: 290)
+            .settingsTable()
+
+            HStack {
+                Button(allShownSelected ? "Select None" : "Select All") {
+                    let keys = shown.map(\.key)
+                    if allShownSelected { selected.subtract(keys) } else { selected.formUnion(keys) }
+                }
+                .disabled(shown.isEmpty)
+                Spacer()
+                Button("Done", action: dismiss)
+                    .keyboardShortcut(.cancelAction)
+                Button(refs.isEmpty ? "Stop Ignoring" : "Stop Ignoring \(refs.count)") {
+                    model.workspace.stopIgnoring(refs)
+                    selected.subtract(refs.map(\.key))
+                    if model.workspace.ignored.isEmpty { dismiss() }
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .disabled(refs.isEmpty)
+            }
+            .controlSize(.large)
+            .font(.system(size: 13))
+        }
+        .padding(20)
+        .frame(width: 520)
+        .background(Theme.settingsContent)
+        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+    }
+
+    private func detail(_ ref: RepoRef) -> Text {
+        guard let clone = model.workspace.untrackedClone(of: ref) else { return Text("Not in the workspace") }
+        return Text(WorkspaceSettingsView.abbreviated(clone.path.path))
     }
 
     private func toggle(_ key: String) {

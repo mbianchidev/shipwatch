@@ -31,6 +31,15 @@ public struct WorkspaceScan: Equatable, Sendable {
         self.untracked = untracked
         self.unreadable = unreadable
     }
+
+    /// One clone per repository in `untracked` whose `RepoRef.key` is neither `tracked` nor `ignored`, sorted by
+    /// repository, to offer for tracking.
+    public func offered(tracked: Set<String>, ignored: Set<String>) -> [LocalClone] {
+        var seen = Set<String>()
+        return untracked
+            .filter { !tracked.contains($0.ref.key) && !ignored.contains($0.ref.key) && seen.insert($0.ref.key).inserted }
+            .sorted { $0.ref.fullName.localizedStandardCompare($1.ref.fullName) == .orderedAscending }
+    }
 }
 
 /// Finds github.com clones inside the workspace folder, split into tracked and untracked. Reads files only; never runs git.

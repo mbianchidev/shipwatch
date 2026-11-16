@@ -688,6 +688,7 @@ public final class AppModel {
     }
 
     public func addRepositories(_ refs: [RepoRef]) {
+        workspace.stopIgnoring(refs)
         guard prefs.repos.add(refs) > 0 else { return }
         requestRefresh(force: true)
         Task { await workspace.rescan() }
@@ -697,11 +698,13 @@ public final class AppModel {
         removeRepositories([id])
     }
 
-    /// Stops tracking the repositories. Nothing changes on GitHub, and local clones stay on disk.
-    public func removeRepositories(_ ids: [TrackedRepo.ID]) {
+    /// Stops tracking the repositories. Nothing changes on GitHub, and local clones stay on disk. `ignoring` also
+    /// keeps them out of "Track N Found Here".
+    public func removeRepositories(_ ids: [TrackedRepo.ID], ignoring: Bool = false) {
         var repos = prefs.repos
         for id in ids { repos.remove(id) }
         guard repos != prefs.repos else { return }
+        if ignoring { workspace.ignore(prefs.repos.items.filter { ids.contains($0.id) }.map(\.ref)) }
         prefs.repos = repos
         for id in ids {
             statuses[id] = nil

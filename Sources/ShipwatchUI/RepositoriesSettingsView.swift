@@ -203,7 +203,8 @@ struct PendingRemoval {
 }
 
 extension View {
-    /// Asks before removing repositories from Shipwatch, saying that GitHub and local clones stay as they are.
+    /// Asks before removing repositories from Shipwatch, saying that GitHub and local clones stay as they are. With a
+    /// workspace, it also offers to ignore them, so "Track N Found Here" doesn't offer them again.
     func confirmsRemoval(_ pending: Binding<PendingRemoval?>, model: AppModel) -> some View {
         let ids = pending.wrappedValue?.repos ?? []
         let title = if ids.count == 1, let repo = model.prefs.repos.items.first(where: { $0.id == ids[0] }) {
@@ -221,9 +222,20 @@ extension View {
                 removal.groups.forEach(model.removeGroup)
                 model.removeRepositories(removal.repos)
             }
+            if model.workspace.root != nil {
+                Button("Remove and Ignore", role: .destructive) {
+                    removal.groups.forEach(model.removeGroup)
+                    model.removeRepositories(removal.repos, ignoring: true)
+                }
+            }
             Button("Cancel", role: .cancel) {}
         } message: { removal in
-            Text("Shipwatch stops showing \(removal.repos.count == 1 ? "it" : "them"). Nothing changes on GitHub, and local clones stay on disk.")
+            let pronoun = removal.repos.count == 1 ? "it" : "them"
+            if model.workspace.root != nil {
+                Text("Shipwatch stops showing \(pronoun). Nothing changes on GitHub, and local clones stay on disk. Remove and Ignore also stops offering \(pronoun) under Track Found Here in Workspace.")
+            } else {
+                Text("Shipwatch stops showing \(pronoun). Nothing changes on GitHub, and local clones stay on disk.")
+            }
         }
     }
 }

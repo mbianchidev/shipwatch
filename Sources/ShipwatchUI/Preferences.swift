@@ -42,6 +42,7 @@ public final class Preferences {
         static let excludedFolders = "excludedFolders"
         static let syncClones = "syncClones"
         static let cloneSyncOptOut = "cloneSyncOptOut"
+        static let ignoredRepos = "ignoredRepos"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -112,6 +113,10 @@ public final class Preferences {
     public var cloneSyncOptOut: Set<String> {
         didSet { defaults.set(cloneSyncOptOut.sorted(), forKey: Key.cloneSyncOptOut) }
     }
+    /// `owner/name` of repositories found in the workspace that "Track N Found Here" doesn't offer.
+    public var ignoredRepos: [String] {
+        didSet { defaults.set(ignoredRepos, forKey: Key.ignoredRepos) }
+    }
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -136,6 +141,7 @@ public final class Preferences {
         excludedFolders = defaults.stringArray(forKey: Key.excludedFolders) ?? []
         syncClones = defaults.bool(forKey: Key.syncClones)
         cloneSyncOptOut = Set(defaults.stringArray(forKey: Key.cloneSyncOptOut) ?? [])
+        ignoredRepos = defaults.stringArray(forKey: Key.ignoredRepos) ?? []
     }
 
     private static func loadRepos(_ defaults: UserDefaults) -> RepoList {

@@ -168,6 +168,7 @@ func configureWorkspace(_ model: AppModel) {
     prefs.excludedFolders = [root.appendingPathComponent("archive").path, root.appendingPathComponent("forks").path]
     prefs.syncClones = true
     prefs.cloneSyncOptOut = ["octocat/dotfiles"]
+    prefs.ignoredRepos = ["octocat/hello-world", "acme-org/sandbox"]
 
     func clone(_ relative: String, _ repo: String, on branch: String = "main") -> LocalClone {
         LocalClone(path: root.appendingPathComponent(relative, isDirectory: true), ref: ref(repo), remote: "origin", headBranch: branch)
@@ -185,6 +186,7 @@ func configureWorkspace(_ model: AppModel) {
         clone("acme/handbook", "acme-org/handbook"),
         clone("playground", "octocat/playground"),
         clone("Spoon-Knife", "octocat/Spoon-Knife"),
+        clone("scratch/hello-world", "octocat/hello-world"),
     ])
     workspace.scannedAt = ago(40)
     let head = String(repeating: "a", count: 40)
@@ -371,6 +373,8 @@ MainActor.assumeIsolated {
         try render(settings(model, .workspace), dark: true, name: "settings-workspace", into: output)
         let trackFound = TrackFoundRepositoriesSheet(model: model, clones: model.workspace.untracked) {}
         try render(sheet(model, over: .workspace, trackFound), dark: true, name: "settings-track-found", into: output)
+        let ignored = IgnoredRepositoriesSheet(model: model) {}
+        try render(sheet(model, over: .workspace, ignored), dark: true, name: "settings-ignored", into: output)
 
         let signedOut = makeModel(defaults: defaults, signedIn: false)
         try render(popover(signedOut, dark: true), dark: true, name: "onboarding", into: output)

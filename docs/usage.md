@@ -188,7 +188,8 @@ The repositories shown in the list, in order.
   choose **Remove from Shipwatch…**, to stop tracking it. A right-click on a
   selected row acts on every selected repository. Shipwatch asks first; the
   repository stays on GitHub and its local clones stay on disk, so you can add
-  it again later.
+  it again later. With a workspace folder set, **Remove and Ignore** also keeps
+  its clones out of [Track N Found Here](#ignored-repositories).
 - The **Access** column shows whether the current sign-in can read each
   repository. **Grant…** opens the GitHub App installation page.
 
@@ -219,18 +220,21 @@ stashes, forces, pushes or switches branches.
    a line under the table says how many. Click **Track N Found Here…**, untick
    any you don't want (all are ticked at first), and click
    **Track N Repositories**. They are added to Settings > Repositories like
-   repositories added with **+**.
+   repositories added with **+**. Click **Ignore N** instead to stop offering
+   the ticked ones; see [Ignored repositories](#ignored-repositories). Filter
+   the list to find a repository by name or path; both buttons only act on the
+   ticked repositories the filter shows.
 3. Optionally add **Excluded folders** with **+**. Shipwatch doesn't scan them or
    anything inside them. Hidden folders, `node_modules`, symlinks and app
    bundles are always skipped.
 4. Turn on **Keep default branches up to date** (default off).
 
 <p align="center">
-  <img src="screenshots/settings-workspace.png" alt="Workspace settings with the workspace folder, the sync switch, two excluded folders, a clone search field, a table of local clones showing up to date, updated and skipped statuses, and a line saying 3 repositories cloned here aren't tracked yet with a Track 3 Found Here button" width="560">
+  <img src="screenshots/settings-workspace.png" alt="Workspace settings with the workspace folder, the sync switch, two excluded folders, a clone search field, a table of local clones showing up to date, updated and skipped statuses, a line saying 3 repositories cloned here aren't tracked yet with a Track 3 Found Here button, and a line saying 2 ignored repositories aren't offered for tracking with a Show Ignored button" width="560">
 </p>
 
 <p align="center">
-  <img src="screenshots/settings-track-found.png" alt="Track Repositories Found Here sheet listing three untracked repositories with their local paths, all ticked, and a Track 3 Repositories button" width="560">
+  <img src="screenshots/settings-track-found.png" alt="Track Repositories Found Here sheet with a filter field, three untracked repositories with their local paths, all ticked, and Ignore 3 and Track 3 Repositories buttons" width="560">
 </p>
 
 After every refresh where GitHub reports a new commit on a default branch,
@@ -255,9 +259,25 @@ failed; Shipwatch retries them after 15 minutes. See
   15 minute wait. **Rescan** only looks for clones again.
 - Type in **Search clones by repository or path** to list only matching clones.
 - Right-click a clone for **Show in Finder**, or **Remove from Shipwatch…** to
-  stop tracking its repository. The clone stays on disk and moves to the
-  repositories that aren't tracked yet, so **Track N Found Here…** can add it
-  back.
+  stop tracking its repository. The clone stays on disk. **Remove** puts it back
+  among the repositories that aren't tracked yet, so **Track N Found Here…** can
+  add it again; **Remove and Ignore** also [ignores](#ignored-repositories) it.
+
+#### Ignored repositories
+
+An ignored repository isn't offered by **Track N Found Here…** and isn't counted
+in the "aren't tracked yet" line, even though its clone stays on disk. Ignore
+repositories with **Ignore N** in that sheet, or with **Remove and Ignore** when
+removing a tracked repository (in Repositories or Workspace, while a workspace
+folder is set).
+
+A line under the clones table says how many are ignored. Click
+**Show Ignored…**, tick repositories and click **Stop Ignoring N** to offer them
+again. Adding an ignored repository with **+** stops ignoring it too.
+
+<p align="center">
+  <img src="screenshots/settings-ignored.png" alt="Ignored Repositories sheet with a filter field and two ignored repositories, one with its local path and one not in the workspace, and Select All, Done and Stop Ignoring buttons" width="560">
+</p>
 
 Shipwatch needs git for this: Homebrew's, or Apple's from the Command Line Tools
 (`xcode-select --install`). It uses your existing SSH agent or credential
@@ -305,7 +325,7 @@ When GitHub rate limits the token, it waits for the reset time. Details are in
 | What | Where |
 | --- | --- |
 | GitHub App token | login Keychain, service `dev.mbianchi.shipwatch` |
-| Repositories, groups and settings, including the list order, workspace folder and exclusions | `UserDefaults` domain `dev.mbianchi.shipwatch` |
+| Repositories, groups and settings, including the list order, workspace folder, exclusions and ignored repositories | `UserDefaults` domain `dev.mbianchi.shipwatch` |
 | Update state and lock, statuses of the last refresh | `~/Library/Application Support/Shipwatch` |
 | GitHub CLI token | memory only |
 
