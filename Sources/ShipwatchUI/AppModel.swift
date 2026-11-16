@@ -180,9 +180,10 @@ public final class AppModel {
         authMethod == nil || signInStep == .install
     }
 
-    /// Rows in the popover: visible repos, plus hidden ones while "Show" is on, narrowed by the filter.
+    /// Rows in the popover: visible repos, plus hidden ones while "Show" is on, of the chosen owner, narrowed by
+    /// the filter.
     public var menuRepos: [TrackedRepo] {
-        let repos = prefs.repos.items.filter(isShownInMenu)
+        let repos = prefs.repos.items.filter(isListed)
         guard let filter else { return repos }
         return repos.filter { filter.matches(statuses[$0.id]) }
     }
@@ -199,9 +200,35 @@ public final class AppModel {
         showHiddenInMenu || !repo.hidden
     }
 
-    /// Visible repositories the filter would list.
+    /// The `RepoRef.ownerKey` the popover is narrowed to, while a tracked repository still has that owner.
+    public var menuOwner: String? {
+        guard let owner = prefs.menuOwner, prefs.repos.items.contains(where: { $0.ref.ownerKey == owner }) else { return nil }
+        return owner
+    }
+
+    /// Choices of the popover's owner menu: owners of the shown repositories, and the chosen one.
+    public var menuOwners: [RepoOwner] {
+        let chosen = menuOwner
+        return prefs.repos.owners { isShownInMenu($0) || $0.ref.ownerKey == chosen }
+    }
+
+    private func isOfMenuOwner(_ repo: TrackedRepo) -> Bool {
+        menuOwner.map { repo.ref.ownerKey == $0 } ?? true
+    }
+
+    /// Listed in the popover before the summary chips narrow it: shown, and of the chosen owner.
+    func isListed(_ repo: TrackedRepo) -> Bool {
+        isShownInMenu(repo) && isOfMenuOwner(repo)
+    }
+
+    /// Visible repositories of the chosen owner, which the summary chips count.
+    private var menuVisible: [TrackedRepo] {
+        prefs.repos.visible.filter(isOfMenuOwner)
+    }
+
+    /// Visible repositories of the chosen owner the filter would list.
     public func visibleCount(_ filter: RepoFilter) -> Int {
-        prefs.repos.visible.count { filter.matches(statuses[$0.id]) }
+        menuVisible.count { filter.matches(statuses[$0.id]) }
     }
 
     /// While a filter is on, groups list their matching members.
@@ -209,8 +236,14 @@ public final class AppModel {
         filter != nil || group.isExpanded
     }
 
+    /// Every visible repository, whatever owner the popover shows, for the menu bar icon.
     public var overall: OverallStatus {
         OverallStatus(prefs.repos.visible.compactMap { statuses[$0.id] })
+    }
+
+    /// Visible repositories of the chosen owner, for the summary chips.
+    public var menuOverall: OverallStatus {
+        OverallStatus(menuVisible.compactMap { statuses[$0.id] })
     }
 
     var anyActive: Bool {
@@ -661,10 +694,22 @@ public final class AppModel {
     }
 
     public func removeRepository(_ id: TrackedRepo.ID) {
-        prefs.repos.remove(id)
-        statuses[id] = nil
-        expanded.remove(id)
-        if pendingRemoval == id { pendingRemoval = nil }
+        removeRepositories([id])
+    }
+
+    /// Stops tracking the repositories. Nothing changes on GitHub, and local clones stay on disk.
+    public func removeRepositories(_ ids: [TrackedRepo.ID]) {
+        var repos = prefs.repos
+        for id in ids { repos.remove(id) }
+        guard repos != prefs.repos else { return }
+        prefs.repos = repos
+        for id in ids {
+            statuses[id] = nil
+            expanded.remove(id)
+        }
+        if let pendingRemoval, ids.contains(pendingRemoval) { self.pendingRemoval = nil }
+        if prefs.menuOwner != nil, menuOwner == nil { prefs.menuOwner = nil }
+        workspace.untrack(Set(ids))
         Task { await workspace.rescan() }
     }
 
@@ -675,12 +720,12 @@ public final class AppModel {
 
     /// "Move Up" and "Move Down" for a repository key or a `RepoGroup.entryID`. Only the custom order can change.
     public func canMove(_ id: String, by offset: Int) -> Bool {
-        prefs.menuSort == .custom && prefs.repos.canMove(id, by: offset, including: isShownInMenu)
+        prefs.menuSort == .custom && prefs.repos.canMove(id, by: offset, including: isListed)
     }
 
     public func move(_ id: String, by offset: Int) {
         guard canMove(id, by: offset) else { return }
-        prefs.repos.move(id, by: offset, including: isShownInMenu)
+        prefs.repos.move(id, by: offset, including: isListed)
     }
 
     // MARK: Groups

@@ -187,6 +187,15 @@ public final class WorkspaceModel {
         scannedAt = Date()
     }
 
+    /// Lists the clones of repositories no longer tracked as untracked right away, before the next scan.
+    func untrack(_ ids: Set<String>) {
+        let gone = scan.clones.filter { ids.contains($0.ref.key) }
+        guard !gone.isEmpty else { return }
+        scan.clones.removeAll { ids.contains($0.ref.key) }
+        scan.untracked.append(contentsOf: gone)
+        for clone in gone { results[clone.path] = nil }
+    }
+
     // MARK: Sync
 
     /// Called after every successful refresh: rescan when stale, then fast-forward clones whose GitHub head moved.

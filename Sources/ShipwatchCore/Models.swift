@@ -35,6 +35,7 @@ public struct RepoRef: Hashable, Codable, Sendable, CustomStringConvertible {
 
     /// GitHub treats owner and name case-insensitively.
     public var key: String { fullName.lowercased() }
+    public var ownerKey: String { owner.lowercased() }
 
     static func isValidOwner(_ value: String) -> Bool {
         guard !value.isEmpty, value.count <= 39, !value.hasPrefix("-") else { return false }

@@ -181,6 +181,23 @@ struct RepoListTests {
         #expect(list.items.map(\.ref) == [cli, api, infra, web])
     }
 
+    @Test func searchShowsMatchesUnderTheirGroupEvenWhenCollapsed() {
+        let (list, tools) = toolsList()
+        let header = RepoGroup.entryID(tools)
+        #expect(list.rows(collapsing: [tools], matching: SearchText("  CLI ")).map(\.id) == [header, cli.key])
+        #expect(list.rows(collapsing: [], matching: SearchText("acme-org/")).map(\.id) == [infra.key])
+        #expect(list.rows(collapsing: [tools], matching: SearchText("tools")).map(\.id) == [header, api.key, cli.key])
+        #expect(list.rows(collapsing: [], matching: SearchText("nothing")).isEmpty)
+        #expect(list.rows(collapsing: [tools], matching: SearchText(" ")) == list.rows(collapsing: [tools]))
+    }
+
+    @Test func ownersAreCountedCaseInsensitively() {
+        var list = RepoList([api, infra, web].map { TrackedRepo(ref: $0) })
+        list.add([RepoRef(owner: "Acme-Org", name: "payments")])
+        #expect(list.owners() == [RepoOwner(login: "acme-org", count: 2), RepoOwner(login: "mbianchidev", count: 2)])
+        #expect(list.owners { $0.ref != web }.map(\.count) == [2, 1])
+    }
+
     @Test func sortsEntriesAndGroupMembers() throws {
         var list = RepoList([web, api, infra, cli].map { TrackedRepo(ref: $0) })
         let zeta = list.addGroup(named: "zeta", members: [infra.key, cli.key])

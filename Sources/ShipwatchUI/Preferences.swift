@@ -30,6 +30,7 @@ public final class Preferences {
         static let showSecurityAlerts = "showSecurityAlerts"
         static let menuBarCount = "menuBarCount"
         static let menuSort = "menuSort"
+        static let menuOwner = "menuOwner"
         static let cliFallback = "cliFallback"
         static let clientIDOverride = "clientIDOverride"
         static let appSlugOverride = "appSlugOverride"
@@ -68,6 +69,10 @@ public final class Preferences {
     /// Order of the popover list. Groups keep their members together in every order.
     public var menuSort: RepoSort {
         didSet { defaults.set(menuSort.rawValue, forKey: Key.menuSort) }
+    }
+    /// `RepoRef.ownerKey` the popover list is narrowed to, or `nil` for every owner.
+    public var menuOwner: String? {
+        didSet { defaults.set(menuOwner, forKey: Key.menuOwner) }
     }
     public var cliFallback: Bool {
         didSet { defaults.set(cliFallback, forKey: Key.cliFallback) }
@@ -118,6 +123,7 @@ public final class Preferences {
         showSecurityAlerts = defaults.bool(forKey: Key.showSecurityAlerts)
         menuBarCount = defaults.string(forKey: Key.menuBarCount).flatMap(MenuBarCount.init(rawValue:)) ?? .running
         menuSort = defaults.string(forKey: Key.menuSort).flatMap(RepoSort.init(rawValue:)) ?? .custom
+        menuOwner = defaults.string(forKey: Key.menuOwner).flatMap { $0.isEmpty ? nil : $0 }
         cliFallback = defaults.bool(forKey: Key.cliFallback)
         clientIDOverride = defaults.string(forKey: Key.clientIDOverride) ?? ""
         appSlugOverride = defaults.string(forKey: Key.appSlugOverride) ?? ""

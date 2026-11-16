@@ -6,6 +6,9 @@ struct WorkspaceSettingsView: View {
     let model: AppModel
     @State private var excludedSelection = Set<String>()
     @State private var isTrackingFound = false
+    @State private var cloneQuery = ""
+    @State private var pendingRemoval: PendingRemoval?
+    @FocusState private var cloneSearchFocused: Bool
 
     private var workspace: WorkspaceModel { model.workspace }
     private var prefs: Preferences { model.prefs }
@@ -37,6 +40,11 @@ struct WorkspaceSettingsView: View {
                 .padding(.horizontal, 4)
                 .padding(.top, 18)
                 .padding(.bottom, 6)
+                if !workspace.scan.clones.isEmpty {
+                    SheetField(prompt: "Search clones by repository or path", text: $cloneQuery, symbol: "magnifyingglass", focused: $cloneSearchFocused, clearable: true)
+                        .accessibilityLabel("Search local clones")
+                        .padding(.bottom, 8)
+                }
                 clonesTable
                 if !workspace.untracked.isEmpty {
                     untrackedRow.padding(.top, 8)
@@ -47,6 +55,7 @@ struct WorkspaceSettingsView: View {
         .sheet(isPresented: $isTrackingFound) {
             TrackFoundRepositoriesSheet(model: model, clones: workspace.untracked) { isTrackingFound = false }
         }
+        .confirmsRemoval($pendingRemoval, model: model)
     }
 
     // MARK: Form
@@ -222,15 +231,28 @@ struct WorkspaceSettingsView: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: 80)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(Array(workspace.scan.clones.enumerated()), id: \.element.id) { index, clone in
-                            CloneRow(model: model, clone: clone)
+                let clones = shownClones
+                // Sized for every clone, so typing in the search doesn't resize the window.
+                let height = CloneRow.height * CGFloat(min(workspace.scan.clones.count, 6))
+                if clones.isEmpty {
+                    Text("No clone matches “\(cloneQuery.trimmingCharacters(in: .whitespacesAndNewlines))”.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: max(height, 80))
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(clones.enumerated()), id: \.element.id) { index, clone in
+                                CloneRow(model: model, clone: clone) {
+                                    pendingRemoval = PendingRemoval(repos: [clone.ref.key])
+                                }
                                 .background(index.isMultiple(of: 2) ? Color.clear : Color.white.opacity(0.03))
+                            }
                         }
                     }
+                    .frame(height: height)
                 }
-                .frame(height: CloneRow.height * CGFloat(min(workspace.scan.clones.count, 6)))
             }
             Divider()
             HStack {
@@ -243,6 +265,11 @@ struct WorkspaceSettingsView: View {
             .frame(height: 24)
         }
         .settingsTable()
+    }
+
+    private var shownClones: [LocalClone] {
+        let search = SearchText(cloneQuery)
+        return workspace.scan.clones.filter { search.matches($0.ref.fullName, Self.abbreviated($0.path.path)) }
     }
 
     private var clonesSummary: String {
@@ -425,6 +452,8 @@ private struct CloneRow: View {
     static let statusWidth: CGFloat = 210
     let model: AppModel
     let clone: LocalClone
+    /// Asks to stop tracking the clone's repository.
+    let remove: () -> Void
 
     private var workspace: WorkspaceModel { model.workspace }
     private var optedOut: Bool { workspace.isOptedOut(clone.ref) }
@@ -465,6 +494,8 @@ private struct CloneRow: View {
         .frame(height: Self.height)
         .contextMenu {
             Button("Show in Finder") { model.actions.revealInFinder([clone.path]) }
+            Divider()
+            Button("Remove “\(clone.ref.name)” from Shipwatch…", role: .destructive, action: remove)
         }
     }
 

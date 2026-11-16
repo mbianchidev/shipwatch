@@ -55,7 +55,7 @@ struct DashboardView: View {
                                 GroupRowView(model: model, group: group, members: members)
                             }
                         }
-                        if entries.isEmpty, model.filter != nil {
+                        if entries.isEmpty, model.filter != nil || model.menuOwner != nil {
                             filterEmptyNote
                         }
                     }
@@ -106,6 +106,7 @@ struct DashboardView: View {
                 HStack(spacing: 6) {
                     SummaryChips(model: model)
                     Spacer(minLength: 0)
+                    OwnerMenu(model: model)
                     SortMenu(model: model)
                 }
             }
@@ -162,7 +163,10 @@ struct DashboardView: View {
     private var filterEmptyNote: some View {
         HStack(spacing: 5) {
             Text("No repositories match this filter ·")
-            Button("Show All") { model.filter = nil }
+            Button("Show All") {
+                model.filter = nil
+                model.prefs.menuOwner = nil
+            }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.link)
             Spacer()
@@ -238,7 +242,7 @@ struct SummaryChips: View {
     }
 
     var body: some View {
-        let overall = model.overall
+        let overall = model.menuOverall
         let chips = [
             Chip(filter: .ci(.running), count: overall.running, label: "running"),
             Chip(filter: .ci(.queued), count: overall.queued, label: "queued"),
@@ -350,6 +354,62 @@ struct SortMenu: View {
             menu.addItem(item)
         }
         // Drops down from the button's bottom-left corner, like a pop-up button.
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.isFlipped ? view.bounds.maxY + 4 : -4), in: view)
+    }
+}
+
+/// Narrows the list to the repositories of one organization or user, or shows all of them. Only there while the
+/// shown repositories have more than one owner, or one is chosen. Opens an AppKit menu, like `SortMenu`.
+struct OwnerMenu: View {
+    let model: AppModel
+    @State private var anchor = ViewAnchor()
+
+    var body: some View {
+        let owners = model.menuOwners
+        let chosen = model.menuOwner.flatMap { key in owners.first { $0.id == key } }
+        if owners.count > 1 || chosen != nil {
+            Button(action: showMenu) {
+                HStack(spacing: 4) {
+                    Image(systemName: "building.2")
+                        .font(.system(size: 10.5, weight: .semibold))
+                    if let chosen {
+                        Text(chosen.login)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: 110)
+                    }
+                }
+                .foregroundStyle(chosen == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.link))
+                .padding(.horizontal, chosen == nil ? 0 : 8)
+                .frame(minWidth: 26, minHeight: 20)
+                .background(chosen == nil ? Theme.fill : Theme.link.opacity(0.2), in: Capsule())
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .background(ViewAnchor.Reader(anchor: anchor))
+            .fixedSize()
+            .help("Organization: \(chosen?.login ?? "All")")
+            .accessibilityLabel("Filter by organization")
+            .accessibilityValue(chosen?.login ?? "All organizations")
+        }
+    }
+
+    private func showMenu() {
+        guard let view = anchor.view else { return }
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let actions = MenuActions()
+        let chosen = model.menuOwner
+        let all = actions.item("All Organizations") { [model] in model.prefs.menuOwner = nil }
+        all.state = chosen == nil ? .on : .off
+        menu.addItem(all)
+        menu.addItem(.separator())
+        for owner in model.menuOwners {
+            let item = actions.item("\(owner.login) (\(owner.count))") { [model] in model.prefs.menuOwner = owner.id }
+            item.state = owner.id == chosen ? .on : .off
+            menu.addItem(item)
+        }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.isFlipped ? view.bounds.maxY + 4 : -4), in: view)
     }
 }
