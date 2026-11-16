@@ -205,6 +205,10 @@ struct GeneralSettingsView: View {
     var body: some View {
         @Bindable var prefs = model.prefs
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 14) {
+            FormRow("Repositories:") {
+                RepositoryCountRow(model: model)
+            }
+
             FormRow("Refresh every:") {
                 SettingsPicker(
                     title: "Refresh every",
@@ -346,6 +350,35 @@ struct GeneralSettingsView: View {
         }
     }
 
+}
+
+/// How many repositories are tracked, and how many keep Shipwatch quick. Every refresh reads each tracked
+/// repository, hidden ones too, at roughly a second each, sharing the user's GitHub rate limit with gh and other tools.
+struct RepositoryCountRow: View {
+    let model: AppModel
+    static let quick = 50
+    static let workable = 100
+
+    var body: some View {
+        let repos = model.prefs.repos
+        let count = repos.items.count
+        HStack(spacing: 8) {
+            Text(repos.summary)
+                .foregroundStyle(.secondary)
+            Button("Manage…") { model.settingsTab = .repositories }
+        }
+        let took = model.lastRefreshDuration.map { "The last refresh took \(RelativeTime.duration($0)). " } ?? ""
+        if count > Self.workable {
+            FormCaption(
+                "\(took)Over \(Self.workable), refreshes take minutes and can hit GitHub's rate limits. Remove the ones you don't need: hidden ones are still refreshed.",
+                color: Theme.warning
+            )
+        } else {
+            FormCaption(
+                "\(took)Quick up to about \(Self.quick), fine up to about \(Self.workable): a refresh takes about a second per repository, hidden ones too, and shares your rate limit with gh."
+            )
+        }
+    }
 }
 
 /// How many repositories send release notifications, whether macOS lets Shipwatch show them, and a test button.

@@ -162,6 +162,7 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     model.statuses["octocat/cli-tool"]?.reviewRequests = 2
     model.expanded = ["octocat/api-server"]
     model.lastUpdated = ago(40)
+    model.lastRefreshDuration = 7
     model.nextRefresh = now.addingTimeInterval(20)
     return model
 }

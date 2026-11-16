@@ -299,6 +299,7 @@ helper and never prompts.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
+| Repositories | Info only | How many repositories, groups and hidden ones you track, how long the last refresh took, and **Manage…** to open Repositories. See [How many repositories](#how-many-repositories). |
 | Refresh every | 2 minutes | 1, 2, 5, 10 or 15 minutes. While a workflow runs or is queued, Shipwatch refreshes every 20 seconds. |
 | Last activity means | Last push | **Last push**, or **Any update** (issues, pull requests, comments). |
 | Include pre-releases | Off | Show the newest release even if it is a pre-release. |
@@ -334,6 +335,18 @@ When GitHub rate limits the token, it waits for the reset time. Details are in
   only.
 - **GitHub App** Client ID and slug: only for builds without a bundled app, or to
   use your own. See [GitHub App setup](github-app-setup.md).
+
+### How many repositories
+
+Shipwatch stays quick with up to about 50 repositories and works well up to
+about 100. Every refresh reads each tracked repository, hidden ones too, at
+roughly a second each, so with 100 a refresh takes about 2 minutes, and the
+20 second refresh while a workflow runs can't keep up. GitHub's rate limits
+aren't the bottleneck: each refresh costs about one GraphQL point per 10
+repositories, and unchanged workflow runs come back as `304` and are free. The
+limit is shared with `gh` and your other tools, though. Above 100, Settings >
+General says so in orange. Remove the repositories you don't need; hiding them
+doesn't make refreshes faster.
 
 ### Only mine
 

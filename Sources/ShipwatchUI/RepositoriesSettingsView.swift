@@ -151,20 +151,13 @@ struct RepositoriesSettingsView: View {
             .help(selectedRepoIDs.isEmpty ? "Create a group and pick its repositories" : "Create a group with the selected repositories")
             Divider().frame(height: 24)
             Spacer()
-            Text(summary)
+            Text(repos.summary)
                 .font(.system(size: 11.5))
                 .foregroundStyle(.secondary)
                 .padding(.trailing, 12)
         }
         .buttonStyle(.plain)
         .font(.system(size: 13, weight: .medium))
-    }
-
-    private var summary: String {
-        var parts = [repos.items.count.counted("repository", "repositories")]
-        if !repos.groups.isEmpty { parts.append(repos.groups.count.counted("group")) }
-        parts.append("\(repos.hiddenCount) hidden")
-        return parts.joined(separator: " · ")
     }
 
     private var selectedRepoIDs: [TrackedRepo.ID] {
@@ -194,6 +187,16 @@ struct RepositoriesSettingsView: View {
         } else {
             pendingRemoval = PendingRemoval(repos: ids, groups: groups)
         }
+    }
+}
+
+extension RepoList {
+    /// "45 repositories · 5 groups · 5 hidden".
+    var summary: String {
+        var parts = [items.count.counted("repository", "repositories")]
+        if !groups.isEmpty { parts.append(groups.count.counted("group")) }
+        parts.append("\(hiddenCount) hidden")
+        return parts.joined(separator: " · ")
     }
 }
 

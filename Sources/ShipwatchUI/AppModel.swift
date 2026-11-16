@@ -112,6 +112,8 @@ public final class AppModel {
     public var lastUpdated: Date?
     public var nextRefresh: Date?
     public var isRefreshing = false
+    /// How long the last successful refresh took.
+    public var lastRefreshDuration: TimeInterval?
     public var banner: Banner?
     public var rateLimitedUntil: Date?
 
@@ -367,6 +369,7 @@ public final class AppModel {
         }
         isRefreshing = true
         defer { isRefreshing = false }
+        let started = Date()
         do {
             let includePrereleases = prefs.includePrereleases
             let securityAlerts = prefs.showSecurityAlerts
@@ -381,6 +384,9 @@ public final class AppModel {
             statuses = followRenames(batch.statuses)
             notifyNewReleases(previous: previous, previousAt: previousAt)
             lastUpdated = Date()
+            let took = Date().timeIntervalSince(started)
+            lastRefreshDuration = took
+            uiLog.info("Refreshed \(refs.count) repositories in \(RelativeTime.duration(took), privacy: .public)")
             banner = nil
             rateLimitedUntil = nil
             saveStatuses()
