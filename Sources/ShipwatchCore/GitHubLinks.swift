@@ -7,23 +7,40 @@ public enum GitHubLinks {
         web.appending(path: ref.owner).appending(path: ref.name)
     }
 
-    public static func issues(_ ref: RepoRef) -> URL {
-        repo(ref).appending(path: "issues")
+    /// Open issues, only those assigned to `assignee` when set.
+    public static func issues(_ ref: RepoRef, assignee: String? = nil) -> URL {
+        let url = repo(ref).appending(path: "issues")
+        guard let assignee else { return url }
+        return filtered(url, "q", "is:issue is:open assignee:\(assignee)")
     }
 
-    public static func pullRequests(_ ref: RepoRef) -> URL {
-        repo(ref).appending(path: "pulls")
+    /// Open pull requests, only those assigned to `assignee` when set.
+    public static func pullRequests(_ ref: RepoRef, assignee: String? = nil) -> URL {
+        let url = repo(ref).appending(path: "pulls")
+        guard let assignee else { return url }
+        return filtered(url, "q", "is:pr is:open assignee:\(assignee)")
     }
 
-    /// Open pull requests authored by Dependabot.
-    public static func dependabotPullRequests(_ ref: RepoRef) -> URL {
-        var components = URLComponents(url: pullRequests(ref), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "q", value: "is:pr is:open author:app/dependabot")]
+    /// Open pull requests authored by Dependabot, only those assigned to `assignee` when set.
+    public static func dependabotPullRequests(_ ref: RepoRef, assignee: String? = nil) -> URL {
+        filtered(repo(ref).appending(path: "pulls"), "q", "is:pr is:open author:app/dependabot" + qualifier("assignee", assignee))
+    }
+
+    /// Workflow runs, only those `actor` triggered when set.
+    public static func actions(_ ref: RepoRef, actor: String? = nil) -> URL {
+        let url = repo(ref).appending(path: "actions")
+        guard let actor else { return url }
+        return filtered(url, "query", "actor:\(actor)")
+    }
+
+    private static func filtered(_ url: URL, _ name: String, _ value: String) -> URL {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: name, value: value)]
         return components.url!
     }
 
-    public static func actions(_ ref: RepoRef) -> URL {
-        repo(ref).appending(path: "actions")
+    private static func qualifier(_ name: String, _ value: String?) -> String {
+        value.map { " \(name):\($0)" } ?? ""
     }
 
     public static func releases(_ ref: RepoRef) -> URL {
@@ -36,18 +53,18 @@ public enum GitHubLinks {
     }
 
     /// Open issues across several repositories, as a GitHub search.
-    public static func issues(_ refs: [RepoRef]) -> URL {
-        search("is:issue is:open", in: refs, type: "issues")
+    public static func issues(_ refs: [RepoRef], assignee: String? = nil) -> URL {
+        search("is:issue is:open" + qualifier("assignee", assignee), in: refs, type: "issues")
     }
 
     /// Open pull requests across several repositories, as a GitHub search.
-    public static func pullRequests(_ refs: [RepoRef]) -> URL {
-        search("is:pr is:open", in: refs, type: "pullrequests")
+    public static func pullRequests(_ refs: [RepoRef], assignee: String? = nil) -> URL {
+        search("is:pr is:open" + qualifier("assignee", assignee), in: refs, type: "pullrequests")
     }
 
     /// Open Dependabot pull requests across several repositories, as a GitHub search.
-    public static func dependabotPullRequests(_ refs: [RepoRef]) -> URL {
-        search("is:pr is:open author:app/dependabot", in: refs, type: "pullrequests")
+    public static func dependabotPullRequests(_ refs: [RepoRef], assignee: String? = nil) -> URL {
+        search("is:pr is:open author:app/dependabot" + qualifier("assignee", assignee), in: refs, type: "pullrequests")
     }
 
     private static func search(_ qualifiers: String, in refs: [RepoRef], type: String) -> URL {

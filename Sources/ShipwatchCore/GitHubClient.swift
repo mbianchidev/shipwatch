@@ -72,7 +72,10 @@ public actor GitHubClient {
     /// plus one conditional REST call per repo for workflow runs and one for the jobs of each new failure.
     /// With `securityAlerts`, the GraphQL call also counts open Dependabot alerts, and each repo gets one conditional
     /// REST call for code scanning alerts and one for secret scanning alerts.
-    public func statuses(for refs: [RepoRef], includePrereleases: Bool, securityAlerts: Bool = false) async throws -> StatusBatch {
+    /// Repositories in `mine` only count the open issues and pull requests assigned to its login and the runs it triggered.
+    public func statuses(
+        for refs: [RepoRef], includePrereleases: Bool, securityAlerts: Bool = false, mine: MineScope? = nil
+    ) async throws -> StatusBatch {
         var result: [String: RepoStatus] = [:]
         var progress = ChunkProgress()
 
@@ -81,7 +84,7 @@ public actor GitHubClient {
             let chunk = Array(remaining.prefix(chunkSize))
             remaining = remaining.dropFirst(chunk.count)
             let statuses = try await repoStatuses(
-                chunk, includePrereleases: includePrereleases, securityAlerts: securityAlerts, progress: &progress
+                chunk, includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine, progress: &progress
             )
             for (ref, status) in zip(chunk, statuses) {
                 result[ref.key] = status
@@ -90,7 +93,7 @@ public actor GitHubClient {
 
         let readable = refs.compactMap { ref -> ReadableRepo? in
             guard let status = result[ref.key], status.problem == nil else { return nil }
-            return ReadableRepo(key: ref.key, ref: status.ref, defaultBranch: status.defaultBranch)
+            return ReadableRepo(key: ref.key, ref: status.ref, defaultBranch: status.defaultBranch, actor: status.onlyMine)
         }
         let details = try await restDetails(for: readable, securityAlerts: securityAlerts)
         for (key, detail) in details {
@@ -114,13 +117,13 @@ public actor GitHubClient {
     /// Splits a chunk in half when GitHub times out on it, so one slow batch or repo doesn't fail the whole refresh.
     /// A repo that still fails on its own shows the error on its row.
     private func repoStatuses(
-        _ chunk: [RepoRef], includePrereleases: Bool, securityAlerts: Bool, progress: inout ChunkProgress
+        _ chunk: [RepoRef], includePrereleases: Bool, securityAlerts: Bool, mine: MineScope?, progress: inout ChunkProgress
     ) async throws -> [RepoStatus] {
         do {
-            let (query, variables) = RepoQuery.build(chunk, securityAlerts: securityAlerts)
+            let (query, variables) = RepoQuery.build(chunk, securityAlerts: securityAlerts, mine: mine)
             let data = try await graphQL(query: query, variables: variables)
             let parsed = try RepoQuery.parse(
-                data, refs: chunk, includePrereleases: includePrereleases, securityAlerts: securityAlerts
+                data, refs: chunk, includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine
             )
             progress.rateLimit = parsed.rateLimit ?? progress.rateLimit
             progress.consecutiveRepoFailures = 0
@@ -131,10 +134,12 @@ public actor GitHubClient {
                 chunkSize = min(chunkSize, RepoQuery.smallChunkSize)
                 let half = chunk.count / 2
                 let first = try await repoStatuses(
-                    Array(chunk[..<half]), includePrereleases: includePrereleases, securityAlerts: securityAlerts, progress: &progress
+                    Array(chunk[..<half]), includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine,
+                    progress: &progress
                 )
                 let second = try await repoStatuses(
-                    Array(chunk[half...]), includePrereleases: includePrereleases, securityAlerts: securityAlerts, progress: &progress
+                    Array(chunk[half...]), includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine,
+                    progress: &progress
                 )
                 return first + second
             }
@@ -149,6 +154,8 @@ public actor GitHubClient {
         var key: String
         var ref: RepoRef
         var defaultBranch: String?
+        /// Only runs this login triggered.
+        var actor: String?
     }
 
     private struct RepoDetails: Sendable {
@@ -186,7 +193,7 @@ public actor GitHubClient {
 
     private func ciSummary(_ repo: ReadableRepo) async throws -> CISummary? {
         do {
-            guard let runs = try await workflowRuns(repo.ref) else { return nil }
+            guard let runs = try await workflowRuns(repo.ref, actor: repo.actor) else { return nil }
             let marked = try await markRunsThatNeverStarted(runs, ref: repo.ref, defaultBranch: repo.defaultBranch)
             return CIEvaluator.summarize(runs: marked, defaultBranch: repo.defaultBranch)
         } catch let error as GitHubError where error.affectsEveryRequest {
@@ -197,11 +204,13 @@ public actor GitHubClient {
         }
     }
 
-    /// The 50 most recent runs, or `nil` when the token can't read Actions for this repo.
-    public func workflowRuns(_ ref: RepoRef) async throws -> [WorkflowRun]? {
+    /// The 50 most recent runs, only those `actor` triggered when set, or `nil` when the token can't read Actions for
+    /// this repo.
+    public func workflowRuns(_ ref: RepoRef, actor: String? = nil) async throws -> [WorkflowRun]? {
         struct Page: Decodable { var workflowRuns: [WorkflowRun] }
-        let url = api.appending(path: "repos/\(ref.owner)/\(ref.name)/actions/runs")
-            .appending(queryItems: [URLQueryItem(name: "per_page", value: "50")])
+        var query = [URLQueryItem(name: "per_page", value: "50")]
+        if let actor { query.append(URLQueryItem(name: "actor", value: actor)) }
+        let url = api.appending(path: "repos/\(ref.owner)/\(ref.name)/actions/runs").appending(queryItems: query)
         do {
             let (data, _) = try await get(url, conditional: true)
             return try JSON.decode(Page.self, from: data).workflowRuns

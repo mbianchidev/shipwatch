@@ -232,6 +232,13 @@ struct GeneralSettingsView: View {
                 FormCaption("Open Dependabot, code scanning and secret scanning alerts. Needs write access, admin for secret scanning.")
             }
 
+            FormRow("Only mine everywhere:") {
+                Toggle("Only mine everywhere", isOn: Binding(get: { prefs.onlyMine }, set: { model.setOnlyMineEverywhere($0) }))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                FormCaption("Count only issues and pull requests assigned to you and workflow runs you triggered, in every repository. Use the person in Repositories for single ones.")
+            }
+
             FormRow("Release notifications:") {
                 ReleaseNotificationsRow(model: model)
             }

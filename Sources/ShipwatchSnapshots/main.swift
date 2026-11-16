@@ -96,7 +96,8 @@ func mockStatuses() -> [RepoStatus] {
             ref: infra, isPrivate: true, defaultBranch: "main", openIssues: 7, openPullRequests: 4,
             dependabotPullRequests: 1, pushedAt: ago(26 * hour),
             ci: CISummary(state: .notStarted, running: [], latestOnDefault: [terraformPlan]),
-            securityAlerts: SecurityAlerts(dependabot: 1, codeScanning: nil, secretScanning: nil)
+            securityAlerts: SecurityAlerts(dependabot: 1, codeScanning: nil, secretScanning: nil),
+            onlyMine: "octocat"
         ),
         RepoStatus(
             ref: dotfiles, defaultBranch: "main", pushedAt: ago(41 * day),
@@ -124,6 +125,7 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     prefs.cliFallback = true
     prefs.showSecurityAlerts = true
     prefs.releaseNotifications = ["octocat/api-server", "octocat/website"]
+    prefs.onlyMineRepos = ["acme-org/infra"]
 
     let cli = GitHubCLI(executable: URL(fileURLWithPath: "/opt/homebrew/bin/gh")) { _, _ in "gho_snapshot_mock" }
     let model = AppModel(

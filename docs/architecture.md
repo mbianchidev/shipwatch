@@ -50,8 +50,13 @@ Per refresh, `GitHubClient.statuses(for:)`:
    use batches of 5. A repo that still fails alone shows the error on its row.
    With security alerts on, the query also counts open `vulnerabilityAlerts`
    (Dependabot); a `FORBIDDEN` error on that field leaves only that count unknown.
+   For repos in the "only mine" `MineScope`, the query also counts open issues
+   with `filterBy: {assignee:}`, searches open PRs with `assignee:` (the
+   `pullRequests` connection can't filter by assignee) and adds `assignee:` to the
+   Dependabot search; `RepoStatus.onlyMine` records the login.
 2. Sends one REST call per repo for the 50 most recent workflow runs, with
    `If-None-Match` so unchanged repos come back as `304` and don't use rate limit.
+   "Only mine" repos ask for `actor=<login>`, so only the user's runs decide CI.
    With security alerts on, it also lists open code scanning and secret scanning
    alerts (first page of 100, secrets hidden), the same way, in the same task per
    repo. `403` and `404` mean the token can't read them (not enough access to

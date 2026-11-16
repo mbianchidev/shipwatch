@@ -225,6 +225,16 @@ struct LinkTests {
         #expect(components.queryItems?.first?.value == "is:pr is:open author:app/dependabot")
     }
 
+    @Test func mineLinksFilterByAssigneeAndActor() throws {
+        func query(_ url: URL) -> [URLQueryItem]? { URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems }
+        #expect(GitHubLinks.issues(ref).query == nil)
+        #expect(query(GitHubLinks.issues(ref, assignee: "octocat")) == [URLQueryItem(name: "q", value: "is:issue is:open assignee:octocat")])
+        #expect(query(GitHubLinks.pullRequests(ref, assignee: "octocat"))?.first?.value == "is:pr is:open assignee:octocat")
+        #expect(query(GitHubLinks.dependabotPullRequests(ref, assignee: "octocat"))?.first?.value == "is:pr is:open author:app/dependabot assignee:octocat")
+        #expect(query(GitHubLinks.actions(ref, actor: "octocat")) == [URLQueryItem(name: "query", value: "actor:octocat")])
+        #expect(query(GitHubLinks.issues([ref], assignee: "octocat"))?.first?.value == "is:issue is:open assignee:octocat repo:acme-org/payments")
+    }
+
     @Test func groupLinksSearchAcrossRepositories() throws {
         let url = GitHubLinks.pullRequests([ref, RepoRef(owner: "octocat", name: "website")])
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))

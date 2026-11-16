@@ -36,6 +36,9 @@ Each visible repository shows:
 | Shield, with [security alerts](#security-alerts) on | the repository's Security tab |
 | Last activity | (hover for the exact date) |
 
+A person after the name means the row only counts what is yours; see
+[Only mine](#only-mine).
+
 Failing means the latest completed run of any workflow on the default branch
 failed. A red run that was fixed by a later run is ignored. Running beats
 queued, queued beats failing, failing beats config/billing, config/billing beats passing.
@@ -108,7 +111,7 @@ inside the group. The arrows turn blue while the order isn't Custom.
 ## Groups
 
 <p align="center">
-  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a search field, a Notify column with the bell on for two repositories, a Group column, a Tools group header row with Edit and Ungroup, and its three indented repositories between ungrouped ones" width="560">
+  <img src="screenshots/settings-repositories.png" alt="Repositories settings with a search field, a Notify column with the bell on for two repositories, a Mine column with the person on for infra, a Group column, a Tools group header row with Edit and Ungroup, and its three indented repositories between ungrouped ones" width="560">
 </p>
 
 A group shows as one row: its name, how many repositories it holds, the open
@@ -187,6 +190,9 @@ The repositories shown in the list, in order.
 - Click the bell to get a [release notification](#release-notifications) when the
   repository publishes a GitHub release. Right-click selected rows for
   **Notify About New Releases** to turn it on for all of them.
+- Click the person to count [only yours](#only-mine) for the repository.
+  Right-click selected rows for **Show Only My Issues, PRs and Runs** to turn it
+  on for all of them.
 - Select rows and click **-** (or press Delete), or right-click a repository and
   choose **Remove from Shipwatch…**, to stop tracking it. A right-click on a
   selected row acts on every selected repository. Shipwatch asks first; the
@@ -294,6 +300,7 @@ helper and never prompts.
 | Last activity means | Last push | **Last push**, or **Any update** (issues, pull requests, comments). |
 | Include pre-releases | Off | Show the newest release even if it is a pre-release. |
 | Show security alerts | Off | Count open Dependabot, code scanning and secret scanning alerts. See [Security alerts](#security-alerts). |
+| Only mine everywhere | Off | Count only what is yours in every repository. See [Only mine](#only-mine). |
 | Release notifications | Off | Shows for how many repositories the bell is on. See [Release notifications](#release-notifications). |
 | Show count in menu bar | Running | Show the number of **Running** or **Failing** repositories next to the sailboat, or **None**. |
 | Launch at login | On after the first launch from Applications | Start Shipwatch when you log in. Only available for the app bundle. |
@@ -323,6 +330,26 @@ When GitHub rate limits the token, it waits for the reset time. Details are in
   only.
 - **GitHub App** Client ID and slug: only for builds without a bundled app, or to
   use your own. See [GitHub App setup](github-app-setup.md).
+
+### Only mine
+
+Off by default. Turn it on for single repositories with the person in Settings >
+Repositories, or for all of them with **Only mine everywhere** in Settings >
+General. Those repositories then only count:
+
+- open issues and pull requests **assigned** to you, including Dependabot pull
+  requests;
+- workflow runs **you triggered** (GitHub's `actor`): the Actions status, the
+  running and queued runs and the latest run per workflow on the default branch
+  only look at those. With none of yours, the row has no Actions status.
+
+The rows show a person after the name, and their links open GitHub filtered the
+same way (`assignee:` for issues and pull requests, `actor:` for Actions). A
+group's links are only filtered when all its repositories count only yours. The
+release, last activity and security alerts stay the repository's own. The
+running dot and count in the menu bar follow the same counts, so they only light
+up for your runs. Each such repository needs one more search per refresh for its
+pull requests.
 
 ### Release notifications
 

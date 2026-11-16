@@ -20,7 +20,7 @@ struct RepositoriesSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Repositories shown in the menu, in this order. Drag to reorder, pick a group in the Group column, click the eye to hide or show and the bell for release notifications. Groups collapse into one row in the menu, and here with the arrow.")
+            Text("Repositories shown in the menu, in this order. Drag to reorder, pick a group in the Group column, click the eye to hide or show, the bell for release notifications and the person to count only yours. Groups collapse into one row in the menu, and here with the arrow.")
                 .font(.system(size: 12.5))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -112,8 +112,9 @@ struct RepositoriesSettingsView: View {
     private var header: some View {
         HStack(spacing: 0) {
             Color.clear.frame(width: 28)
-            Text("Show").frame(width: 46, alignment: .leading)
+            Text("Show").frame(width: RepoSettingsRow.showWidth, alignment: .leading)
             Text("Notify").frame(width: RepoSettingsRow.notifyWidth, alignment: .leading)
+            Text("Mine").frame(width: RepoSettingsRow.mineWidth, alignment: .leading)
             Text("Repository")
             Spacer()
             Text("Group").frame(width: RepoSettingsRow.groupWidth, alignment: .leading)
@@ -322,9 +323,11 @@ struct GroupSettingsRow: View {
 }
 
 struct RepoSettingsRow: View {
-    static let notifyWidth: CGFloat = 50
-    static let groupWidth: CGFloat = 130
-    static let accessWidth: CGFloat = 150
+    static let showWidth: CGFloat = 44
+    static let notifyWidth: CGFloat = 48
+    static let mineWidth: CGFloat = 44
+    static let groupWidth: CGFloat = 120
+    static let accessWidth: CGFloat = 140
     static let height: CGFloat = 32
     let model: AppModel
     let repo: TrackedRepo
@@ -346,9 +349,10 @@ struct RepoSettingsRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .frame(width: 46, alignment: .leading)
+            .frame(width: Self.showWidth, alignment: .leading)
             .help(repo.hidden ? "Show in the menu" : "Hide from the menu")
             notifyButton
+            mineButton
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(repo.ref.name)
                     .foregroundStyle(repo.hidden ? .secondary : .primary)
@@ -386,6 +390,12 @@ struct RepoSettingsRow: View {
             Button(notifying ? "Stop Notifying About Releases" : "Notify About New Releases") {
                 model.setReleaseNotifications(ids, !notifying)
             }
+            if !model.prefs.onlyMine {
+                let mine = ids.allSatisfy(model.isOnlyMine)
+                Button(mine ? "Show Everyone's Issues, PRs and Runs" : "Show Only My Issues, PRs and Runs") {
+                    model.setOnlyMine(ids, !mine)
+                }
+            }
             Divider()
             let count = ids.count
             Button(count == 1 ? "Remove from Shipwatch…" : "Remove \(count) Repositories from Shipwatch…", role: .destructive, action: remove)
@@ -406,6 +416,29 @@ struct RepoSettingsRow: View {
         .frame(width: Self.notifyWidth, alignment: .leading)
         .help(on ? "Stop notifying about new releases" : "Notify me when it publishes a GitHub release")
         .accessibilityLabel("Release notifications for \(repo.ref.fullName)")
+        .accessibilityValue(on ? "On" : "Off")
+    }
+
+    /// The person: only issues and pull requests assigned to you, and workflow runs you triggered.
+    private var mineButton: some View {
+        let everywhere = model.prefs.onlyMine
+        let on = model.isOnlyMine(repo.id)
+        return Button { model.setOnlyMine([repo.id], !on) } label: {
+            Image(systemName: on ? "person.fill" : "person")
+                .font(.system(size: 13))
+                .foregroundStyle(on && !everywhere ? AnyShapeStyle(Theme.link) : AnyShapeStyle(.tertiary))
+                .frame(width: 30, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(everywhere)
+        .frame(width: Self.mineWidth, alignment: .leading)
+        .help(
+            everywhere ? "On for every repository in Settings > General"
+                : on ? "Show everyone's issues, pull requests and workflow runs"
+                : "Show only issues and pull requests assigned to you, and workflow runs you triggered"
+        )
+        .accessibilityLabel("Only mine for \(repo.ref.fullName)")
         .accessibilityValue(on ? "On" : "Off")
     }
 

@@ -44,6 +44,8 @@ public final class Preferences {
         static let cloneSyncOptOut = "cloneSyncOptOut"
         static let ignoredRepos = "ignoredRepos"
         static let releaseNotifications = "releaseNotifications"
+        static let onlyMine = "onlyMine"
+        static let onlyMineRepos = "onlyMineRepos"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -122,6 +124,14 @@ public final class Preferences {
     public var releaseNotifications: Set<String> {
         didSet { defaults.set(releaseNotifications.sorted(), forKey: Key.releaseNotifications) }
     }
+    /// Every repository counts only the issues and pull requests assigned to you and the runs you triggered.
+    public var onlyMine: Bool {
+        didSet { defaults.set(onlyMine, forKey: Key.onlyMine) }
+    }
+    /// `TrackedRepo.id`s that count only yours while `onlyMine` is off.
+    public var onlyMineRepos: Set<String> {
+        didSet { defaults.set(onlyMineRepos.sorted(), forKey: Key.onlyMineRepos) }
+    }
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -148,6 +158,8 @@ public final class Preferences {
         cloneSyncOptOut = Set(defaults.stringArray(forKey: Key.cloneSyncOptOut) ?? [])
         ignoredRepos = defaults.stringArray(forKey: Key.ignoredRepos) ?? []
         releaseNotifications = Set(defaults.stringArray(forKey: Key.releaseNotifications) ?? [])
+        onlyMine = defaults.bool(forKey: Key.onlyMine)
+        onlyMineRepos = Set(defaults.stringArray(forKey: Key.onlyMineRepos) ?? [])
     }
 
     private static func loadRepos(_ defaults: UserDefaults) -> RepoList {

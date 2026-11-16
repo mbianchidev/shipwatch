@@ -131,6 +131,8 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
   repository, with a chip that lists the repositories that have any.
 - Optional: a macOS notification when a repository you pick publishes a GitHub
   release. A tag push alone doesn't count.
+- Optional, per repository or everywhere: count only the issues and pull requests
+  assigned to you and the workflow runs you triggered.
 - Sort the list by your custom order, name or last activity, and narrow it to
   one organization or user.
 - Collapsible groups that sum their repositories' issues and pull requests and

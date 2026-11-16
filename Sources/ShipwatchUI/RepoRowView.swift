@@ -33,7 +33,7 @@ struct RepoRowView: View {
                 withAnimation(.easeInOut(duration: 0.18)) { model.toggleExpanded(repo.id) }
             }
             if isExpanded, let ci = status?.ci {
-                RunsPanel(model: model, ref: repo.ref, ci: ci, defaultBranch: status?.defaultBranch)
+                RunsPanel(model: model, ref: repo.ref, ci: ci, defaultBranch: status?.defaultBranch, actor: status?.onlyMine)
                     .padding(.leading, 48)
                     .padding(.trailing, 8)
                     .padding(.bottom, 10)
@@ -59,7 +59,7 @@ struct RepoRowView: View {
             } else if let run = status?.ci?.primaryRun {
                 model.open(run.htmlUrl)
             } else {
-                model.open(GitHubLinks.actions(repo.ref))
+                model.open(GitHubLinks.actions(repo.ref, actor: status?.onlyMine))
             }
         } label: {
             CIIcon(glyph: glyph, size: 16)
@@ -91,6 +91,9 @@ struct RepoRowView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .help("Hidden from the menu")
+            }
+            if status?.onlyMine != nil {
+                OnlyMineBadge()
             }
             Spacer(minLength: 6)
             releaseView
@@ -170,7 +173,7 @@ struct RepoRowView: View {
     private var contextMenu: some View {
         let ref = repo.ref
         Button("Open Repository") { model.open(GitHubLinks.repo(ref)) }
-        Button("Open Actions") { model.open(GitHubLinks.actions(ref)) }
+        Button("Open Actions") { model.open(GitHubLinks.actions(ref, actor: status?.onlyMine)) }
         Button("Open Releases") { model.open(GitHubLinks.releases(ref)) }
         if model.prefs.showSecurityAlerts {
             Button("Open Security") { model.open(GitHubLinks.security(ref)) }
@@ -219,26 +222,28 @@ struct CountsLine: View {
         pullRequests = status.openPullRequests
         dependabot = status.dependabotPullRequests
         activity = status.lastActivity(model.prefs.activityMode)
-        issuesURL = GitHubLinks.issues(status.ref)
-        pullRequestsURL = GitHubLinks.pullRequests(status.ref)
-        dependabotURL = GitHubLinks.dependabotPullRequests(status.ref)
+        issuesURL = GitHubLinks.issues(status.ref, assignee: status.onlyMine)
+        pullRequestsURL = GitHubLinks.pullRequests(status.ref, assignee: status.onlyMine)
+        dependabotURL = GitHubLinks.dependabotPullRequests(status.ref, assignee: status.onlyMine)
         alerts = model.prefs.showSecurityAlerts
             ? status.securityAlerts.map { SecurityAlertsBadge(model: model, ref: status.ref, alerts: $0) }
             : nil
     }
 
-    /// Readable repositories only; links search across all of them.
+    /// Readable repositories only; links search across all of them, assigned to you when every one counts only yours.
     init(model: AppModel, statuses: [RepoStatus]) {
         let readable = statuses.filter { $0.problem == nil }
         let refs = readable.map(\.ref)
+        let logins = Set(readable.map(\.onlyMine))
+        let assignee = logins.count == 1 ? logins.first ?? nil : nil
         self.model = model
         issues = readable.reduce(0) { $0 + $1.openIssues }
         pullRequests = readable.reduce(0) { $0 + $1.openPullRequests }
         dependabot = readable.reduce(0) { $0 + $1.dependabotPullRequests }
         activity = readable.compactMap { $0.lastActivity(model.prefs.activityMode) }.max()
-        issuesURL = GitHubLinks.issues(refs)
-        pullRequestsURL = GitHubLinks.pullRequests(refs)
-        dependabotURL = GitHubLinks.dependabotPullRequests(refs)
+        issuesURL = GitHubLinks.issues(refs, assignee: assignee)
+        pullRequestsURL = GitHubLinks.pullRequests(refs, assignee: assignee)
+        dependabotURL = GitHubLinks.dependabotPullRequests(refs, assignee: assignee)
         let memberAlerts = readable.compactMap(\.securityAlerts)
         alerts = model.prefs.showSecurityAlerts && !memberAlerts.isEmpty
             ? SecurityAlertsBadge(model: model, group: memberAlerts)
@@ -409,6 +414,17 @@ struct Counter<Icon: View>: View {
     }
 }
 
+/// Marks counts and runs limited to the issues and pull requests assigned to you and the runs you triggered.
+struct OnlyMineBadge: View {
+    var body: some View {
+        Image(systemName: "person.fill")
+            .font(.system(size: 10))
+            .foregroundStyle(.secondary)
+            .help("Only issues and pull requests assigned to you, and workflow runs you triggered")
+            .accessibilityLabel("Only yours")
+    }
+}
+
 struct Badge: View {
     let text: String
 
@@ -456,6 +472,8 @@ struct RunsPanel: View {
     let ref: RepoRef
     let ci: CISummary
     let defaultBranch: String?
+    /// Only runs this login triggered.
+    var actor: String?
 
     var body: some View {
         let sections = [
@@ -473,15 +491,15 @@ struct RunsPanel: View {
                 }
             }
             if sections.isEmpty {
-                Text("No workflow runs yet.")
+                Text(actor == nil ? "No workflow runs yet." : "No workflow runs by you yet.")
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
                     .padding(8)
             }
-            Button { model.open(GitHubLinks.actions(ref)) } label: {
+            Button { model.open(GitHubLinks.actions(ref, actor: actor)) } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "arrow.up.forward.square")
-                    Text("All workflow runs")
+                    Text(actor == nil ? "All workflow runs" : "All your workflow runs")
                 }
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.link)

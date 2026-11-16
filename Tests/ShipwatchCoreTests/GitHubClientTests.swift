@@ -74,6 +74,29 @@ struct RepoQueryTests {
         #expect(off[0].securityAlerts == nil)
     }
 
+    @Test func mineCountsOnlyWhatIsAssigned() throws {
+        let mine = MineScope(login: "octocat", keys: [refs[0].key])
+        let (query, variables) = RepoQuery.build(refs, mine: mine)
+        #expect(query.contains("r0: repository(owner: $o0, name: $n0) { ...RepoFields assignedIssues: issues(states: OPEN, filterBy: {assignee: $me}) { totalCount } }"))
+        #expect(query.contains("r1: repository(owner: $o1, name: $n1) { ...RepoFields }"))
+        #expect(query.contains("$p0: String!") && query.contains("$me: String!") && !query.contains("$p1"))
+        #expect(variables["me"] == "octocat")
+        #expect(variables["p0"] == "repo:mbianchidev/api-server is:pr is:open assignee:octocat")
+        #expect(variables["q0"] == "repo:mbianchidev/api-server is:pr is:open author:app/dependabot assignee:octocat")
+        #expect(variables["q1"] == "repo:acme-org/legacy-api is:pr is:open author:app/dependabot")
+        #expect(!RepoQuery.build(refs).query.contains("$me"))
+
+        let node = String(Fixtures.repoNode("mbianchidev/api-server").dropLast()) + #","assignedIssues":{"totalCount":1}}"#
+        let json = """
+        {"data":{"r0":\(node),"p0":{"issueCount":2},"d0":{"issueCount":3},
+          "r1":\(Fixtures.repoNode("acme-org/legacy-api")),"d1":{"issueCount":5}}}
+        """
+        let statuses = try RepoQuery.parse(Data(json.utf8), refs: refs, includePrereleases: false, mine: mine).statuses
+        let counts = statuses.map { [$0.openIssues, $0.openPullRequests, $0.dependabotPullRequests] }
+        #expect(counts == [[1, 2, 2], [4, 11, 5]])
+        #expect(statuses.map(\.onlyMine) == ["octocat", nil])
+    }
+
     @Test func wholeQueryFailureThrows() {
         let json = #"{"errors":[{"message":"Bad credentials"}]}"#
         #expect(throws: GitHubError.graphQL("Bad credentials")) {
@@ -114,6 +137,23 @@ struct GitHubClientTests {
         #expect(batch.statuses[Self.legacy.key]?.ci == nil)
         #expect(api.securityAlerts == nil)
         #expect(batch.rateLimit?.remaining == 4990)
+        #expect(transport.requests.count == 2)
+    }
+
+    @Test func mineAsksOnlyForRunsTheUserTriggered() async throws {
+        let transport = MockTransport { request in
+            if request.url!.path == "/graphql" {
+                #expect(request.bodyString.contains("assignedIssues"))
+                return .json(Self.graphQL)
+            }
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            #expect(query.contains(URLQueryItem(name: "actor", value: "octocat")))
+            return .json(Self.runs)
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let mine = MineScope(login: "octocat", keys: [Self.api.key])
+        let batch = try await client.statuses(for: [Self.api, Self.legacy], includePrereleases: false, mine: mine)
+        #expect(batch.statuses[Self.api.key]?.onlyMine == "octocat")
         #expect(transport.requests.count == 2)
     }
 

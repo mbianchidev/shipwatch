@@ -367,8 +367,9 @@ public final class AppModel {
         do {
             let includePrereleases = prefs.includePrereleases
             let securityAlerts = prefs.showSecurityAlerts
+            let mine = mineScope
             let batch = try await authorized {
-                try await $0.statuses(for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts)
+                try await $0.statuses(for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine)
             }
             let previous = statuses, previousAt = lastUpdated
             statuses = followRenames(batch.statuses)
@@ -406,6 +407,7 @@ public final class AppModel {
             if pendingRemoval == old { pendingRemoval = nil }
             if prefs.cloneSyncOptOut.remove(old) != nil { prefs.cloneSyncOptOut.insert(new) }
             if prefs.releaseNotifications.remove(old) != nil { prefs.releaseNotifications.insert(new) }
+            if prefs.onlyMineRepos.remove(old) != nil { prefs.onlyMineRepos.insert(new) }
             refreshAgain = true
         }
         if repos != prefs.repos { prefs.repos = repos }
@@ -734,10 +736,37 @@ public final class AppModel {
             expanded.remove(id)
         }
         if !prefs.releaseNotifications.isDisjoint(with: ids) { prefs.releaseNotifications.subtract(ids) }
+        if !prefs.onlyMineRepos.isDisjoint(with: ids) { prefs.onlyMineRepos.subtract(ids) }
         if let pendingRemoval, ids.contains(pendingRemoval) { self.pendingRemoval = nil }
         if prefs.menuOwner != nil, menuOwner == nil { prefs.menuOwner = nil }
         workspace.untrack(Set(ids))
         Task { await workspace.rescan() }
+    }
+
+    /// Whether the repository counts only the issues and pull requests assigned to you and the runs you triggered.
+    public func isOnlyMine(_ id: TrackedRepo.ID) -> Bool {
+        prefs.onlyMine || prefs.onlyMineRepos.contains(id)
+    }
+
+    public func setOnlyMine(_ ids: [TrackedRepo.ID], _ enabled: Bool) {
+        if enabled { prefs.onlyMineRepos.formUnion(ids) } else { prefs.onlyMineRepos.subtract(ids) }
+        requestRefresh(force: true)
+    }
+
+    public func setOnlyMineEverywhere(_ enabled: Bool) {
+        prefs.onlyMine = enabled
+        requestRefresh(force: true)
+    }
+
+    /// What the next refresh limits to you. Needs the signed-in login; without it everything is counted.
+    private var mineScope: MineScope? {
+        let keys = Set(prefs.repos.items.map(\.id).filter(isOnlyMine))
+        guard !keys.isEmpty else { return nil }
+        guard let login = user?.login else {
+            uiLog.notice("The GitHub user isn't loaded yet, so this refresh counts everyone's issues, pull requests and runs")
+            return nil
+        }
+        return MineScope(login: login, keys: keys)
     }
 
     public func notifiesReleases(of id: TrackedRepo.ID) -> Bool {
