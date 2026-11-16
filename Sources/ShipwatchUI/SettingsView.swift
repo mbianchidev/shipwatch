@@ -1,3 +1,4 @@
+import AppKit
 import ShipwatchCore
 import SwiftUI
 
@@ -88,20 +89,84 @@ extension View {
     }
 }
 
-/// Trailing-aligned label in the first column of a Settings form grid.
-func formLabel(_ text: String) -> some View {
-    Text(text)
-        .gridColumnAlignment(.trailing)
+/// One row of a Settings form `Grid`: a trailing label, then the control with any `FormCaption` under it.
+///
+/// Captions share the control's cell, which fills the second column, so the grid measures each row at the width it
+/// draws it. As separate rows they were measured narrower than drawn and left uneven gaps.
+struct FormRow<Content: View>: View {
+    let label: String
+    var dimmed: Bool
+    let content: Content
+
+    init(_ label: String, dimmed: Bool = false, @ViewBuilder content: () -> Content) {
+        self.label = label
+        self.dimmed = dimmed
+        self.content = content()
+    }
+
+    var body: some View {
+        GridRow {
+            Text(label)
+                .foregroundStyle(dimmed ? .tertiary : .primary)
+                .fixedSize()
+                .gridColumnAlignment(.trailing)
+            VStack(alignment: .leading, spacing: 6) { content }
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
 }
 
-/// Small explanatory line under a Settings form row, in the second column.
-func formCaption(_ text: String, color: Color = .secondary) -> some View {
-    GridRow {
-        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+/// Small explanatory text under a control in a `FormRow`.
+struct FormCaption: View {
+    let text: String
+    var color: Color = .secondary
+
+    init(_ text: String, color: Color = .secondary) {
+        self.text = text
+        self.color = color
+    }
+
+    var body: some View {
         Text(text)
             .font(.system(size: 11.5))
             .foregroundStyle(color)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// A Settings pop-up menu as wide as its longest option.
+///
+/// AppKit measures the width up front. With `fixedSize()`, SwiftUI sometimes measured the pop-up before it had any
+/// items and kept it collapsed to its arrows.
+struct SettingsPicker<Value: Hashable>: View {
+    let title: String
+    @Binding var selection: Value
+    let options: [Value]
+    let label: (Value) -> String
+
+    var body: some View {
+        Picker(title, selection: $selection) {
+            ForEach(options, id: \.self) { option in
+                Text(label(option)).tag(option)
+            }
+        }
+        .labelsHidden()
+        .frame(width: PopUpWidth.fitting(options.map(label)))
+    }
+}
+
+@MainActor
+enum PopUpWidth {
+    private static var cache: [[String]: CGFloat] = [:]
+
+    /// The width AppKit gives a regular pop-up button holding `titles`.
+    static func fitting(_ titles: [String]) -> CGFloat {
+        if let width = cache[titles] { return width }
+        let button = NSPopUpButton(frame: .zero, pullsDown: false)
+        button.addItems(withTitles: titles)
+        let width = ceil(button.intrinsicContentSize.width)
+        cache[titles] = width
+        return width
     }
 }
 
@@ -139,74 +204,49 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         @Bindable var prefs = model.prefs
-        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 6) {
-            GridRow {
-                formLabel("Refresh every:")
-                Picker("Refresh every", selection: Binding(get: { prefs.refreshMinutes }, set: { model.setRefreshMinutes($0) })) {
-                    ForEach(Preferences.refreshChoices, id: \.self) { minutes in
-                        Text(minutes.counted("minute")).tag(minutes)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
+        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 14) {
+            FormRow("Refresh every:") {
+                SettingsPicker(
+                    title: "Refresh every",
+                    selection: Binding(get: { prefs.refreshMinutes }, set: { model.setRefreshMinutes($0) }),
+                    options: Preferences.refreshChoices
+                ) { $0.counted("minute") }
+                FormCaption("Refreshes faster (every 20 s) while a workflow is running or queued.")
             }
-            formCaption("Refreshes faster (every 20 s) while a workflow is running or queued.")
 
-            GridRow {
-                formLabel("Last activity means:")
-                Picker("Last activity means", selection: $prefs.activityMode) {
-                    ForEach(ActivityMode.allCases, id: \.self) { mode in
-                        Text(mode.label).tag(mode)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
+            FormRow("Last activity means:") {
+                SettingsPicker(title: "Last activity means", selection: $prefs.activityMode, options: ActivityMode.allCases, label: \.label)
+                FormCaption("Last push, or any update (issues, PRs, comments).")
             }
-            .padding(.top, 8)
-            formCaption("Last push, or any update (issues, PRs, comments).")
 
-            GridRow {
-                formLabel("Include pre-releases:")
+            FormRow("Include pre-releases:") {
                 Toggle("Include pre-releases", isOn: Binding(get: { prefs.includePrereleases }, set: { model.setIncludePrereleases($0) }))
                     .labelsHidden()
                     .toggleStyle(.switch)
             }
-            .padding(.top, 8)
 
-            GridRow {
-                formLabel("Show security alerts:")
+            FormRow("Show security alerts:") {
                 Toggle("Show security alerts", isOn: Binding(get: { prefs.showSecurityAlerts }, set: { model.setShowSecurityAlerts($0) }))
                     .labelsHidden()
                     .toggleStyle(.switch)
+                FormCaption("Open Dependabot, code scanning and secret scanning alerts. Needs write access, admin for secret scanning.")
             }
-            .padding(.top, 4)
-            formCaption("Open Dependabot, code scanning and secret scanning alerts. Needs write access, admin for secret scanning.")
 
-            GridRow {
-                formLabel("Show count in menu bar:")
-                Picker("Show count in menu bar", selection: $prefs.menuBarCount) {
-                    ForEach(MenuBarCount.allCases, id: \.self) { count in
-                        Text(count.label).tag(count)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
+            FormRow("Show count in menu bar:") {
+                SettingsPicker(title: "Show count in menu bar", selection: $prefs.menuBarCount, options: MenuBarCount.allCases, label: \.label)
+                FormCaption("Number of running or failing repositories next to the sailboat.")
             }
-            .padding(.top, 4)
-            formCaption("Number of running or failing repositories next to the sailboat.")
 
-            GridRow {
-                formLabel("Launch at login:")
+            FormRow("Launch at login:") {
                 Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                     .labelsHidden()
                     .toggleStyle(.switch)
                     .disabled(!model.loginItemAvailable)
-            }
-            .padding(.top, 8)
-            if !model.loginItemAvailable {
-                formCaption("Available when Shipwatch runs from its app bundle.")
-            } else if let error = model.launchAtLoginError {
-                formCaption(error, color: Theme.failing)
+                if !model.loginItemAvailable {
+                    FormCaption("Available when Shipwatch runs from its app bundle.")
+                } else if let error = model.launchAtLoginError {
+                    FormCaption(error, color: Theme.failing)
+                }
             }
             updateRows
         }
@@ -219,21 +259,17 @@ struct GeneralSettingsView: View {
     private var updateRows: some View {
         let updater = model.updater
         @Bindable var prefs = model.prefs
-        Divider().padding(.vertical, 10)
+        Divider()
+            .gridCellUnsizedAxes(.horizontal)
+            .padding(.vertical, 4)
 
-        GridRow {
-            formLabel("Version:")
+        FormRow("Version:") {
             Text(updater.isSupported ? updater.currentVersion.description : "Development build")
                 .foregroundStyle(.secondary)
         }
-        GridRow {
-            formLabel("Updates:")
+        FormRow("Updates:") {
             UpdateStatusLine(updater: updater)
-        }
-        .padding(.top, 4)
-        if updater.isSupported {
-            GridRow {
-                Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+            if updater.isSupported {
                 HStack(spacing: 8) {
                     Button("Check Now") { updater.checkNow() }
                         .disabled(updater.isBusy)
@@ -248,40 +284,35 @@ struct GeneralSettingsView: View {
                             .accessibilityLabel("Release notes for \(release.tag)")
                     }
                 }
+                .padding(.top, 2)
             }
-            .padding(.top, 2)
         }
 
-        GridRow {
-            formLabel("Check automatically:")
+        FormRow("Check automatically:") {
             HStack(spacing: 10) {
                 Toggle("Check for updates automatically", isOn: Binding(get: { prefs.checkForUpdates }, set: { updater.setCheckForUpdates($0) }))
                     .labelsHidden()
                     .toggleStyle(.switch)
-                Picker("Check for updates", selection: Binding(get: { prefs.updateCheckHours }, set: { updater.setUpdateCheckHours($0) })) {
-                    ForEach(Preferences.updateCheckChoices, id: \.self) { hours in
-                        Text(Self.checkInterval(hours)).tag(hours)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
+                SettingsPicker(
+                    title: "Check for updates",
+                    selection: Binding(get: { prefs.updateCheckHours }, set: { updater.setUpdateCheckHours($0) }),
+                    options: Preferences.updateCheckChoices,
+                    label: Self.checkInterval
+                )
                 .disabled(!prefs.checkForUpdates)
             }
             .disabled(!updater.isSupported)
         }
-        .padding(.top, 8)
 
-        GridRow {
-            formLabel("Install automatically:")
+        FormRow("Install automatically:") {
             Toggle("Install updates automatically", isOn: $prefs.installUpdatesAutomatically)
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .disabled(!updater.isSupported)
-        }
-        .padding(.top, 4)
-        formCaption("Updates are signed by the Shipwatch release key and checked before installing. Shipwatch restarts to finish.")
-        if let message = updater.pause.message(offering: updater.availableRelease?.version), !updater.hasFailed {
-            formCaption(message, color: Theme.failing)
+            FormCaption("Updates are signed by the Shipwatch release key and checked before installing. Shipwatch restarts to finish.")
+            if let message = updater.pause.message(offering: updater.availableRelease?.version), !updater.hasFailed {
+                FormCaption(message, color: Theme.failing)
+            }
         }
     }
 

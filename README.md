@@ -137,8 +137,8 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
 - Open issue count, linking to the issue list.
 - Open pull request count with Dependabot pull requests split out, each linking
   to its list.
-- A sailboat menu bar icon with a yellow dot while workflows run or wait in the
-  queue, plus the number of running (or failing) repositories.
+- A sailboat menu bar icon with a yellow dot while workflows run, plus the
+  number of running (or failing) repositories.
 - Sign-in through a read-only GitHub App device flow, or your existing `gh` login.
 - Optional: keep `main` of your local clones current. Pick a workspace folder,
   exclude folders, and Shipwatch fast-forwards each clone's default branch when

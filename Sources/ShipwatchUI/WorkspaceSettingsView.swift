@@ -52,9 +52,8 @@ struct WorkspaceSettingsView: View {
     // MARK: Form
 
     private var form: some View {
-        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 6) {
-            GridRow {
-                formLabel("Workspace folder:")
+        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 14) {
+            FormRow("Workspace folder:") {
                 HStack(spacing: 8) {
                     folderField
                     if workspace.root == nil {
@@ -63,16 +62,14 @@ struct WorkspaceSettingsView: View {
                         Button("Change…", action: chooseWorkspace).fixedSize()
                     }
                 }
+                FormCaption(
+                    workspace.root == nil
+                        ? "The folder where you keep your clones, for example ~/Developer."
+                        : "Scanned up to \(WorkspaceScanner.maxDepth) levels deep. Hidden folders and node_modules are always skipped."
+                )
             }
-            formCaption(
-                workspace.root == nil
-                    ? "The folder where you keep your clones, for example ~/Developer."
-                    : "Scanned up to \(WorkspaceScanner.maxDepth) levels deep. Hidden folders and node_modules are always skipped."
-            )
 
-            GridRow {
-                formLabel("Keep default branches up to date:")
-                    .foregroundStyle(switchEnabled ? .primary : .tertiary)
+            FormRow("Keep default branches up to date:", dimmed: !switchEnabled) {
                 Toggle(
                     "Keep default branches up to date",
                     isOn: Binding(get: { prefs.syncClones && switchEnabled }, set: { model.setSyncClones($0) })
@@ -80,14 +77,13 @@ struct WorkspaceSettingsView: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .disabled(!switchEnabled)
-            }
-            .padding(.top, 8)
-            if !workspace.gitAvailable {
-                formCaption("Needs git. Install the Command Line Tools with xcode-select --install, then restart Shipwatch.", color: Theme.warning)
-            } else if workspace.root == nil {
-                formCaption("Choose a workspace folder first.")
-            } else {
-                formCaption("Runs after every refresh, only when GitHub has new commits.")
+                if !workspace.gitAvailable {
+                    FormCaption("Needs git. Install the Command Line Tools with xcode-select --install, then restart Shipwatch.", color: Theme.warning)
+                } else if workspace.root == nil {
+                    FormCaption("Choose a workspace folder first.")
+                } else {
+                    FormCaption("Runs after every refresh, only when GitHub has new commits.")
+                }
             }
         }
     }
