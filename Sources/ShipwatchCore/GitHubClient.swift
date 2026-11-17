@@ -151,8 +151,8 @@ public actor GitHubClient {
         var consecutiveRepoFailures = 0
     }
 
-    /// Splits a chunk in half when GitHub times out on it, so one slow batch or repo doesn't fail the whole refresh.
-    /// A repo that still fails on its own shows the error on its row.
+    /// Splits a chunk in half when GitHub times out or fails on it, so one slow batch or repo doesn't fail the whole
+    /// refresh. A repo that still fails on its own shows the error on its row.
     private func repoStatuses(
         _ chunk: [RepoRef], includePrereleases: Bool, securityAlerts: Bool, mine: MineScope?, progress: inout ChunkProgress
     ) async throws -> [RepoStatus] {

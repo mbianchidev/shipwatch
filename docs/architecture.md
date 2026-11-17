@@ -48,8 +48,10 @@ Per refresh, `GitHubClient.statuses(for:)`:
    issue and PR counts, push and update dates, the default branch name and head
    commit, plus a search count of open PRs by
    `author:app/dependabot`. Names go through GraphQL variables, never into the query text.
-   GitHub answers `5xx` (usually `502`) when a query runs too long, so a failed
-   query is split in half and retried until it goes through, and later refreshes
+   GitHub answers `5xx` (usually `502`) when a query runs too long, or `200` with
+   no data and "Something went wrong while executing your query" when it fails on
+   its side, so a failed query is split in half and retried until it goes
+   through, and later refreshes
    use batches of 5. A repo that still fails alone shows the error on its row.
    With security alerts on, the query also counts open `vulnerabilityAlerts`
    (Dependabot); a `FORBIDDEN` error on that field leaves only that count unknown.

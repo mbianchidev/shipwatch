@@ -291,12 +291,17 @@ struct GitHubClientTests {
     }
 
     static let gatewayTimeout = MockTransport.Reply.json(#"{"message":"Server Error"}"#, status: 502)
+    /// GitHub's answer when it fails to run a query, with HTTP 200.
+    static let queryFailure = MockTransport.Reply.json(
+        #"{"data":null,"errors":[{"message":"Something went wrong while executing your query on 2026-11-17T00:44:13Z. Please include `C315:9EF31:4C65164` when reporting this issue."}]}"#
+    )
 
-    @Test func splitsQueriesThatTimeOut() async throws {
+    @Test(arguments: [gatewayTimeout, queryFailure])
+    func splitsQueriesThatFail(_ failure: MockTransport.Reply) async throws {
         let transport = MockTransport { request in
             guard request.url!.path == "/graphql" else { return .json(Self.runs) }
             let repos = Self.requestedRepos(request)
-            return repos.count > 1 ? Self.gatewayTimeout : Self.graphQLReply(repos)
+            return repos.count > 1 ? failure : Self.graphQLReply(repos)
         }
         let client = GitHubClient(transport: transport, token: { "test-token" })
         let batch = try await client.statuses(for: [Self.api, Self.payments], includePrereleases: false)

@@ -50,10 +50,16 @@ public enum GitHubError: Error, Equatable, LocalizedError {
         }
     }
 
-    /// A 5xx from GitHub. For GraphQL this usually means the query took too long.
+    /// How GitHub's GraphQL answer starts, with HTTP 200 and no data, when a query fails on its side.
+    static let graphQLFailurePrefix = "Something went wrong while executing your query"
+
+    /// A 5xx from GitHub, or a GraphQL query GitHub failed to run. For GraphQL both usually mean the query took too long.
     public var isServerError: Bool {
-        if case .http(let status, _) = self { return status >= 500 }
-        return false
+        switch self {
+        case .http(let status, _): status >= 500
+        case .graphQL(let message): message.hasPrefix(Self.graphQLFailurePrefix)
+        default: false
+        }
     }
 
     public var errorDescription: String? {
