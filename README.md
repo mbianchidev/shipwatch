@@ -151,6 +151,9 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
   exclude folders, and Shipwatch fast-forwards each clone's default branch when
   GitHub has new commits. It never commits, resets, stashes or switches
   branches, and skips clones with local changes.
+- With a workspace folder: weekly lines of code per repository, counted on its
+  clone's local default branch, with code, tests and Markdown apart and the
+  change since last week. Expand a row to see them.
 - In-app updates from GitHub Releases, checked every 6 hours by default.
 
 ## Documentation

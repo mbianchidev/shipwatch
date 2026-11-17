@@ -137,6 +137,7 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
         transport: OfflineTransport(),
         git: OfflineGit(),
         statusCache: nil,
+        lineCountCache: nil,
         notifier: ReleaseNotifier(previewing: signedIn ? .allowed : .notDetermined)
     )
     model.loginItemAvailable = true
@@ -161,6 +162,18 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     model.statuses["octocat/website"]?.reviewRequests = 1
     model.statuses["octocat/cli-tool"]?.reviewRequests = 2
     model.expanded = ["octocat/api-server"]
+    // Weekly counts run on the first refresh of a week, usually Monday morning.
+    let weekStart = LineCountReport.calendar.dateInterval(of: .weekOfYear, for: now)!.start
+    model.workspace.lineCounts.reports["octocat/api-server"] = LineCountReport(
+        latest: LineCount(
+            date: weekStart.addingTimeInterval(9 * hour), branch: "main", commit: "4f9c2e17b3a85d06c1e2f4a7b9d0c3e5f6a7b8c9",
+            counts: LineCounts(code: 48_210, tests: 12_904, markdown: 3_120)
+        ),
+        previous: LineCount(
+            date: weekStart.addingTimeInterval(9 * hour - 7 * day), branch: "main", commit: "0b7d3e5a9c1f2468ace0bd13579f2468ace0bd13",
+            counts: LineCounts(code: 47_386, tests: 12_511, markdown: 3_052)
+        )
+    )
     model.lastUpdated = ago(40)
     model.lastRefreshDuration = 7
     model.nextRefresh = now.addingTimeInterval(20)
@@ -253,7 +266,12 @@ func spin(_ seconds: TimeInterval) {
 @MainActor
 func render(_ view: some View, dark: Bool, name: String, into directory: URL) throws {
     let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-    let host = NSHostingView(rootView: AnyView(view.environment(\.colorScheme, dark ? .dark : .light).environment(\.controlActiveState, .key)))
+    // A fixed locale keeps numbers and dates in the screenshots the same on every Mac.
+    let root = view
+        .environment(\.colorScheme, dark ? .dark : .light)
+        .environment(\.controlActiveState, .key)
+        .environment(\.locale, Locale(identifier: "en_US"))
+    let host = NSHostingView(rootView: AnyView(root))
     host.appearance = appearance
     let window = NSWindow(contentRect: NSRect(x: -10000, y: -10000, width: 10, height: 10), styleMask: .borderless, backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false

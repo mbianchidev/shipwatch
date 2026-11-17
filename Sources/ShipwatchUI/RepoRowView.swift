@@ -8,7 +8,10 @@ struct RepoRowView: View {
 
     private var status: RepoStatus? { model.status(for: repo) }
     private var isExpanded: Bool { model.expanded.contains(repo.id) }
-    private var canExpand: Bool { status?.ci != nil && status?.problem == nil }
+    private var showsRuns: Bool { status?.ci != nil && status?.problem == nil }
+    private var lineReport: LineCountReport? { model.workspace.lineCounts.reports[repo.id] }
+    private var lineFailure: LineCountFailure? { model.workspace.lineCounts.failures[repo.id] }
+    private var canExpand: Bool { showsRuns || lineReport != nil || lineFailure != nil }
     private var isPendingRemoval: Bool { model.pendingRemoval == repo.id }
 
     var body: some View {
@@ -32,12 +35,19 @@ struct RepoRowView: View {
                 guard canExpand else { return }
                 withAnimation(.easeInOut(duration: 0.18)) { model.toggleExpanded(repo.id) }
             }
-            if isExpanded, let ci = status?.ci {
-                RunsPanel(model: model, ref: repo.ref, ci: ci, defaultBranch: status?.defaultBranch, actor: status?.onlyMine)
-                    .padding(.leading, 48)
-                    .padding(.trailing, 8)
-                    .padding(.bottom, 10)
-                    .transition(.opacity)
+            if isExpanded, canExpand {
+                VStack(alignment: .leading, spacing: 6) {
+                    if showsRuns, let ci = status?.ci {
+                        RunsPanel(model: model, ref: repo.ref, ci: ci, defaultBranch: status?.defaultBranch, actor: status?.onlyMine)
+                    }
+                    if lineReport != nil || lineFailure != nil {
+                        LinesPanel(report: lineReport, failure: lineFailure)
+                    }
+                }
+                .padding(.leading, 48)
+                .padding(.trailing, 8)
+                .padding(.bottom, 10)
+                .transition(.opacity)
             }
         }
         .background(

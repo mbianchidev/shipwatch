@@ -143,11 +143,12 @@ public final class AppModel {
         transport: any HTTPTransport = URLSessionTransport(),
         git: (any GitRunning)? = ProcessGit.locate(),
         statusCache: StatusCache? = .standard,
+        lineCountCache: LineCountCache? = .standard,
         notifier: ReleaseNotifier = ReleaseNotifier()
     ) {
         self.prefs = prefs
         updater = Updater(prefs: prefs)
-        workspace = WorkspaceModel(prefs: prefs, git: git)
+        workspace = WorkspaceModel(prefs: prefs, git: git, lineCountCache: lineCountCache)
         self.notifier = notifier
         self.bundled = bundled
         self.cli = cli
@@ -412,6 +413,7 @@ public final class AppModel {
             if prefs.cloneSyncOptOut.remove(old) != nil { prefs.cloneSyncOptOut.insert(new) }
             if prefs.releaseNotifications.remove(old) != nil { prefs.releaseNotifications.insert(new) }
             if prefs.onlyMineRepos.remove(old) != nil { prefs.onlyMineRepos.insert(new) }
+            workspace.lineCounts.rename(old, to: new)
             refreshAgain = true
         }
         if repos != prefs.repos { prefs.repos = repos }

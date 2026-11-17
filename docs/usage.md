@@ -38,7 +38,8 @@ Each visible repository shows:
 | Last activity | (hover for the exact date) |
 
 A person after the name means the row only counts what is yours; see
-[Only mine](#only-mine).
+[Only mine](#only-mine). With a [workspace folder](#workspace), the expanded row
+also shows the repository's [lines of code](#lines-of-code).
 
 Failing means the latest completed run of any workflow on the default branch
 failed. A red run that was fixed by a later run is ignored. Running beats
@@ -299,6 +300,45 @@ Shipwatch needs git for this: Homebrew's, or Apple's from the Command Line Tools
 (`xcode-select --install`). It uses your existing SSH agent or credential
 helper and never prompts.
 
+#### Lines of code
+
+With a workspace folder set, Shipwatch counts the lines of code of each tracked
+repository it finds a clone of, once a week. Expand the repository's row in the
+list: **Lines of code** shows this week's count and the change since last week's,
+in lines and percent. The collapsed row doesn't show it.
+
+| Line | Counts |
+| --- | --- |
+| Code | Programming and markup languages, as in GitHub's language bar: Swift, JavaScript, TypeScript, Python, Go, HTML, CSS, shell, Dockerfiles, Terraform, SQL and so on. |
+| Tests | Code files in folders named like `test`, `tests`, `__tests__`, `spec`, `e2e`, `testdata`, `fixtures`, `mocks` or `AppTests`, and files named like `api.test.ts`, `api.spec.js`, `client_test.go`, `test_api.py` or `ApiTests.swift`. |
+| Total | Code plus tests. |
+| Markdown | `.md`, `.markdown` and `.mdx` files, kept apart and not part of the total. |
+
+- Shipwatch reads the files committed on the clone's local default branch
+  (usually `main`) with `git grep`. Uncommitted changes and other branches don't
+  count, and nothing is fetched: turn on **Keep default branches up to date**,
+  or pull, to count what is on GitHub. With several clones of a repository, the
+  first one (by path) that has the branch is counted.
+- Lines that are empty or only whitespace don't count; comments do.
+- Data and config files (JSON, YAML, TOML, XML), plain text, lockfiles, binary,
+  minified and generated files, and anything inside `node_modules`, `vendor`,
+  `third_party`, `Pods`, `Carthage` or `dist` don't count.
+- The rules only look at file names, so the same commit always gives the same
+  numbers. The branch and commit that were counted show above the numbers.
+
+The first count of a repository is its baseline. Repositories you already track
+get theirs on the first refresh after updating to a Shipwatch with line counts;
+repositories you add later, on the first refresh after adding them. Then a new
+count runs on the first refresh of each week (weeks start on Monday), and the
+change compares it with the count before. Only those two counts are kept: if
+Shipwatch didn't run for a while, the change covers the time since the date under
+the numbers. Removing a repository drops its counts, so adding it again starts
+from a new baseline.
+
+Partial clones (`git clone --filter=...`) aren't counted, since reading them
+would download files. When a count fails, the expanded row says why, and
+Shipwatch tries again after 15 minutes.
+
 ### General
 
 | Setting | Default | Effect |
@@ -420,7 +460,7 @@ running from source with `swift run`.
 | --- | --- |
 | GitHub App token | login Keychain, service `dev.mbianchi.shipwatch` |
 | Repositories, groups and settings, including the list order, workspace folder, exclusions and ignored repositories | `UserDefaults` domain `dev.mbianchi.shipwatch` |
-| Update state and lock, statuses of the last refresh | `~/Library/Application Support/Shipwatch` |
+| Update state and lock, statuses of the last refresh, weekly lines of code | `~/Library/Application Support/Shipwatch` |
 | GitHub CLI token | memory only |
 
 Shipwatch sends no analytics. It only talks to `api.github.com`, `github.com`
