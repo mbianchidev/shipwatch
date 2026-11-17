@@ -13,6 +13,8 @@ public actor GitHubClient {
     private let api: URL
     private let token: TokenProvider
     private var etagCache: [URL: (etag: String, data: Data)] = [:]
+    /// Job lists of active runs read in the current refresh; the cached ones of runs no longer active are dropped.
+    private var activeJobPages: Set<URL> = []
     private var neverStartedCache: [Int: (updatedAt: Date, neverStarted: Bool)] = [:]
     /// Alert lists that answered 403 or 404, and when. Unlike 304s, those answers count against the rate limit.
     private var unreadableAlerts: [URL: Date] = [:]
@@ -74,12 +76,18 @@ public actor GitHubClient {
     /// REST call for code scanning alerts and one for secret scanning alerts.
     /// Repositories in `mine` only count the open issues and pull requests assigned to its login and the runs it triggered.
     /// With `reviews`, one more search counts the pull requests waiting for that user's review.
+    /// With `activeJobs`, one conditional REST call per active run reads its jobs, to count them per kind of runner.
     public func statuses(
         for refs: [RepoRef], includePrereleases: Bool, securityAlerts: Bool = false, mine: MineScope? = nil,
-        reviews: ReviewScope? = nil
+        reviews: ReviewScope? = nil, activeJobs: Bool = false
     ) async throws -> StatusBatch {
         var result: [String: RepoStatus] = [:]
         var progress = ChunkProgress()
+        let previousJobPages = activeJobPages
+        activeJobPages = []
+        defer {
+            for url in previousJobPages.subtracting(activeJobPages) { etagCache[url] = nil }
+        }
 
         var remaining = refs[...]
         while !remaining.isEmpty {
@@ -97,7 +105,7 @@ public actor GitHubClient {
             guard let status = result[ref.key], status.problem == nil else { return nil }
             return ReadableRepo(key: ref.key, ref: status.ref, defaultBranch: status.defaultBranch, actor: status.onlyMine)
         }
-        let details = try await restDetails(for: readable, securityAlerts: securityAlerts)
+        let details = try await restDetails(for: readable, securityAlerts: securityAlerts, activeJobs: activeJobs)
         for (key, detail) in details {
             result[key]?.ci = detail.ci
             result[key]?.securityAlerts?.codeScanning = detail.codeScanning
@@ -202,7 +210,7 @@ public actor GitHubClient {
     }
 
     /// Reads workflow runs, and scanning alerts when asked, a few repos at a time.
-    private func restDetails(for repos: [ReadableRepo], securityAlerts: Bool) async throws -> [String: RepoDetails] {
+    private func restDetails(for repos: [ReadableRepo], securityAlerts: Bool, activeJobs: Bool) async throws -> [String: RepoDetails] {
         try await withThrowingTaskGroup(of: (String, RepoDetails).self) { group in
             var details: [String: RepoDetails] = [:]
             var pending = repos.makeIterator()
@@ -210,7 +218,7 @@ public actor GitHubClient {
             func addNext() {
                 guard let repo = pending.next() else { return }
                 group.addTask {
-                    var detail = RepoDetails(ci: try await self.ciSummary(repo))
+                    var detail = RepoDetails(ci: try await self.ciSummary(repo, activeJobs: activeJobs))
                     if securityAlerts {
                         detail.codeScanning = try await self.alertCountOrUnknown(repo.ref, .codeScanning)
                         detail.secretScanning = try await self.alertCountOrUnknown(repo.ref, .secretScanning)
@@ -228,11 +236,15 @@ public actor GitHubClient {
         }
     }
 
-    private func ciSummary(_ repo: ReadableRepo) async throws -> CISummary? {
+    private func ciSummary(_ repo: ReadableRepo, activeJobs: Bool) async throws -> CISummary? {
         do {
             guard let runs = try await workflowRuns(repo.ref, actor: repo.actor) else { return nil }
             let marked = try await markRunsThatNeverStarted(runs, ref: repo.ref, defaultBranch: repo.defaultBranch)
-            return CIEvaluator.summarize(runs: marked, defaultBranch: repo.defaultBranch)
+            var summary = CIEvaluator.summarize(runs: marked, defaultBranch: repo.defaultBranch)
+            if activeJobs {
+                summary.activeJobs = try await self.activeJobs(of: summary.running + summary.queued, ref: repo.ref)
+            }
+            return summary
         } catch let error as GitHubError where error.affectsEveryRequest {
             throw error
         } catch {
@@ -295,15 +307,42 @@ public actor GitHubClient {
 
     /// The jobs of the run's latest attempt, or `nil` when they don't fit on one page.
     public func workflowJobs(_ ref: RepoRef, runID: Int) async throws -> [WorkflowJob]? {
-        struct Page: Decodable {
-            var totalCount: Int
-            var jobs: [WorkflowJob]
+        let page = try await jobsPage(ref, runID: runID, conditional: false)
+        return page.totalCount > page.jobs.count ? nil : page.jobs
+    }
+
+    /// The running and queued jobs of `runs`, or `nil` when one run's jobs can't be read, so a partial count never
+    /// looks complete. Job lists are cached with their ETag while the run is active.
+    private func activeJobs(of runs: [WorkflowRun], ref: RepoRef) async throws -> ActiveJobs? {
+        var total = ActiveJobs()
+        for run in runs {
+            do {
+                let page = try await jobsPage(ref, runID: run.id, conditional: true)
+                if page.totalCount > page.jobs.count {
+                    log.notice("Workflow run \(run.id) has \(page.totalCount) jobs, counting the first \(page.jobs.count)")
+                }
+                total.add(ActiveJobs(jobs: page.jobs))
+            } catch let error as GitHubError where error.affectsEveryRequest {
+                throw error
+            } catch {
+                log.error("Jobs of workflow run \(run.id) could not be read: \(error.localizedDescription, privacy: .public)")
+                return nil
+            }
         }
+        return total
+    }
+
+    private struct JobsPage: Decodable {
+        var totalCount: Int
+        var jobs: [WorkflowJob]
+    }
+
+    private func jobsPage(_ ref: RepoRef, runID: Int, conditional: Bool) async throws -> JobsPage {
         let url = api.appending(path: "repos/\(ref.owner)/\(ref.name)/actions/runs/\(runID)/jobs")
             .appending(queryItems: [URLQueryItem(name: "per_page", value: "100")])
-        let (data, _) = try await get(url)
-        let page = try JSON.decode(Page.self, from: data)
-        return page.totalCount > page.jobs.count ? nil : page.jobs
+        if conditional { activeJobPages.insert(url) }
+        let (data, _) = try await get(url, conditional: conditional)
+        return try JSON.decode(JobsPage.self, from: data)
     }
 
     // MARK: Security alerts

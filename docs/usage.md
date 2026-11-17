@@ -66,6 +66,37 @@ them. The chosen chip stays on when the list closes and across launches. When
 the chips don't fit, they show only icons and numbers; hover for the label.
 When even those don't fit, scroll them sideways.
 
+### Jobs per account
+
+While the **running** or **queued** chip is on, a **Jobs per account** section
+above the list counts the jobs running right now in each organization or user's
+tracked repositories, per kind of runner: macOS, Linux, Windows, self-hosted and
+other. Queued jobs, the ones waiting for a runner, show under each number.
+
+<p align="center">
+  <img src="screenshots/popover-jobs.png" alt="The running chip selected, with a Jobs per account section above the running repositories: acme-org runs 1 of 5 macOS jobs, 4 Linux, 1 Windows and 2 self-hosted; octocat runs 5 of 5 macOS jobs in orange with 2 queued, and 2 Linux jobs with 2 queued" width="420">
+</p>
+
+macOS shows against the limit GitHub sets per account: 5 jobs at once on the
+Free, Pro and Team plans, shared by standard and larger runners. It turns orange
+when an account reaches it, which is usually why macOS jobs sit in the queue.
+Enterprise accounts can run 50, but GitHub only shows the plan to owners, so
+Shipwatch always assumes 5. Your own repositories are an account of their own.
+
+- Only tracked repositories count, hidden ones included. Jobs in an account's
+  other repositories use the same limit, so the real numbers can be higher. For
+  repositories that count [only yours](#only-mine), only your runs count.
+- The kind comes from each job's `runs-on` labels: `macos-…`, `ubuntu-…` and
+  `windows-…` are GitHub's hosted runners, larger ones included, and
+  `self-hosted` runners don't use GitHub's limits. Larger runners picked by a
+  custom label or a runner group show as **Other**.
+- While an account is chosen in the building menu, only that account shows.
+
+The jobs are only read while one of the two chips is on: one request per running
+or queued workflow run on each refresh, every 20 seconds while workflows run.
+Clicking a chip refreshes right away. When a run's jobs can't be read, the
+section says so instead of showing a smaller number.
+
 ### Security alerts
 
 Off by default. Turn on **Show security alerts** in Settings > General to count

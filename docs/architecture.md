@@ -78,6 +78,13 @@ Per refresh, `GitHubClient.statuses(for:)`:
    without a runner or a single step, the run never started: GitHub does this when
    billing blocks Actions or a job's configuration is invalid. The exact message
    is only in check run annotations, which would need the Checks permission.
+   While the popover's running or queued chip is on (`AppModel.showsActiveJobs`),
+   it also reads the jobs of every running and queued run, with `If-None-Match`,
+   and counts the running and queued ones per `RunnerKind` from their `labels`
+   (`CISummary.activeJobs`). A running job's list changes with each step, so
+   this isn't done otherwise. Cached job lists of runs that weren't read in a
+   refresh are dropped. If one run's jobs can't be read, the repository's count
+   is unknown, not partial. `OwnerJobs.group` adds them up per owner.
 4. `CIEvaluator` turns runs into a state. Running (`in_progress`) beats queued
    (`queued`, `waiting`, `requested`, `pending`), queued beats failing, failing beats
    not started (shown as config/billing, which also covers `startup_failure`),

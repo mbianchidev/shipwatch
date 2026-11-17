@@ -180,6 +180,24 @@ func makeModel(defaults: UserDefaults, signedIn: Bool) -> AppModel {
     return model
 }
 
+/// Lists only running repositories, with the jobs per account above them: one account at its macOS limit.
+@MainActor
+func configureJobs(_ model: AppModel) {
+    let infra = ref("acme-org/infra")
+    let deploy = run(7120, "Deploy", number: 712, status: "in_progress", startedAgo: 6 * minute, repo: infra)
+    model.statuses["acme-org/infra"]?.ci = CISummary(state: .running, running: [deploy], latestOnDefault: [deploy])
+    model.statuses["octocat/api-server"]?.ci?.activeJobs = ActiveJobs(tallies: [
+        .macOS: JobTally(running: 5, queued: 2), .linux: JobTally(running: 2, queued: 1),
+    ])
+    model.statuses["octocat/dotfiles"]?.ci?.activeJobs = ActiveJobs(tallies: [.linux: JobTally(queued: 1)])
+    model.statuses["acme-org/infra"]?.ci?.activeJobs = ActiveJobs(tallies: [
+        .macOS: JobTally(running: 1), .linux: JobTally(running: 4), .windows: JobTally(running: 1),
+        .selfHosted: JobTally(running: 2),
+    ])
+    model.expanded = []
+    model.filter = .ci(.running)
+}
+
 /// Fills the Workspace tab with clones under `~/Developer` in every sync state.
 @MainActor
 func configureWorkspace(_ model: AppModel) {
@@ -401,6 +419,11 @@ MainActor.assumeIsolated {
         try render(sheet(model, over: .workspace, trackFound), dark: true, name: "settings-track-found", into: output)
         let ignored = IgnoredRepositoriesSheet(model: model) {}
         try render(sheet(model, over: .workspace, ignored), dark: true, name: "settings-ignored", into: output)
+
+        let jobs = makeModel(defaults: defaults, signedIn: true)
+        configureJobs(jobs)
+        try render(popover(jobs, dark: true), dark: true, name: "popover-jobs", into: output)
+        jobs.filter = nil
 
         let signedOut = makeModel(defaults: defaults, signedIn: false)
         try render(popover(signedOut, dark: true), dark: true, name: "onboarding", into: output)

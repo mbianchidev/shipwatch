@@ -126,7 +126,9 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
   Expand a row for the running and queued runs and the latest run of each
   workflow, each linking to GitHub.
 - Status chips that filter the list to running, queued, failing, config/billing or
-  passing repositories, or to those with open Dependabot pull requests.
+  passing repositories, or to those with open Dependabot pull requests. The
+  running and queued chips also count the jobs per account and kind of runner,
+  with macOS against GitHub's limit of 5 at once.
 - Optional: open Dependabot, code scanning and secret scanning alerts per
   repository, with a chip that lists the repositories that have any.
 - Optional: a macOS notification when a repository you pick publishes a GitHub

@@ -220,6 +220,18 @@ public final class AppModel {
         filter != nil || menuOwner != nil
     }
 
+    /// The running and queued chips show the jobs per owner above the list. Jobs are only read while they do: a
+    /// running job's list changes with every step, so it would cost rate limit on every refresh.
+    public var showsActiveJobs: Bool {
+        filter == .ci(.running) || filter == .ci(.queued)
+    }
+
+    /// Running and queued jobs per owner across every tracked repository, hidden ones too since they use runners
+    /// all the same, narrowed to the chosen owner.
+    public var ownerJobs: [OwnerJobs] {
+        OwnerJobs.group(prefs.repos.items.filter(isOfMenuOwner).compactMap { statuses[$0.id] })
+    }
+
     /// Visible repositories of the chosen owner, which the summary chips count.
     private var menuVisible: [TrackedRepo] {
         prefs.repos.visible.filter(isOfMenuOwner)
@@ -301,7 +313,9 @@ public final class AppModel {
 
     /// Lists only matching repositories, or everything again when that filter is already on.
     public func toggleFilter(_ filter: RepoFilter) {
+        let counted = showsActiveJobs
         self.filter = self.filter == filter ? nil : filter
+        if showsActiveJobs, !counted { requestRefresh(force: true) }
     }
 
     /// Lists every repository of every owner again.
@@ -368,9 +382,11 @@ public final class AppModel {
             let securityAlerts = prefs.showSecurityAlerts
             let mine = mineScope
             let reviews = reviewScope
+            let activeJobs = showsActiveJobs
             let batch = try await authorized {
                 try await $0.statuses(
-                    for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine, reviews: reviews
+                    for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine, reviews: reviews,
+                    activeJobs: activeJobs
                 )
             }
             let previous = statuses, previousAt = lastUpdated

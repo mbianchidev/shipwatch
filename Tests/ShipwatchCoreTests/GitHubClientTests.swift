@@ -377,6 +377,62 @@ struct GitHubClientTests {
         #expect(jobRequests.map { $0.url!.path } == ["/repos/mbianchidev/api-server/actions/runs/490/jobs"])
     }
 
+    static let activeJobsJSON = """
+    {"total_count":4,"jobs":[
+     {"id":1,"status":"in_progress","conclusion":null,"labels":["macos-15"],"runner_id":7,"runner_name":"GitHub Actions 7","steps":[]},
+     {"id":2,"status":"queued","conclusion":null,"labels":["macos-latest"],"runner_id":null,"runner_name":null,"steps":[]},
+     {"id":3,"status":"in_progress","conclusion":null,"labels":["ubuntu-latest"],"runner_id":8,"runner_name":"GitHub Actions 8","steps":[]},
+     {"id":4,"status":"completed","conclusion":"success","labels":["windows-latest"],"runner_id":9,"runner_name":"GitHub Actions 9","steps":[]}]}
+    """
+
+    @Test func countsActiveJobsOnlyWhenAskedAndRevalidatesThem() async throws {
+        let transport = MockTransport { request in
+            switch request.url!.path {
+            case "/graphql": return Self.graphQLReply(["mbianchidev/api-server"])
+            case "/repos/mbianchidev/api-server/actions/runs": return .json(Self.runs)
+            case "/repos/mbianchidev/api-server/actions/runs/482/jobs":
+                if request.value(forHTTPHeaderField: "If-None-Match") == "\"jobs\"" {
+                    return MockTransport.Reply(status: 304, body: Data())
+                }
+                return .json(Self.activeJobsJSON, headers: ["ETag": "\"jobs\""])
+            default: return .json(#"{"message":"Not Found"}"#, status: 404)
+            }
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let expected = ActiveJobs(tallies: [.macOS: JobTally(running: 1, queued: 1), .linux: JobTally(running: 1)])
+        var jobRequests: [URLRequest] { transport.requests.filter { $0.url!.path.hasSuffix("/jobs") } }
+
+        let without = try await client.statuses(for: [Self.api], includePrereleases: false)
+        #expect(without.statuses[Self.api.key]?.ci?.activeJobs == nil)
+        #expect(jobRequests.isEmpty)
+
+        for _ in 0..<2 {
+            let batch = try await client.statuses(for: [Self.api], includePrereleases: false, activeJobs: true)
+            #expect(batch.statuses[Self.api.key]?.ci?.activeJobs == expected)
+        }
+        #expect(jobRequests.map { $0.value(forHTTPHeaderField: "If-None-Match") } == [nil, "\"jobs\""])
+
+        // A refresh without counting drops the cached page, so counting again reads it in full.
+        _ = try await client.statuses(for: [Self.api], includePrereleases: false)
+        _ = try await client.statuses(for: [Self.api], includePrereleases: false, activeJobs: true)
+        #expect(jobRequests.last?.value(forHTTPHeaderField: "If-None-Match") == nil)
+    }
+
+    @Test func unreadableActiveJobsAreUnknownButKeepTheCI() async throws {
+        let transport = MockTransport { request in
+            switch request.url!.path {
+            case "/graphql": return Self.graphQLReply(["mbianchidev/api-server"])
+            case "/repos/mbianchidev/api-server/actions/runs": return .json(Self.runs)
+            default: return Self.gatewayTimeout
+            }
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let batch = try await client.statuses(for: [Self.api], includePrereleases: false, activeJobs: true)
+        let ci = try #require(batch.statuses[Self.api.key]?.ci)
+        #expect(ci.state == .running)
+        #expect(ci.activeJobs == nil)
+    }
+
     @Test func unreadableJobsLeaveTheRunFailing() async throws {
         let transport = MockTransport { request in
             switch request.url!.path {
