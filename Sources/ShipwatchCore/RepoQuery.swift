@@ -3,7 +3,8 @@ import Foundation
 /// Builds and parses the batched GraphQL query that fetches everything except workflow runs and scanning alerts.
 /// Values go through GraphQL variables, so repository names never get spliced into the query text.
 enum RepoQuery {
-    /// GitHub answers 502 when a GraphQL query runs too long, and each repo adds a search, so batches stay small.
+    /// GitHub answers 502, or fails the query with HTTP 200, when a GraphQL query runs too long, and each repo adds a
+    /// search, so batches stay small.
     static let chunkSize = 10
     /// Used for later refreshes once a batch timed out.
     static let smallChunkSize = 5

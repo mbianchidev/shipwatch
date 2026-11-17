@@ -222,7 +222,7 @@ struct LinkTests {
         let url = GitHubLinks.dependabotPullRequests(ref)
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         #expect(components.path == "/acme-org/payments/pulls")
-        #expect(components.queryItems?.first?.value == "is:pr is:open author:app/dependabot")
+        #expect(components.queryItems?.first?.value == "is:pr is:open author:app/dependabot sort:created-desc")
     }
 
     @Test func mineLinksFilterByAssigneeAndActor() throws {
@@ -230,7 +230,7 @@ struct LinkTests {
         #expect(GitHubLinks.issues(ref).query == nil)
         #expect(query(GitHubLinks.issues(ref, assignee: "octocat")) == [URLQueryItem(name: "q", value: "is:issue is:open assignee:octocat")])
         #expect(query(GitHubLinks.pullRequests(ref, assignee: "octocat"))?.first?.value == "is:pr is:open assignee:octocat")
-        #expect(query(GitHubLinks.dependabotPullRequests(ref, assignee: "octocat"))?.first?.value == "is:pr is:open author:app/dependabot assignee:octocat")
+        #expect(query(GitHubLinks.dependabotPullRequests(ref, assignee: "octocat"))?.first?.value == "is:pr is:open author:app/dependabot assignee:octocat sort:created-desc")
         #expect(query(GitHubLinks.actions(ref, actor: "octocat")) == [URLQueryItem(name: "query", value: "actor:octocat")])
         #expect(query(GitHubLinks.issues([ref], assignee: "octocat"))?.first?.value == "is:issue is:open assignee:octocat repo:acme-org/payments")
         #expect(query(GitHubLinks.reviewRequests(ref, reviewer: "octocat", needingApproval: true))?.first?.value == "is:pr is:open review-requested:octocat review:required")
