@@ -50,27 +50,6 @@ public enum Banner: Equatable, Sendable {
     case error(String)
 }
 
-/// What the summary chips narrow the list to.
-public enum RepoFilter: Hashable, Sendable {
-    case ci(CIState)
-    /// Repositories with at least one open Dependabot pull request.
-    case dependabot
-    /// Repositories with at least one open Dependabot, code scanning or secret scanning alert.
-    case securityAlerts
-    /// Repositories with at least one open pull request waiting for your review.
-    case reviewRequests
-
-    func matches(_ status: RepoStatus?) -> Bool {
-        guard let status, status.problem == nil else { return false }
-        switch self {
-        case .ci(let state): return status.ciState == state
-        case .dependabot: return status.dependabotPullRequests > 0
-        case .securityAlerts: return status.securityAlerts?.hasAlerts == true
-        case .reviewRequests: return (status.reviewRequests ?? 0) > 0
-        }
-    }
-}
-
 public enum CLIStatus: Equatable, Sendable {
     case unknown
     case notInstalled
@@ -128,8 +107,11 @@ public final class AppModel {
     // UI state
     public var expanded: Set<String> = []
     public var showHiddenInMenu = false
-    /// Set by the summary chips: only matching repositories are listed.
-    public var filter: RepoFilter?
+    /// Set by the summary chips: only matching repositories are listed. Kept across launches.
+    public var filter: RepoFilter? {
+        get { prefs.menuFilter }
+        set { prefs.menuFilter = newValue }
+    }
     public var pendingRemoval: String?
     public var settingsTab: SettingsTab = .repositories
     public var isAddingRepositories = false
@@ -232,6 +214,11 @@ public final class AppModel {
         isShownInMenu(repo) && isOfMenuOwner(repo)
     }
 
+    /// Whether a summary chip or an owner narrows the popover list.
+    public var isMenuFiltered: Bool {
+        filter != nil || menuOwner != nil
+    }
+
     /// Visible repositories of the chosen owner, which the summary chips count.
     private var menuVisible: [TrackedRepo] {
         prefs.repos.visible.filter(isOfMenuOwner)
@@ -309,12 +296,17 @@ public final class AppModel {
 
     public func popoverDidClose() {
         pendingRemoval = nil
-        filter = nil
     }
 
     /// Lists only matching repositories, or everything again when that filter is already on.
     public func toggleFilter(_ filter: RepoFilter) {
         self.filter = self.filter == filter ? nil : filter
+    }
+
+    /// Lists every repository of every owner again.
+    public func resetFilters() {
+        filter = nil
+        prefs.menuOwner = nil
     }
 
     private func observeWake() {
@@ -783,6 +775,7 @@ public final class AppModel {
 
     public func setReviewRequests(_ mode: ReviewRequestMode) {
         prefs.reviewRequests = mode
+        if mode == .off, filter == .reviewRequests { filter = nil }
         requestRefresh(force: true)
     }
 

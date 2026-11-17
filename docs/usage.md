@@ -60,9 +60,10 @@ repositories, repositories with at least one open Dependabot pull request,
 repositories with pull requests waiting for your review (with
 [review requests](#review-requests) on), and, with
 [security alerts](#security-alerts) on, repositories with at least one open
-alert. Click one to list only those repositories; click it again, or close the
-list, to show all of them. When the chips don't fit, they show only icons and
-numbers; hover for the label. When even those don't fit, scroll them sideways.
+alert. Click one to list only those repositories; click it again to show all of
+them. The chosen chip stays on when the list closes and across launches. When
+the chips don't fit, they show only icons and numbers; hover for the label.
+When even those don't fit, scroll them sideways.
 
 ### Security alerts
 
@@ -99,6 +100,9 @@ repositories it has. While one is chosen, the button shows its name in blue, and
 the chips, groups and **Move Up** and **Move Down** only count that owner's
 repositories. The menu bar icon still counts every repository. The choice is
 kept across launches.
+
+While a chip or an organization narrows the list, an **×** button before the
+building button resets both and lists every repository again.
 
 The arrows at the end of the chips sort the list:
 

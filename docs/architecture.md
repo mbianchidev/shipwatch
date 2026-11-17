@@ -109,7 +109,8 @@ of groups collapsed in Settings (`AppModel.collapsedSettingsGroups`, kept until
 quit). `rows(collapsing:matching:)` applies the Settings search (`SearchText`),
 keeping each match under its group header; dragging is off while it is set,
 because filtered offsets don't map onto the list. `owners` lists the
-organizations and users for the popover's owner filter (`Preferences.menuOwner`).
+organizations and users for the popover's owner filter (`Preferences.menuOwner`);
+the summary chip's `RepoFilter` is saved as `Preferences.menuFilter`.
 `moveRows` maps a drag in that table back onto the list, translating
 offsets past collapsed members, `setMembers` applies the group sheet, and
 `sorted(by:activity:)` applies the Name and Last Activity orders without

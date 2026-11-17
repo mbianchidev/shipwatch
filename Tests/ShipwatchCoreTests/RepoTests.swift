@@ -215,6 +215,21 @@ struct RepoListTests {
     }
 }
 
+struct RepoFilterTests {
+    @Test(arguments: [
+        RepoFilter.ci(.running), .ci(.queued), .ci(.failing), .ci(.notStarted), .ci(.passing), .ci(.none),
+        .dependabot, .securityAlerts, .reviewRequests,
+    ])
+    func savedFilterIsRestored(_ filter: RepoFilter) {
+        #expect(RepoFilter(rawValue: filter.rawValue) == filter)
+    }
+
+    @Test(arguments: ["", "running", "ci:", "ci:unknown"])
+    func unknownSavedFilterIsDropped(_ rawValue: String) {
+        #expect(RepoFilter(rawValue: rawValue) == nil)
+    }
+}
+
 struct LinkTests {
     let ref = RepoRef(owner: "acme-org", name: "payments")
 

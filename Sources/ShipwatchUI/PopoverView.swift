@@ -55,7 +55,7 @@ struct DashboardView: View {
                                 GroupRowView(model: model, group: group, members: members)
                             }
                         }
-                        if entries.isEmpty, model.filter != nil || model.menuOwner != nil {
+                        if entries.isEmpty, model.isMenuFiltered {
                             filterEmptyNote
                         }
                     }
@@ -106,6 +106,7 @@ struct DashboardView: View {
                 HStack(spacing: 6) {
                     SummaryChips(model: model)
                     Spacer(minLength: 0)
+                    ResetFiltersButton(model: model)
                     OwnerMenu(model: model)
                     SortMenu(model: model)
                 }
@@ -163,10 +164,7 @@ struct DashboardView: View {
     private var filterEmptyNote: some View {
         HStack(spacing: 5) {
             Text("No repositories match this filter ·")
-            Button("Show All") {
-                model.filter = nil
-                model.prefs.menuOwner = nil
-            }
+            Button("Show All") { model.resetFilters() }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.link)
             Spacer()
@@ -227,8 +225,8 @@ struct StatusLine: View {
 }
 
 /// Counts per CI state and of repositories with Dependabot pull requests or, when turned on, security alerts.
-/// Clicking one lists only those repositories; clicking it again lists all. Labels drop to just icons and numbers
-/// when they don't fit.
+/// Clicking one lists only those repositories, also after the popover reopens; clicking it again lists all. Labels
+/// drop to just icons and numbers when they don't fit.
 struct SummaryChips: View {
     let model: AppModel
 
@@ -368,6 +366,30 @@ struct SortMenu: View {
         }
         // Drops down from the button's bottom-left corner, like a pop-up button.
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.isFlipped ? view.bounds.maxY + 4 : -4), in: view)
+    }
+}
+
+/// Turns off the summary chip and the organization, listing every repository again. Only there while either
+/// narrows the list.
+struct ResetFiltersButton: View {
+    let model: AppModel
+
+    var body: some View {
+        if model.isMenuFiltered {
+            Button { model.resetFilters() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 26, height: 20)
+                    .background(Theme.fill, in: Capsule())
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .fixedSize()
+            .help("Reset Filters")
+            .accessibilityLabel("Reset all filters")
+            .accessibilityHint("Shows all repositories of every organization")
+        }
     }
 }
 
