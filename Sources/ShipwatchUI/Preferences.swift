@@ -44,6 +44,7 @@ public final class Preferences {
         static let menuBarCount = "menuBarCount"
         static let menuSort = "menuSort"
         static let menuOwner = "menuOwner"
+        static let menuFilter = "menuFilter"
         static let cliFallback = "cliFallback"
         static let clientIDOverride = "clientIDOverride"
         static let appSlugOverride = "appSlugOverride"
@@ -91,6 +92,10 @@ public final class Preferences {
     /// `RepoRef.ownerKey` the popover list is narrowed to, or `nil` for every owner.
     public var menuOwner: String? {
         didSet { defaults.set(menuOwner, forKey: Key.menuOwner) }
+    }
+    /// Summary chip the popover list is narrowed to, or `nil` for every repository.
+    public var menuFilter: RepoFilter? {
+        didSet { defaults.set(menuFilter?.rawValue, forKey: Key.menuFilter) }
     }
     public var cliFallback: Bool {
         didSet { defaults.set(cliFallback, forKey: Key.cliFallback) }
@@ -162,6 +167,7 @@ public final class Preferences {
         menuBarCount = defaults.string(forKey: Key.menuBarCount).flatMap(MenuBarCount.init(rawValue:)) ?? .running
         menuSort = defaults.string(forKey: Key.menuSort).flatMap(RepoSort.init(rawValue:)) ?? .custom
         menuOwner = defaults.string(forKey: Key.menuOwner).flatMap { $0.isEmpty ? nil : $0 }
+        menuFilter = defaults.string(forKey: Key.menuFilter).flatMap(RepoFilter.init(rawValue:))
         cliFallback = defaults.bool(forKey: Key.cliFallback)
         clientIDOverride = defaults.string(forKey: Key.clientIDOverride) ?? ""
         appSlugOverride = defaults.string(forKey: Key.appSlugOverride) ?? ""

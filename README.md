@@ -136,7 +136,7 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
 - Optional: pull requests waiting for your review, all of them or only those
   still needing an approval, with a chip to list those repositories.
 - Sort the list by your custom order, name or last activity, and narrow it to
-  one organization or user.
+  one organization or user. Filters are remembered, with one button to reset them.
 - Collapsible groups that sum their repositories' issues and pull requests and
   show whether any CI is running, queued or failing.
 - Renamed and transferred repositories are followed automatically.

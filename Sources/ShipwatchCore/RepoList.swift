@@ -137,6 +137,54 @@ public enum RepoSort: String, CaseIterable, Sendable {
     }
 }
 
+/// What the popover's summary chips narrow the list to.
+public enum RepoFilter: Hashable, Sendable {
+    case ci(CIState)
+    /// Repositories with at least one open Dependabot pull request.
+    case dependabot
+    /// Repositories with at least one open Dependabot, code scanning or secret scanning alert.
+    case securityAlerts
+    /// Repositories with at least one open pull request waiting for your review.
+    case reviewRequests
+
+    public func matches(_ status: RepoStatus?) -> Bool {
+        guard let status, status.problem == nil else { return false }
+        switch self {
+        case .ci(let state): return status.ciState == state
+        case .dependabot: return status.dependabotPullRequests > 0
+        case .securityAlerts: return status.securityAlerts?.hasAlerts == true
+        case .reviewRequests: return (status.reviewRequests ?? 0) > 0
+        }
+    }
+}
+
+/// How the chosen filter is saved, for example `ci:running`.
+extension RepoFilter: RawRepresentable {
+    private static let ciPrefix = "ci:"
+
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "dependabot": self = .dependabot
+        case "securityAlerts": self = .securityAlerts
+        case "reviewRequests": self = .reviewRequests
+        default:
+            guard rawValue.hasPrefix(Self.ciPrefix),
+                  let state = CIState(rawValue: String(rawValue.dropFirst(Self.ciPrefix.count)))
+            else { return nil }
+            self = .ci(state)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .ci(let state): Self.ciPrefix + state.rawValue
+        case .dependabot: "dependabot"
+        case .securityAlerts: "securityAlerts"
+        case .reviewRequests: "reviewRequests"
+        }
+    }
+}
+
 /// The user's repositories and groups. The order of `items` is the custom menu order; members of a group are
 /// always next to each other, and the group sits where its first member is.
 public struct RepoList: Codable, Equatable, Sendable {
