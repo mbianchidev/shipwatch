@@ -32,7 +32,7 @@ Each visible repository shows:
 | Actions status: checkmark passing, xmark failing, exclamation mark config/billing, spinning ring running, dotted circle queued | expands the row with running runs, queued runs and the latest run per workflow on the default branch; each run links to GitHub |
 | Open issues | the open issues list |
 | Open pull requests | the open pull requests list |
-| `N dependabot` | open pull requests by `app/dependabot`; just the icon and number when the line is full |
+| `N dependabot` | open pull requests by `app/dependabot`, with their [CI](#dependabot-ci); just the icon, number and CI mark when the line is full |
 | `N to review`, with [review requests](#review-requests) on | open pull requests waiting for your review |
 | Shield, with [security alerts](#security-alerts) on | the repository's Security tab |
 | Last activity | (hover for the exact date) |
@@ -65,6 +65,21 @@ alert. Click one to list only those repositories; click it again to show all of
 them. The chosen chip stays on when the list closes and across launches. When
 the chips don't fit, they show only icons and numbers; hover for the label.
 When even those don't fit, scroll them sideways.
+
+### Dependabot CI
+
+After the Dependabot count, a mark shows the GitHub Actions runs on the latest
+commit of each open Dependabot pull request: a red cross and how many fail, else
+a spinning ring while one runs, a dotted circle while one is queued, or a green
+check when they all pass. Hover the count for the breakdown. A pull request
+fails like on GitHub: when the latest run of any workflow (per event) on that
+commit didn't succeed, wasn't skipped and wasn't neutral, so cancelled and timed
+out runs count as failing. Group rows add up their repositories.
+
+Only GitHub Actions runs count, not checks from other CI services, and only the
+first 20 open Dependabot pull requests of each repository; the others show as
+"not checked" in the tooltip. Without Actions access to a repository, there is
+no mark.
 
 ### Jobs per account
 
@@ -418,7 +433,9 @@ about 100. Every refresh reads each tracked repository, hidden ones too, at
 roughly a second each, so with 100 a refresh takes about 2 minutes, and the
 20 second refresh while a workflow runs can't keep up. GitHub's rate limits
 aren't the bottleneck: each refresh costs about one GraphQL point per 10
-repositories, and unchanged workflow runs come back as `304` and are free. The
+repositories, and unchanged workflow runs come back as `304` and are free. Each
+open Dependabot pull request (up to 20 per repository) adds one more call for
+the runs on its latest commit, also free while they don't change. The
 limit is shared with `gh` and your other tools, though. Above 100, Settings >
 General says so in orange. Remove the repositories you don't need; hiding them
 doesn't make refreshes faster.
@@ -433,7 +450,9 @@ General. Those repositories then only count:
   requests;
 - workflow runs **you triggered** (GitHub's `actor`): the Actions status, the
   running and queued runs and the latest run per workflow on the default branch
-  only look at those. With none of yours, the row has no Actions status.
+  only look at those. With none of yours, the row has no Actions status. The
+  [Dependabot CI](#dependabot-ci) of your Dependabot pull requests still counts
+  every run on their latest commit, since Dependabot triggers them.
 
 The rows show a person after the name, and their links open GitHub filtered the
 same way (`assignee:` for issues and pull requests, `actor:` for Actions). A

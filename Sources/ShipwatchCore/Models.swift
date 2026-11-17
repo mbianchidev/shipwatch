@@ -225,6 +225,71 @@ public struct CISummary: Codable, Equatable, Sendable {
     }
 }
 
+/// An open Dependabot pull request and the CI of its head commit.
+public struct DependabotPullRequest: Codable, Equatable, Sendable {
+    public var number: Int
+    public var url: URL
+    public var headSha: String
+    /// From the workflow runs on `headSha` (`CIEvaluator.pullRequestState`), `nil` until they were read or when they
+    /// couldn't be.
+    public var checks: CIState?
+
+    public init(number: Int, url: URL, headSha: String, checks: CIState? = nil) {
+        self.number = number
+        self.url = url
+        self.headSha = headSha
+        self.checks = checks
+    }
+}
+
+/// How many open Dependabot pull requests pass, fail or are still running, for one repository or a group.
+public struct DependabotChecks: Equatable, Sendable {
+    public var passing = 0
+    public var failing = 0
+    public var running = 0
+    public var queued = 0
+    /// No workflow ran on their head commit.
+    public var noRuns = 0
+    /// Their runs weren't read: past the first `RepoQuery.dependabotLimit` of a repository, or unreadable.
+    public var unchecked = 0
+
+    public init(passing: Int = 0, failing: Int = 0, running: Int = 0, queued: Int = 0, noRuns: Int = 0, unchecked: Int = 0) {
+        self.passing = passing
+        self.failing = failing
+        self.running = running
+        self.queued = queued
+        self.noRuns = noRuns
+        self.unchecked = unchecked
+    }
+
+    /// `nil` when no pull request was checked, for example without Actions access.
+    public init?(_ statuses: [RepoStatus]) {
+        for status in statuses {
+            let pulls = status.dependabotPulls ?? []
+            for pull in pulls {
+                switch pull.checks {
+                case .passing?: passing += 1
+                case .failing?, .notStarted?: failing += 1
+                case .running?: running += 1
+                case .queued?: queued += 1
+                case .some(CIState.none): noRuns += 1
+                case nil: unchecked += 1
+                }
+            }
+            unchecked += max(status.dependabotPullRequests - pulls.count, 0)
+        }
+        guard passing + failing + running + queued + noRuns > 0 else { return nil }
+    }
+
+    /// A failure beats running, running beats queued, queued beats passing; `none` when no run was found.
+    public var state: CIState {
+        if failing > 0 { return .failing }
+        if running > 0 { return .running }
+        if queued > 0 { return .queued }
+        return passing > 0 ? .passing : .none
+    }
+}
+
 /// Open security alerts of one repository. A count is `nil` when it couldn't be read: alerts need write access
 /// (admin for secret scanning), private repositories need GitHub Advanced Security, and the feature may be off.
 public struct SecurityAlerts: Codable, Equatable, Sendable {
@@ -269,6 +334,8 @@ public struct RepoStatus: Codable, Equatable, Sendable {
     public var openIssues: Int
     public var openPullRequests: Int
     public var dependabotPullRequests: Int
+    /// The first `RepoQuery.dependabotLimit` open Dependabot pull requests, `nil` when they couldn't be listed.
+    public var dependabotPulls: [DependabotPullRequest]?
     public var pushedAt: Date?
     public var lastIssueUpdate: Date?
     public var lastPullRequestUpdate: Date?
@@ -286,8 +353,8 @@ public struct RepoStatus: Codable, Equatable, Sendable {
     public init(
         ref: RepoRef, url: URL? = nil, isPrivate: Bool = false, isArchived: Bool = false,
         defaultBranch: String? = nil, defaultBranchHead: String? = nil, latestRelease: Release? = nil, openIssues: Int = 0,
-        openPullRequests: Int = 0, dependabotPullRequests: Int = 0, pushedAt: Date? = nil,
-        lastIssueUpdate: Date? = nil, lastPullRequestUpdate: Date? = nil, ci: CISummary? = nil,
+        openPullRequests: Int = 0, dependabotPullRequests: Int = 0, dependabotPulls: [DependabotPullRequest]? = nil,
+        pushedAt: Date? = nil, lastIssueUpdate: Date? = nil, lastPullRequestUpdate: Date? = nil, ci: CISummary? = nil,
         securityAlerts: SecurityAlerts? = nil, problem: RepoProblem? = nil, onlyMine: String? = nil,
         reviewRequests: Int? = nil
     ) {
@@ -301,6 +368,7 @@ public struct RepoStatus: Codable, Equatable, Sendable {
         self.openIssues = openIssues
         self.openPullRequests = openPullRequests
         self.dependabotPullRequests = dependabotPullRequests
+        self.dependabotPulls = dependabotPulls
         self.pushedAt = pushedAt
         self.lastIssueUpdate = lastIssueUpdate
         self.lastPullRequestUpdate = lastPullRequestUpdate

@@ -213,12 +213,14 @@ struct RepoRowView: View {
     }
 }
 
-/// "⊙ 4 issues  [⇅ 11 PRs | ⧉ 5 dependabot]  ⛨ 3      ◷ 4m ago", for one repository or the sum of a group.
+/// "⊙ 4 issues  [⇅ 11 PRs | ⧉ 5 dependabot ⊗ 1]  ⛨ 3      ◷ 4m ago", for one repository or the sum of a group.
 struct CountsLine: View {
     let model: AppModel
     let issues: Int
     let pullRequests: Int
     let dependabot: Int
+    /// `nil` while their CI isn't known.
+    let dependabotChecks: DependabotChecks?
     /// Open pull requests waiting for your review; 0 while they aren't counted.
     let reviews: Int
     let activity: Date?
@@ -234,6 +236,7 @@ struct CountsLine: View {
         issues = status.openIssues
         pullRequests = status.openPullRequests
         dependabot = status.dependabotPullRequests
+        dependabotChecks = DependabotChecks([status])
         activity = status.lastActivity(model.prefs.activityMode)
         issuesURL = GitHubLinks.issues(status.ref, assignee: status.onlyMine)
         pullRequestsURL = GitHubLinks.pullRequests(status.ref, assignee: status.onlyMine)
@@ -257,6 +260,7 @@ struct CountsLine: View {
         issues = readable.reduce(0) { $0 + $1.openIssues }
         pullRequests = readable.reduce(0) { $0 + $1.openPullRequests }
         dependabot = readable.reduce(0) { $0 + $1.dependabotPullRequests }
+        dependabotChecks = DependabotChecks(readable)
         activity = readable.compactMap { $0.lastActivity(model.prefs.activityMode) }.max()
         issuesURL = GitHubLinks.issues(refs, assignee: assignee)
         pullRequestsURL = GitHubLinks.pullRequests(refs, assignee: assignee)
@@ -326,14 +330,15 @@ struct CountsLine: View {
                             if labeled {
                                 Text("dependabot")
                             }
+                            if let dependabotChecks { DependabotChecksMark(checks: dependabotChecks) }
                         }
                         .foregroundStyle(Theme.link)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2)
                     }
                     .buttonStyle(.plain)
-                    .help("Open Dependabot pull requests")
-                    .accessibilityLabel("\(dependabot) dependabot")
+                    .help(DependabotChecksMark.help(dependabotChecks))
+                    .accessibilityLabel(DependabotChecksMark.accessibilityLabel(dependabot, dependabotChecks))
                 }
                 if reviews > 0, let reviewsURL {
                     Divider().frame(height: 14)
@@ -434,6 +439,55 @@ struct SecurityAlertsBadge: View {
         .accessibilityLabel(
             total > 0 ? "\(text) open security alerts" : isComplete ? "No open security alerts" : "Security alerts unknown"
         )
+    }
+}
+
+/// The CI of open Dependabot pull requests after their count: a red cross and how many fail, else running, queued
+/// or a green check. Nothing while no workflow ran on them.
+struct DependabotChecksMark: View {
+    let checks: DependabotChecks
+
+    var body: some View {
+        if let glyph = Self.glyph(checks.state) {
+            HStack(spacing: 2) {
+                CIIcon(glyph: glyph, size: 10)
+                if checks.failing > 0 {
+                    Text("\(checks.failing)").fontWeight(.semibold).foregroundStyle(Theme.failing)
+                }
+            }
+            .accessibilityHidden(true)
+        }
+    }
+
+    private static func glyph(_ state: CIState) -> CIGlyph? {
+        switch state {
+        case .failing, .notStarted: .failing
+        case .running: .running
+        case .queued: .queued
+        case .passing: .passing
+        case .none: nil
+        }
+    }
+
+    /// "1 failing, 1 running, 3 passing".
+    static func summary(_ checks: DependabotChecks) -> String {
+        [
+            (checks.failing, "failing"), (checks.running, "running"), (checks.queued, "queued"),
+            (checks.passing, "passing"), (checks.noRuns, "without runs"), (checks.unchecked, "not checked"),
+        ]
+        .filter { $0.0 > 0 }
+        .map { "\($0.0) \($0.1)" }
+        .joined(separator: ", ")
+    }
+
+    static func help(_ checks: DependabotChecks?) -> String {
+        guard let checks else { return "Open Dependabot pull requests" }
+        return "Open Dependabot pull requests. Actions on their latest commits: \(summary(checks))."
+    }
+
+    static func accessibilityLabel(_ count: Int, _ checks: DependabotChecks?) -> String {
+        guard let checks else { return "\(count) dependabot" }
+        return "\(count) dependabot, \(summary(checks))"
     }
 }
 

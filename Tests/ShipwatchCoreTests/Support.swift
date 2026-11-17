@@ -45,6 +45,21 @@ final class ReplyQueue: @unchecked Sendable {
     }
 }
 
+/// A value a test changes while a mocked transport reads it.
+final class Locked<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current: Value
+
+    init(_ value: Value) {
+        current = value
+    }
+
+    var value: Value {
+        get { lock.withLock { current } }
+        set { lock.withLock { current = newValue } }
+    }
+}
+
 final class Clock: @unchecked Sendable {
     private let lock = NSLock()
     private var current: Date
@@ -82,11 +97,11 @@ enum Fixtures {
 
     static func run(
         _ id: Int, workflow: Int, name: String = "CI", status: String = "completed", conclusion: String? = "success",
-        branch: String = "main", created: String
+        branch: String = "main", event: String = "push", created: String
     ) -> WorkflowRun {
         WorkflowRun(
             id: id, name: name, workflowId: workflow, runNumber: id, status: status, conclusion: conclusion,
-            headBranch: branch, htmlUrl: URL(string: "https://github.com/mbianchidev/api-server/actions/runs/\(id)")!,
+            headBranch: branch, event: event, htmlUrl: URL(string: "https://github.com/mbianchidev/api-server/actions/runs/\(id)")!,
             createdAt: date(created), updatedAt: date(created)
         )
     }

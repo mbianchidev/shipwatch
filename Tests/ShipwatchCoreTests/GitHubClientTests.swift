@@ -8,7 +8,7 @@ struct RepoQueryTests {
     @Test func usesVariablesInsteadOfSplicingNames() {
         let (query, variables) = RepoQuery.build(refs)
         #expect(query.contains("r1: repository(owner: $o1, name: $n1) { ...RepoFields }"))
-        #expect(query.contains("d0: search(query: $q0, type: ISSUE, first: 0) { issueCount }"))
+        #expect(query.contains("d0: search(query: $q0, type: ISSUE, first: 20) { issueCount nodes { ... on PullRequest { number url headRefOid } } }"))
         #expect(!query.contains("api-server"))
         #expect(variables["n0"] == "api-server")
         #expect(variables["q1"] == "repo:acme-org/legacy-api is:pr is:open author:app/dependabot")
@@ -33,6 +33,20 @@ struct RepoQueryTests {
         #expect(api.dependabotPullRequests == 5)
         #expect(api.lastPullRequestUpdate == Fixtures.date("2026-11-14T15:39:00Z"))
         #expect(statuses[1].problem == .noAccess)
+    }
+
+    @Test func listsDependabotPullRequestsWithTheirHeadCommit() throws {
+        let json = """
+        {"data":{"r0":\(Fixtures.repoNode("mbianchidev/api-server")),"d0":{"issueCount":2,"nodes":[
+            {"number":101,"url":"https://github.com/mbianchidev/api-server/pull/101","headRefOid":"a1b2c3"},{}]},
+          "r1":\(Fixtures.repoNode("acme-org/legacy-api")),"d1":null}}
+        """
+        let statuses = try RepoQuery.parse(Data(json.utf8), refs: refs, includePrereleases: false).statuses
+        #expect(statuses[0].dependabotPulls == [
+            DependabotPullRequest(number: 101, url: URL(string: "https://github.com/mbianchidev/api-server/pull/101")!, headSha: "a1b2c3"),
+        ])
+        #expect(statuses[1].dependabotPullRequests == 0)
+        #expect(statuses[1].dependabotPulls == nil)
     }
 
     @Test func otherErrorsAreReportedPerRepo() throws {
@@ -431,6 +445,67 @@ struct GitHubClientTests {
         let ci = try #require(batch.statuses[Self.api.key]?.ci)
         #expect(ci.state == .running)
         #expect(ci.activeJobs == nil)
+    }
+
+    @Test func checksTheHeadCommitOfEachDependabotPullRequestAndForgetsClosedOnes() async throws {
+        let open = Locked(["aaa", "bbb"])
+        let branch = "dependabot/npm_and_yarn/vite-6.1"
+        let transport = MockTransport { request in
+            if request.url!.path == "/graphql" { return Self.dependabotReply(open.value) }
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            switch query.first(where: { $0.name == "head_sha" })?.value {
+            case "aaa":
+                return .json(Fixtures.runsJSON([
+                    (id: 7, workflow: 1, status: "completed", conclusion: "failure", branch: branch, created: "2026-11-14T15:00:00Z"),
+                ]))
+            case "bbb":
+                if request.value(forHTTPHeaderField: "If-None-Match") == "\"bbb\"" { return MockTransport.Reply(status: 304, body: Data()) }
+                return .json(Fixtures.runsJSON([
+                    (id: 8, workflow: 1, status: "in_progress", conclusion: nil, branch: branch, created: "2026-11-14T15:30:00Z"),
+                ]), headers: ["ETag": "\"bbb\""])
+            default:
+                return .json(Self.runs)
+            }
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        func checks() async throws -> [CIState?]? {
+            try await client.statuses(for: [Self.api], includePrereleases: false).statuses[Self.api.key]?.dependabotPulls?.map(\.checks)
+        }
+        var headRequests: [URLRequest] { transport.requests.filter { $0.url!.query?.contains("head_sha=bbb") == true } }
+
+        for _ in 0..<2 {
+            #expect(try await checks() == [.failing, .running])
+        }
+        #expect(headRequests.map { $0.value(forHTTPHeaderField: "If-None-Match") } == [nil, "\"bbb\""])
+
+        // A closed pull request's runs are dropped from the cache, so it is read in full if it shows up again.
+        open.value = ["aaa"]
+        #expect(try await checks() == [.failing])
+        open.value = ["aaa", "bbb"]
+        _ = try await checks()
+        #expect(headRequests.count == 3)
+        #expect(headRequests.last?.value(forHTTPHeaderField: "If-None-Match") == nil)
+    }
+
+    @Test func dependabotPullRequestsStayUncheckedWithoutActionsAccess() async throws {
+        let transport = MockTransport { request in
+            if request.url!.path == "/graphql" { return Self.dependabotReply(["aaa"]) }
+            return .json(#"{"message":"Resource not accessible by integration"}"#, status: 403)
+        }
+        let client = GitHubClient(transport: transport, token: { "test-token" })
+        let status = try await client.statuses(for: [Self.api], includePrereleases: false).statuses[Self.api.key]
+        #expect(status?.ci == nil)
+        #expect(status?.dependabotPulls?.map(\.checks) == [nil])
+        #expect(transport.requests.count == 2)
+    }
+
+    /// api-server with one open Dependabot pull request per head commit.
+    static func dependabotReply(_ shas: [String]) -> MockTransport.Reply {
+        let nodes = shas.enumerated().map { index, sha in
+            #"{"number":\#(100 + index),"url":"https://github.com/mbianchidev/api-server/pull/\#(100 + index)","headRefOid":"\#(sha)"}"#
+        }
+        let node = Fixtures.repoNode("mbianchidev/api-server")
+        return .json(#"{"data":{"r0":\#(node),"d0":{"issueCount":\#(shas.count),"nodes":[\#(nodes.joined(separator: ","))]}}}"#)
     }
 
     @Test func unreadableJobsLeaveTheRunFailing() async throws {
