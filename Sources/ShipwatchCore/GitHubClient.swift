@@ -13,8 +13,9 @@ public actor GitHubClient {
     private let api: URL
     private let token: TokenProvider
     private var etagCache: [URL: (etag: String, data: Data)] = [:]
-    /// Job lists of active runs read in the current refresh; the cached ones of runs no longer active are dropped.
-    private var activeJobPages: Set<URL> = []
+    /// Pages only revalidated while they matter, the job lists of active runs and the runs on open Dependabot pull
+    /// requests' head commits; cached ones not read in the current refresh are dropped.
+    private var transientPages: Set<URL> = []
     private var neverStartedCache: [Int: (updatedAt: Date, neverStarted: Bool)] = [:]
     /// Alert lists that answered 403 or 404, and when. Unlike 304s, those answers count against the rate limit.
     private var unreadableAlerts: [URL: Date] = [:]
@@ -72,6 +73,8 @@ public actor GitHubClient {
 
     /// Fetches release, counts, activity and CI for every repo: one GraphQL call per chunk of repos,
     /// plus one conditional REST call per repo for workflow runs and one for the jobs of each new failure.
+    /// Repos whose runs could be read get one more conditional REST call per listed open Dependabot pull request, for
+    /// the runs on its head commit.
     /// With `securityAlerts`, the GraphQL call also counts open Dependabot alerts, and each repo gets one conditional
     /// REST call for code scanning alerts and one for secret scanning alerts.
     /// Repositories in `mine` only count the open issues and pull requests assigned to its login and the runs it triggered.
@@ -83,10 +86,10 @@ public actor GitHubClient {
     ) async throws -> StatusBatch {
         var result: [String: RepoStatus] = [:]
         var progress = ChunkProgress()
-        let previousJobPages = activeJobPages
-        activeJobPages = []
+        let previousPages = transientPages
+        transientPages = []
         defer {
-            for url in previousJobPages.subtracting(activeJobPages) { etagCache[url] = nil }
+            for url in previousPages.subtracting(transientPages) { etagCache[url] = nil }
         }
 
         var remaining = refs[...]
@@ -103,11 +106,15 @@ public actor GitHubClient {
 
         let readable = refs.compactMap { ref -> ReadableRepo? in
             guard let status = result[ref.key], status.problem == nil else { return nil }
-            return ReadableRepo(key: ref.key, ref: status.ref, defaultBranch: status.defaultBranch, actor: status.onlyMine)
+            return ReadableRepo(
+                key: ref.key, ref: status.ref, defaultBranch: status.defaultBranch, actor: status.onlyMine,
+                dependabotPulls: status.dependabotPulls ?? []
+            )
         }
         let details = try await restDetails(for: readable, securityAlerts: securityAlerts, activeJobs: activeJobs)
         for (key, detail) in details {
             result[key]?.ci = detail.ci
+            if let pulls = detail.dependabotPulls { result[key]?.dependabotPulls = pulls }
             result[key]?.securityAlerts?.codeScanning = detail.codeScanning
             result[key]?.securityAlerts?.secretScanning = detail.secretScanning
         }
@@ -201,10 +208,13 @@ public actor GitHubClient {
         var defaultBranch: String?
         /// Only runs this login triggered.
         var actor: String?
+        var dependabotPulls: [DependabotPullRequest]
     }
 
     private struct RepoDetails: Sendable {
         var ci: CISummary?
+        /// With their CI, `nil` when the repo's runs couldn't be read.
+        var dependabotPulls: [DependabotPullRequest]?
         var codeScanning: Int?
         var secretScanning: Int?
     }
@@ -219,6 +229,9 @@ public actor GitHubClient {
                 guard let repo = pending.next() else { return }
                 group.addTask {
                     var detail = RepoDetails(ci: try await self.ciSummary(repo, activeJobs: activeJobs))
+                    if detail.ci != nil, !repo.dependabotPulls.isEmpty {
+                        detail.dependabotPulls = try await self.checkDependabotPulls(repo)
+                    }
                     if securityAlerts {
                         detail.codeScanning = try await self.alertCountOrUnknown(repo.ref, .codeScanning)
                         detail.secretScanning = try await self.alertCountOrUnknown(repo.ref, .secretScanning)
@@ -253,13 +266,32 @@ public actor GitHubClient {
         }
     }
 
+    /// The CI of each listed open Dependabot pull request, from the runs on its head commit. One whose runs can't be
+    /// read stays unchecked.
+    private func checkDependabotPulls(_ repo: ReadableRepo) async throws -> [DependabotPullRequest] {
+        var pulls = repo.dependabotPulls
+        for index in pulls.indices {
+            do {
+                let runs = try await workflowRuns(repo.ref, headSha: pulls[index].headSha)
+                pulls[index].checks = runs.map(CIEvaluator.pullRequestState)
+            } catch let error as GitHubError where error.affectsEveryRequest {
+                throw error
+            } catch {
+                log.error("Runs of pull request \(pulls[index].number) could not be read: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        return pulls
+    }
+
     /// The 50 most recent runs, only those `actor` triggered when set, or `nil` when the token can't read Actions for
-    /// this repo.
-    public func workflowRuns(_ ref: RepoRef, actor: String? = nil) async throws -> [WorkflowRun]? {
+    /// this repo. With `headSha`, only the runs on that commit, revalidated only while it is asked for every refresh.
+    public func workflowRuns(_ ref: RepoRef, actor: String? = nil, headSha: String? = nil) async throws -> [WorkflowRun]? {
         struct Page: Decodable { var workflowRuns: [WorkflowRun] }
         var query = [URLQueryItem(name: "per_page", value: "50")]
         if let actor { query.append(URLQueryItem(name: "actor", value: actor)) }
+        if let headSha { query.append(URLQueryItem(name: "head_sha", value: headSha)) }
         let url = api.appending(path: "repos/\(ref.owner)/\(ref.name)/actions/runs").appending(queryItems: query)
+        if headSha != nil { transientPages.insert(url) }
         do {
             let (data, _) = try await get(url, conditional: true)
             return try JSON.decode(Page.self, from: data).workflowRuns
@@ -340,7 +372,7 @@ public actor GitHubClient {
     private func jobsPage(_ ref: RepoRef, runID: Int, conditional: Bool) async throws -> JobsPage {
         let url = api.appending(path: "repos/\(ref.owner)/\(ref.name)/actions/runs/\(runID)/jobs")
             .appending(queryItems: [URLQueryItem(name: "per_page", value: "100")])
-        if conditional { activeJobPages.insert(url) }
+        if conditional { transientPages.insert(url) }
         let (data, _) = try await get(url, conditional: conditional)
         return try JSON.decode(JobsPage.self, from: data)
     }

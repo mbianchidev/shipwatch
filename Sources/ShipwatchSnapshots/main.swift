@@ -54,6 +54,16 @@ func release(_ tag: String, _ repo: RepoRef, daysAgo: Double, pre: Bool = false)
     Release(tagName: tag, url: URL(string: "https://github.com/\(repo)/releases/tag/\(tag)")!, publishedAt: ago(daysAgo * day), isPrerelease: pre)
 }
 
+/// Open Dependabot pull requests, numbered from 100, whose head commits' runs read as `checks`.
+func dependabotPulls(_ repo: RepoRef, _ checks: [CIState]) -> [DependabotPullRequest] {
+    checks.enumerated().map { index, state in
+        DependabotPullRequest(
+            number: 100 + index, url: URL(string: "https://github.com/\(repo)/pull/\(100 + index)")!,
+            headSha: String(format: "%040x", index + 1), checks: state
+        )
+    }
+}
+
 func mockStatuses() -> [RepoStatus] {
     let api = ref("octocat/api-server")
     let apiCI = run(4820, "CI", number: 482, status: "in_progress", startedAgo: 134, repo: api)
@@ -68,7 +78,8 @@ func mockStatuses() -> [RepoStatus] {
     return [
         RepoStatus(
             ref: api, isPrivate: true, defaultBranch: "main", latestRelease: release("v2.4.1", api, daysAgo: 3),
-            openIssues: 4, openPullRequests: 11, dependabotPullRequests: 5, pushedAt: ago(12 * minute),
+            openIssues: 4, openPullRequests: 11, dependabotPullRequests: 5,
+            dependabotPulls: dependabotPulls(api, [.failing, .queued, .passing, .passing, .passing]), pushedAt: ago(12 * minute),
             ci: CISummary(state: .running, running: [apiCI], queued: [codeQL], latestOnDefault: [
                 apiCI,
                 run(3010, "CodeQL", number: 300, status: "completed", conclusion: "success", startedAgo: 5 * hour, repo: api),
@@ -78,7 +89,8 @@ func mockStatuses() -> [RepoStatus] {
         ),
         RepoStatus(
             ref: website, defaultBranch: "main", latestRelease: release("v1.8.0", website, daysAgo: 14),
-            openIssues: 2, openPullRequests: 3, dependabotPullRequests: 2, pushedAt: ago(2 * day),
+            openIssues: 2, openPullRequests: 3, dependabotPullRequests: 2,
+            dependabotPulls: dependabotPulls(website, [.passing, .passing]), pushedAt: ago(2 * day),
             ci: CISummary(state: .passing, latestOnDefault: [
                 run(1200, "Deploy", number: 120, status: "completed", conclusion: "success", startedAgo: 2 * day, repo: website),
             ]),
@@ -94,7 +106,7 @@ func mockStatuses() -> [RepoStatus] {
         ),
         RepoStatus(
             ref: infra, isPrivate: true, defaultBranch: "main", openIssues: 7, openPullRequests: 4,
-            dependabotPullRequests: 1, pushedAt: ago(26 * hour),
+            dependabotPullRequests: 1, dependabotPulls: dependabotPulls(infra, [.running]), pushedAt: ago(26 * hour),
             ci: CISummary(state: .notStarted, running: [], latestOnDefault: [terraformPlan]),
             securityAlerts: SecurityAlerts(dependabot: 1, codeScanning: nil, secretScanning: nil),
             onlyMine: "octocat"

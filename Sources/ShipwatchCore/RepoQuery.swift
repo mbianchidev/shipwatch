@@ -8,6 +8,8 @@ enum RepoQuery {
     static let chunkSize = 10
     /// Used for later refreshes once a batch timed out.
     static let smallChunkSize = 5
+    /// Open Dependabot pull requests listed per repo for their CI; the count covers all of them.
+    static let dependabotLimit = 20
 
     /// Open Dependabot alerts come back `null`, with a `FORBIDDEN` error, when the token can't read them.
     static func fragment(securityAlerts: Bool) -> String {
@@ -53,7 +55,7 @@ enum RepoQuery {
             } else {
                 fields.append("  r\(index): repository(owner: $o\(index), name: $n\(index)) { ...RepoFields }")
             }
-            fields.append("  d\(index): search(query: $q\(index), type: ISSUE, first: 0) { issueCount }")
+            fields.append("  d\(index): search(query: $q\(index), type: ISSUE, first: \(dependabotLimit)) { issueCount nodes { ... on PullRequest { number url headRefOid } } }")
             variables["o\(index)"] = ref.owner
             variables["n\(index)"] = ref.name
             variables["q\(index)"] = dependabotSearch(ref, assignee: assignee)
@@ -85,12 +87,14 @@ enum RepoQuery {
                 }
                 return RepoStatus(ref: ref, problem: .noAccess)
             }
-            var status = node.status(for: ref, dependabot: body.dependabotCounts[index] ?? 0, includePrereleases: includePrereleases)
+            let dependabot = body.dependabotSearches[index]
+            var status = node.status(for: ref, dependabot: dependabot?.issueCount ?? 0, includePrereleases: includePrereleases)
+            status.dependabotPulls = dependabot?.pulls
             if let login = mine?.login(for: ref) {
                 let assignedPullRequests = body.assignedPullRequests[index] ?? 0
                 status.openIssues = node.assignedIssues?.totalCount ?? 0
                 status.openPullRequests = assignedPullRequests
-                status.dependabotPullRequests = min(body.dependabotCounts[index] ?? 0, assignedPullRequests)
+                status.dependabotPullRequests = min(dependabot?.issueCount ?? 0, assignedPullRequests)
                 status.onlyMine = login
             }
             if securityAlerts {
@@ -138,7 +142,7 @@ enum RepoQuery {
     struct Body: Decodable {
         var rateLimit: RateLimitNode?
         var repositories: [Int: RepoNode] = [:]
-        var dependabotCounts: [Int: Int] = [:]
+        var dependabotSearches: [Int: DependabotSearch] = [:]
         var assignedPullRequests: [Int: Int] = [:]
 
         struct Key: CodingKey {
@@ -157,7 +161,7 @@ enum RepoQuery {
                 } else if name.hasPrefix("r"), let index = Int(name.dropFirst()) {
                     repositories[index] = try container.decodeIfPresent(RepoNode.self, forKey: key)
                 } else if name.hasPrefix("d"), let index = Int(name.dropFirst()) {
-                    dependabotCounts[index] = try container.decodeIfPresent(SearchCount.self, forKey: key)?.issueCount
+                    dependabotSearches[index] = try container.decodeIfPresent(DependabotSearch.self, forKey: key)
                 } else if name.hasPrefix("p"), let index = Int(name.dropFirst()) {
                     assignedPullRequests[index] = try container.decodeIfPresent(SearchCount.self, forKey: key)?.issueCount
                 }
@@ -172,6 +176,25 @@ enum RepoQuery {
 
     struct SearchCount: Decodable {
         var issueCount: Int
+    }
+
+    struct DependabotSearch: Decodable {
+        /// Empty for results that aren't pull requests.
+        struct Node: Decodable {
+            var number: Int?
+            var url: URL?
+            var headRefOid: String?
+        }
+
+        var issueCount: Int
+        var nodes: [Node]?
+
+        var pulls: [DependabotPullRequest]? {
+            nodes?.compactMap { node in
+                guard let number = node.number, let url = node.url, let sha = node.headRefOid else { return nil }
+                return DependabotPullRequest(number: number, url: url, headSha: sha)
+            }
+        }
     }
 
     struct Count: Decodable {

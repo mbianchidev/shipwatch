@@ -3,6 +3,8 @@ import Foundation
 public enum CIEvaluator {
     public static let activeStatuses: Set<String> = ["queued", "in_progress", "waiting", "requested", "pending"]
     public static let failedConclusions: Set<String> = ["failure", "timed_out"]
+    /// What GitHub's checks rollup counts as successful; any other conclusion fails a pull request.
+    public static let passedConclusions: Set<String> = ["success", "neutral", "skipped"]
 
     /// Running wins over queued, queued over failing, failing over not started, not started over passing. Only the
     /// latest completed run of each workflow on the default branch decides, so an old red run that was fixed later
@@ -37,6 +39,24 @@ public enum CIEvaluator {
             state = .none
         }
         return CISummary(state: state, running: running, queued: queued, latestOnDefault: latest)
+    }
+
+    /// A pull request's CI from the workflow runs on its head commit, read like GitHub's checks rollup: any failure
+    /// beats running, running beats queued, queued beats passing. A cancelled, timed out or startup failed run fails
+    /// it too. Only the latest run of each workflow per event counts, so a red run that was re-run green is ignored,
+    /// while a workflow running on both `push` and `pull_request` counts twice.
+    public static func pullRequestState(runs: [WorkflowRun]) -> CIState {
+        struct Key: Hashable {
+            var workflow: Int
+            var event: String?
+        }
+        var seen = Set<Key>()
+        let latest = runs.sorted { $0.createdAt > $1.createdAt }
+            .filter { seen.insert(Key(workflow: $0.workflowId, event: $0.event)).inserted }
+        if latest.contains(where: { !$0.isActive && !passedConclusions.contains($0.conclusion ?? "") }) { return .failing }
+        if latest.contains(where: { $0.isActive && !$0.isQueued }) { return .running }
+        if latest.contains(where: \.isQueued) { return .queued }
+        return latest.isEmpty ? .none : .passing
     }
 
     /// GitHub fails every job of a run without handing it to a runner when billing blocks Actions (failed payment,
