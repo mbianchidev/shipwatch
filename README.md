@@ -70,7 +70,8 @@ use the GitHub CLI option. To build from source, see
 - **One glance instead of many tabs.** Releases, CI and open work for all your
   repositories in one list.
 - **Dependabot apart.** `11 PRs (5 dependabot)` tells you how much is real
-  review work, and each count opens the matching list.
+  review work, a mark shows whether the Dependabot ones pass CI, and each count
+  opens the matching list.
 - **Read-only.** The GitHub App only asks for read permissions, and Shipwatch
   never changes anything on GitHub.
 - **Light on rate limits.** One GraphQL query per 10 repositories, and workflow
@@ -145,7 +146,7 @@ Every setting and its default is in [Usage](docs/usage.md). For problems, see
 - Last activity: last push, or any update to issues, pull requests and comments.
 - Open issue count, linking to the issue list.
 - Open pull request count with Dependabot pull requests split out, each linking
-  to its list.
+  to its list, and whether the Dependabot ones pass, fail or still run CI.
 - A sailboat menu bar icon with a yellow dot while workflows run, plus the
   number of running (or failing) repositories.
 - Sign-in through a read-only GitHub App device flow, or your existing `gh` login.

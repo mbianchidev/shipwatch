@@ -46,8 +46,9 @@ Per refresh, `GitHubClient.statuses(for:)`:
 
 1. Sends one GraphQL query per 10 repos (`RepoQuery`): latest releases, open
    issue and PR counts, push and update dates, the default branch name and head
-   commit, plus a search count of open PRs by
-   `author:app/dependabot`. Names go through GraphQL variables, never into the query text.
+   commit, plus a search of open PRs by `author:app/dependabot` that counts them
+   and lists the first 20 with their number, URL and head commit (`headRefOid`).
+   Names go through GraphQL variables, never into the query text.
    GitHub answers `5xx` (usually `502`) when a query runs too long, or `200` with
    no data and "Something went wrong while executing your query" when it fails on
    its side, so a failed query is split in half and retried until it goes
@@ -62,6 +63,12 @@ Per refresh, `GitHubClient.statuses(for:)`:
 2. Sends one REST call per repo for the 50 most recent workflow runs, with
    `If-None-Match` so unchanged repos come back as `304` and don't use rate limit.
    "Only mine" repos ask for `actor=<login>`, so only the user's runs decide CI.
+   When those runs could be read, it also asks for the runs on each listed
+   Dependabot PR's head commit (`head_sha=`, never filtered by actor), the same
+   way, and `CIEvaluator.pullRequestState` sets `DependabotPullRequest.checks`.
+   A PR whose runs can't be read stays unchecked. Those cached pages, like the
+   job lists of active runs below, are dropped once a refresh doesn't read them,
+   so closed PRs and old head commits don't pile up.
    With review requests on, one more GraphQL search
    (`ReviewRequestQuery`, `review-requested:<login>`, up to 5 pages of 100) counts
    open PRs waiting for the user's review per repo, keeping only
@@ -90,6 +97,11 @@ Per refresh, `GitHubClient.statuses(for:)`:
    not started (shown as config/billing, which also covers `startup_failure`),
    not started beats passing. Only the latest completed run of each workflow on
    the default branch decides, so a red run that was fixed later is ignored.
+   For a Dependabot PR, it reads the runs on its head commit like GitHub's
+   checks rollup instead: the latest run per workflow and event, any conclusion
+   other than `success`, `neutral` or `skipped` fails it, and a failure beats
+   running, running beats queued, queued beats passing. `DependabotChecks` adds
+   them up per row or group for the mark in the Dependabot chip.
 
 Errors that would hit every request (offline, unauthorized, rate limited, or
 three repos in a row failing with `5xx` on their own) stop the refresh and show

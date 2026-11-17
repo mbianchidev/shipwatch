@@ -27,10 +27,10 @@ Repository permissions, all **Read-only**:
 
 | Permission | Used for |
 | --- | --- |
-| Actions | workflow runs and their status |
+| Actions | workflow runs and their status, also on Dependabot PRs |
 | Contents | releases |
 | Issues | open issue count |
-| Pull requests | open PR and Dependabot PR counts |
+| Pull requests | open PR and Dependabot PR counts, Dependabot PR head commits |
 | Metadata | mandatory, repository basics |
 
 No organization or account permissions are needed. Pick who can install it
