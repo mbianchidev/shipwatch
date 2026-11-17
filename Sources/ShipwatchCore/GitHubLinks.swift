@@ -21,9 +21,14 @@ public enum GitHubLinks {
         return filtered(url, "q", "is:pr is:open assignee:\(assignee)")
     }
 
-    /// Open pull requests authored by Dependabot, only those assigned to `assignee` when set.
+    /// Open pull requests authored by Dependabot, only those assigned to `assignee` when set. GitHub redirects a lone
+    /// `author:` filter to `/pulls/app%2Fdependabot`, which its pull request list doesn't filter by; spelling out its
+    /// default sort keeps the query.
     public static func dependabotPullRequests(_ ref: RepoRef, assignee: String? = nil) -> URL {
-        filtered(repo(ref).appending(path: "pulls"), "q", "is:pr is:open author:app/dependabot" + qualifier("assignee", assignee))
+        filtered(
+            repo(ref).appending(path: "pulls"), "q",
+            "is:pr is:open author:app/dependabot" + qualifier("assignee", assignee) + " sort:created-desc"
+        )
     }
 
     /// Open pull requests waiting for `reviewer`'s review, only those still needing an approval when asked.
