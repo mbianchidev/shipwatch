@@ -143,11 +143,12 @@ public final class AppModel {
         transport: any HTTPTransport = URLSessionTransport(),
         git: (any GitRunning)? = ProcessGit.locate(),
         statusCache: StatusCache? = .standard,
+        lineCountCache: LineCountCache? = .standard,
         notifier: ReleaseNotifier = ReleaseNotifier()
     ) {
         self.prefs = prefs
         updater = Updater(prefs: prefs)
-        workspace = WorkspaceModel(prefs: prefs, git: git)
+        workspace = WorkspaceModel(prefs: prefs, git: git, lineCountCache: lineCountCache)
         self.notifier = notifier
         self.bundled = bundled
         self.cli = cli
@@ -217,6 +218,18 @@ public final class AppModel {
     /// Whether a summary chip or an owner narrows the popover list.
     public var isMenuFiltered: Bool {
         filter != nil || menuOwner != nil
+    }
+
+    /// The running and queued chips show the jobs per owner above the list. Jobs are only read while they do: a
+    /// running job's list changes with every step, so it would cost rate limit on every refresh.
+    public var showsActiveJobs: Bool {
+        filter == .ci(.running) || filter == .ci(.queued)
+    }
+
+    /// Running and queued jobs per owner across every tracked repository, hidden ones too since they use runners
+    /// all the same, narrowed to the chosen owner.
+    public var ownerJobs: [OwnerJobs] {
+        OwnerJobs.group(prefs.repos.items.filter(isOfMenuOwner).compactMap { statuses[$0.id] })
     }
 
     /// Visible repositories of the chosen owner, which the summary chips count.
@@ -300,7 +313,9 @@ public final class AppModel {
 
     /// Lists only matching repositories, or everything again when that filter is already on.
     public func toggleFilter(_ filter: RepoFilter) {
+        let counted = showsActiveJobs
         self.filter = self.filter == filter ? nil : filter
+        if showsActiveJobs, !counted { requestRefresh(force: true) }
     }
 
     /// Lists every repository of every owner again.
@@ -367,9 +382,11 @@ public final class AppModel {
             let securityAlerts = prefs.showSecurityAlerts
             let mine = mineScope
             let reviews = reviewScope
+            let activeJobs = showsActiveJobs
             let batch = try await authorized {
                 try await $0.statuses(
-                    for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine, reviews: reviews
+                    for: refs, includePrereleases: includePrereleases, securityAlerts: securityAlerts, mine: mine, reviews: reviews,
+                    activeJobs: activeJobs
                 )
             }
             let previous = statuses, previousAt = lastUpdated
@@ -412,6 +429,7 @@ public final class AppModel {
             if prefs.cloneSyncOptOut.remove(old) != nil { prefs.cloneSyncOptOut.insert(new) }
             if prefs.releaseNotifications.remove(old) != nil { prefs.releaseNotifications.insert(new) }
             if prefs.onlyMineRepos.remove(old) != nil { prefs.onlyMineRepos.insert(new) }
+            workspace.lineCounts.rename(old, to: new)
             refreshAgain = true
         }
         if repos != prefs.repos { prefs.repos = repos }

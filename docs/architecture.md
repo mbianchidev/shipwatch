@@ -4,7 +4,7 @@ Shipwatch is a Swift package with no third-party dependencies.
 
 | Target | Role |
 | --- | --- |
-| `ShipwatchCore` | GitHub API client, device flow, token storage, models, status cache, CI evaluation, workspace scan and clone fast-forward. No UI. |
+| `ShipwatchCore` | GitHub API client, device flow, token storage, models, status cache, CI evaluation, workspace scan, clone fast-forward and line counts. No UI. |
 | `ShipwatchUpdate` | Self-update feed, download, Ed25519 signature check, staging, swap and rollback. No UI. |
 | `ShipwatchUI` | SwiftUI views hosted in AppKit, app state (`AppModel`, `WorkspaceModel`), preferences, `Updater`. |
 | `Shipwatch` | Executable entry point: starts `AppDelegate`. |
@@ -78,6 +78,13 @@ Per refresh, `GitHubClient.statuses(for:)`:
    without a runner or a single step, the run never started: GitHub does this when
    billing blocks Actions or a job's configuration is invalid. The exact message
    is only in check run annotations, which would need the Checks permission.
+   While the popover's running or queued chip is on (`AppModel.showsActiveJobs`),
+   it also reads the jobs of every running and queued run, with `If-None-Match`,
+   and counts the running and queued ones per `RunnerKind` from their `labels`
+   (`CISummary.activeJobs`). A running job's list changes with each step, so
+   this isn't done otherwise. Cached job lists of runs that weren't read in a
+   refresh are dropped. If one run's jobs can't be read, the repository's count
+   is unknown, not partial. `OwnerJobs.group` adds them up per owner.
 4. `CIEvaluator` turns runs into a state. Running (`in_progress`) beats queued
    (`queued`, `waiting`, `requested`, `pending`), queued beats failing, failing beats
    not started (shown as config/billing, which also covers `startup_failure`),
@@ -185,12 +192,30 @@ picked a workspace folder and turned the switch on.
   the repository sets `core.sshCommand`) and a timeout. Fetch and merge also
   disable automatic `gc` and maintenance. Updates are recorded in the reflog as
   `shipwatch fast-forward`.
+- **`LineCounter`** counts the non-blank lines of the files committed on a clone's
+  local default branch: `git grep --count --null -I` for `[^[:space:]]` at that
+  commit, without textconv or submodules. It reads only git's object database,
+  never the working tree, refs or the network, and refuses partial clones, whose
+  missing files git would fetch. `LineClassifier` sorts each path into code,
+  tests or Markdown from its name alone (Linguist-style programming and markup
+  extensions, test folder and file name words, skipped vendored and generated
+  files), so a commit always gives the same counts.
 - **`WorkspaceModel`** (UI) owns the scan, the last result per clone and the
   settings. After each successful refresh it rescans if the last scan is older
   than 5 minutes or the tracked repositories changed, then syncs the clones that
   aren't opted out. Clones that were up to date or updated at the same head are
   skipped; failures wait 15 minutes. Passes run one at a time, clones in a pass
   sequentially, off the main actor. **Sync Now** and the row menu force a pass.
+- **`LineCountModel`** (UI, owned by `WorkspaceModel`) runs after that sync, so it
+  counts the fast-forwarded branch. A tracked repository with a clone is counted
+  when it has no count yet (its baseline) or its latest one is from an earlier
+  ISO week (Monday to Sunday, local time); failures wait 15 minutes. Repositories
+  are counted one at a time off the main actor, and a pass that would overlap
+  another is skipped. `LineCountReport` keeps the latest count and the one before
+  it, nothing older. Removing a repository drops its counts, renames carry them
+  over. Changing `LineClassifier`'s rules needs a new
+  `LineCountSnapshot.currentVersion`: saved counts of another version are
+  dropped, since they aren't comparable.
 
 ## Self-update
 
@@ -222,6 +247,7 @@ re-reads it. See [GitHub App setup](github-app-setup.md).
 | `gh` token | memory only |
 | Last update result, update lock | `~/Library/Application Support/Shipwatch/` |
 | Statuses of the last refresh (`StatusCache.json`, deleted on sign-out) | `~/Library/Application Support/Shipwatch/` |
+| This week's and last week's line counts per repository (`LineCounts.json`) | `~/Library/Application Support/Shipwatch/` |
 
 ## Logs
 

@@ -153,19 +153,28 @@ public struct WorkflowRun: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
-/// A job of a workflow run, as far as telling whether it ever started.
+/// A job of a workflow run, as far as telling whether it ever started and what it runs on.
 public struct WorkflowJob: Equatable, Sendable, Decodable {
     public struct Step: Equatable, Sendable, Decodable {
         public var name: String?
     }
 
+    /// `queued`, `in_progress`, `completed`, `waiting`, `requested` or `pending`.
+    public var status: String?
     public var conclusion: String?
+    /// The job's `runs-on` labels, such as `macos-latest` or `self-hosted`.
+    public var labels: [String]?
     public var runnerId: Int?
     public var runnerName: String?
     public var steps: [Step]?
 
-    public init(conclusion: String?, runnerId: Int? = nil, runnerName: String? = nil, steps: [Step]? = nil) {
+    public init(
+        status: String? = "completed", conclusion: String?, labels: [String]? = nil, runnerId: Int? = nil,
+        runnerName: String? = nil, steps: [Step]? = nil
+    ) {
+        self.status = status
         self.conclusion = conclusion
+        self.labels = labels
         self.runnerId = runnerId
         self.runnerName = runnerName
         self.steps = steps
@@ -192,12 +201,18 @@ public struct CISummary: Codable, Equatable, Sendable {
     public var queued: [WorkflowRun]
     /// The latest completed run of each workflow on the default branch, newest first.
     public var latestOnDefault: [WorkflowRun]
+    /// Running and queued jobs of `running` and `queued`, `nil` unless they were read.
+    public var activeJobs: ActiveJobs?
 
-    public init(state: CIState, running: [WorkflowRun] = [], queued: [WorkflowRun] = [], latestOnDefault: [WorkflowRun] = []) {
+    public init(
+        state: CIState, running: [WorkflowRun] = [], queued: [WorkflowRun] = [], latestOnDefault: [WorkflowRun] = [],
+        activeJobs: ActiveJobs? = nil
+    ) {
         self.state = state
         self.running = running
         self.queued = queued
         self.latestOnDefault = latestOnDefault
+        self.activeJobs = activeJobs
     }
 
     public static let empty = CISummary(state: .none)

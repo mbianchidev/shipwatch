@@ -26,34 +26,18 @@ public struct StatusCache: Sendable {
         self.url = url
     }
 
+    private var file: SupportFile { SupportFile(url: url) }
+
     /// `nil` when nothing was saved yet or the snapshot is from another version.
     public func load() throws -> StatusSnapshot? {
-        struct Header: Decodable { var version: Int }
-        let data: Data
-        do {
-            data = try Data(contentsOf: url)
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            return nil
-        }
-        let decoder = JSONDecoder()
-        guard try decoder.decode(Header.self, from: data).version == StatusSnapshot.currentVersion else { return nil }
-        return try decoder.decode(StatusSnapshot.self, from: data)
+        try file.load(StatusSnapshot.self, version: StatusSnapshot.currentVersion)
     }
 
     public func save(_ snapshot: StatusSnapshot) throws {
-        let manager = FileManager.default
-        try manager.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]
-        )
-        try JSONEncoder().encode(snapshot).write(to: url, options: .atomic)
-        try manager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        try file.save(snapshot)
     }
 
     public func remove() throws {
-        do {
-            try FileManager.default.removeItem(at: url)
-        } catch let error as CocoaError where error.code == .fileNoSuchFile {
-            return
-        }
+        try file.remove()
     }
 }

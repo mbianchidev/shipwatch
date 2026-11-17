@@ -47,6 +47,9 @@ struct DashboardView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 2) {
+                        if model.showsActiveJobs {
+                            ActiveJobsSection(model: model)
+                        }
                         ForEach(entries) { entry in
                             switch entry {
                             case .repo(let repo):

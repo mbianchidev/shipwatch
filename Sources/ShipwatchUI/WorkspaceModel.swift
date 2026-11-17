@@ -82,14 +82,17 @@ public final class WorkspaceModel {
     public var lastSync: WorkspaceSyncSummary?
     public var syncingPaths: Set<URL> = []
     public let gitAvailable: Bool
+    /// Weekly lines of code of the tracked repositories with a clone here.
+    public let lineCounts: LineCountModel
 
     @ObservationIgnored private let git: (any GitRunning)?
     @ObservationIgnored private var syncTask: Task<Void, Never>?
     @ObservationIgnored private var scannedTracked: Set<String> = []
 
-    public init(prefs: Preferences, git: (any GitRunning)? = ProcessGit.locate()) {
+    public init(prefs: Preferences, git: (any GitRunning)? = ProcessGit.locate(), lineCountCache: LineCountCache? = .standard) {
         self.prefs = prefs
         self.git = git
+        lineCounts = LineCountModel(git: git, cache: lineCountCache)
         gitAvailable = git != nil
         if git == nil { workspaceLog.notice("git not found, local clone updates are unavailable") }
     }
@@ -207,8 +210,10 @@ public final class WorkspaceModel {
         scannedAt = Date()
     }
 
-    /// Lists the clones of repositories no longer tracked as untracked right away, before the next scan.
+    /// Lists the clones of repositories no longer tracked as untracked right away, before the next scan, and drops
+    /// their line counts.
     func untrack(_ ids: Set<String>) {
+        lineCounts.forget(ids)
         let gone = scan.clones.filter { ids.contains($0.ref.key) }
         guard !gone.isEmpty else { return }
         scan.clones.removeAll { ids.contains($0.ref.key) }
@@ -218,15 +223,19 @@ public final class WorkspaceModel {
 
     // MARK: Sync
 
-    /// Called after every successful refresh: rescan when stale, then fast-forward clones whose GitHub head moved.
+    /// Called after every successful refresh: rescan when stale, fast-forward clones whose GitHub head moved, then
+    /// count the lines of repositories without a count this week.
     func afterRefresh(statuses: [String: RepoStatus]) async {
         guard root != nil else { return }
+        let tracked = Set(prefs.repos.items.map(\.id))
         let stale = scannedAt.map { Date().timeIntervalSince($0) >= Self.rescanInterval } ?? true
-        if stale || scannedTracked != Set(prefs.repos.items.map(\.id)) {
+        if stale || scannedTracked != tracked {
             await rescan()
         }
-        guard canSync else { return }
-        await sync(scan.clones, statuses: statuses, force: false)
+        if canSync {
+            await sync(scan.clones, statuses: statuses, force: false)
+        }
+        await lineCounts.countDue(scan.clones, branches: statuses.compactMapValues(\.defaultBranch), tracked: tracked)
     }
 
     /// The "Sync Now" button: every clone that isn't opted out, ignoring the failure back-off.

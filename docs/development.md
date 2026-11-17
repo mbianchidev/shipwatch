@@ -22,7 +22,8 @@ Without the variables, sign in with the GitHub CLI fallback or set the app in
 Settings > Account. Launch at login only works from a packaged `.app`.
 
 `swift test` runs both Swift Testing targets: `ShipwatchCoreTests` (GitHub API,
-CI status, repo list, device flow, workspace scan and clone fast-forward) and
+CI status, repo list, device flow, workspace scan, clone fast-forward and line
+counts) and
 `ShipwatchUpdateTests` (feed, signature, download, install and rollback, all
 against temporary directories and fake command runners). The clone tests create
 temporary git repositories with your global git config ignored, and are

@@ -38,7 +38,8 @@ Each visible repository shows:
 | Last activity | (hover for the exact date) |
 
 A person after the name means the row only counts what is yours; see
-[Only mine](#only-mine).
+[Only mine](#only-mine). With a [workspace folder](#workspace), the expanded row
+also shows the repository's [lines of code](#lines-of-code).
 
 Failing means the latest completed run of any workflow on the default branch
 failed. A red run that was fixed by a later run is ignored. Running beats
@@ -64,6 +65,37 @@ alert. Click one to list only those repositories; click it again to show all of
 them. The chosen chip stays on when the list closes and across launches. When
 the chips don't fit, they show only icons and numbers; hover for the label.
 When even those don't fit, scroll them sideways.
+
+### Jobs per account
+
+While the **running** or **queued** chip is on, a **Jobs per account** section
+above the list counts the jobs running right now in each organization or user's
+tracked repositories, per kind of runner: macOS, Linux, Windows, self-hosted and
+other. Queued jobs, the ones waiting for a runner, show under each number.
+
+<p align="center">
+  <img src="screenshots/popover-jobs.png" alt="The running chip selected, with a Jobs per account section above the running repositories: acme-org runs 1 of 5 macOS jobs, 4 Linux, 1 Windows and 2 self-hosted; octocat runs 5 of 5 macOS jobs in orange with 2 queued, and 2 Linux jobs with 2 queued" width="420">
+</p>
+
+macOS shows against the limit GitHub sets per account: 5 jobs at once on the
+Free, Pro and Team plans, shared by standard and larger runners. It turns orange
+when an account reaches it, which is usually why macOS jobs sit in the queue.
+Enterprise accounts can run 50, but GitHub only shows the plan to owners, so
+Shipwatch always assumes 5. Your own repositories are an account of their own.
+
+- Only tracked repositories count, hidden ones included. Jobs in an account's
+  other repositories use the same limit, so the real numbers can be higher. For
+  repositories that count [only yours](#only-mine), only your runs count.
+- The kind comes from each job's `runs-on` labels: `macos-…`, `ubuntu-…` and
+  `windows-…` are GitHub's hosted runners, larger ones included, and
+  `self-hosted` runners don't use GitHub's limits. Larger runners picked by a
+  custom label or a runner group show as **Other**.
+- While an account is chosen in the building menu, only that account shows.
+
+The jobs are only read while one of the two chips is on: one request per running
+or queued workflow run on each refresh, every 20 seconds while workflows run.
+Clicking a chip refreshes right away. When a run's jobs can't be read, the
+section says so instead of showing a smaller number.
 
 ### Security alerts
 
@@ -299,6 +331,45 @@ Shipwatch needs git for this: Homebrew's, or Apple's from the Command Line Tools
 (`xcode-select --install`). It uses your existing SSH agent or credential
 helper and never prompts.
 
+#### Lines of code
+
+With a workspace folder set, Shipwatch counts the lines of code of each tracked
+repository it finds a clone of, once a week. Expand the repository's row in the
+list: **Lines of code** shows this week's count and the change since last week's,
+in lines and percent. The collapsed row doesn't show it.
+
+| Line | Counts |
+| --- | --- |
+| Code | Programming and markup languages, as in GitHub's language bar: Swift, JavaScript, TypeScript, Python, Go, HTML, CSS, shell, Dockerfiles, Terraform, SQL and so on. |
+| Tests | Code files in folders named like `test`, `tests`, `__tests__`, `spec`, `e2e`, `testdata`, `fixtures`, `mocks` or `AppTests`, and files named like `api.test.ts`, `api.spec.js`, `client_test.go`, `test_api.py` or `ApiTests.swift`. |
+| Total | Code plus tests. |
+| Markdown | `.md`, `.markdown` and `.mdx` files, kept apart and not part of the total. |
+
+- Shipwatch reads the files committed on the clone's local default branch
+  (usually `main`) with `git grep`. Uncommitted changes and other branches don't
+  count, and nothing is fetched: turn on **Keep default branches up to date**,
+  or pull, to count what is on GitHub. With several clones of a repository, the
+  first one (by path) that has the branch is counted.
+- Lines that are empty or only whitespace don't count; comments do.
+- Data and config files (JSON, YAML, TOML, XML), plain text, lockfiles, binary,
+  minified and generated files, and anything inside `node_modules`, `vendor`,
+  `third_party`, `Pods`, `Carthage` or `dist` don't count.
+- The rules only look at file names, so the same commit always gives the same
+  numbers. The branch and commit that were counted show above the numbers.
+
+The first count of a repository is its baseline. Repositories you already track
+get theirs on the first refresh after updating to a Shipwatch with line counts;
+repositories you add later, on the first refresh after adding them. Then a new
+count runs on the first refresh of each week (weeks start on Monday), and the
+change compares it with the count before. Only those two counts are kept: if
+Shipwatch didn't run for a while, the change covers the time since the date under
+the numbers. Removing a repository drops its counts, so adding it again starts
+from a new baseline.
+
+Partial clones (`git clone --filter=...`) aren't counted, since reading them
+would download files. When a count fails, the expanded row says why, and
+Shipwatch tries again after 15 minutes.
+
 ### General
 
 | Setting | Default | Effect |
@@ -420,7 +491,7 @@ running from source with `swift run`.
 | --- | --- |
 | GitHub App token | login Keychain, service `dev.mbianchi.shipwatch` |
 | Repositories, groups and settings, including the list order, workspace folder, exclusions and ignored repositories | `UserDefaults` domain `dev.mbianchi.shipwatch` |
-| Update state and lock, statuses of the last refresh | `~/Library/Application Support/Shipwatch` |
+| Update state and lock, statuses of the last refresh, weekly lines of code | `~/Library/Application Support/Shipwatch` |
 | GitHub CLI token | memory only |
 
 Shipwatch sends no analytics. It only talks to `api.github.com`, `github.com`

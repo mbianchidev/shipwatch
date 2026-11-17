@@ -147,6 +147,21 @@ Failed clones are retried after 15 minutes, or now with **Sync Now**.
   `post-merge` hook and LFS downloads, just like `git pull`. If those need
   input, they fail; turn **Sync** off for that repository.
 
+## Lines of code don't show for a repository
+
+Shipwatch only counts tracked repositories with a clone in the workspace folder
+(Settings > Workspace), and only after a refresh. When a count fails, the
+expanded row says why:
+
+- **"no local main branch"**: the clone has no local copy of the default
+  branch. Create it once, for example with `git branch main origin/main`.
+- **"partial clone"**: the clone was made with `--filter`; counting it would
+  download files. Clone it again without `--filter`.
+
+The numbers change once a week, on the first refresh after Monday starts, and
+count the local branch, not GitHub: with clone sync off, pull to count new
+commits. See [Usage](usage.md#lines-of-code).
+
 ## Collect logs
 
 Shipwatch logs to the unified log, never to files, and never logs tokens.
